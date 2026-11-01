@@ -1,12 +1,13 @@
 'use strict'
 
-const { spawn } = require('ispawn')
+const { spawn } = require('child_process')
 const { tmpdir } = require('os')
 const fs = require('fs')
 const { promisify } = require('util')
 const mkdir = promisify(fs.mkdir)
 const stat = promisify(fs.stat)
 const processInfo = require('process')
+const softExitPreload = require.resolve('./soft-exit')
 
 const { brightBlack } = require('./ansi')
 
@@ -15,8 +16,7 @@ function determineArgs(args) {
   if (__index < 0) {
     return { argv: args, extraExecArgv: [] }
   }
-  // For now we ignore any args before the -- as those would be for deoptigate
-  // At this point deoptigate doesn't consume any flags
+  // Deoptigate does not consume arguments before the separator.
   const afterDashes = args.slice(__index + 1)
 
   const first = afterDashes[0]
@@ -30,10 +30,9 @@ function determineArgs(args) {
   }
   const afterDashesArgs = afterDashes.slice(1)
 
-  // Piece together execArgv and argv in cases as
+  // Piece together Node flags and app arguments in cases as
   // deoptigate -- node --allow-natives-syntax app.js --log
   // to be: [ --allow-natives-syntax ] and [ app.js, --log ]
-  // Not super important as ispawn concatentates them anyways, but for correctness
   const extraExecArgv = []
   const argv = []
   let sawApp = false
@@ -81,13 +80,37 @@ async function createLog(args, head, simpleHead) {
     , '--log-deopt'
     , `--logfile=${logFile}`
     , '--no-logfile-per-isolate'
-  ].concat(extraExecArgv)
+  ].concat(extraExecArgv || [])
 
-  const spawnArgs = { execArgv, argv }
-  if (nodeExecutable != null) spawnArgs.node = nodeExecutable
+  const child = spawn(
+    nodeExecutable || processInfo.execPath,
+    execArgv.concat([ '-r', softExitPreload ], argv || []),
+    { stdio: [ 'ignore', 'inherit', 'inherit' ] }
+  )
+  const code = await new Promise((resolve, reject) => {
+    let killTimer
+    const cleanup = () => {
+      processInfo.removeListener('SIGINT', handleInterrupt)
+      clearTimeout(killTimer)
+    }
+    const handleInterrupt = () => {
+      child.kill('SIGTERM')
+      killTimer = setTimeout(() => {
+        if (child.exitCode === null) child.kill('SIGKILL')
+      }, 500)
+      killTimer.unref()
+    }
 
-  const { termination } = spawn(spawnArgs)
-  const code = await termination
+    processInfo.once('SIGINT', handleInterrupt)
+    child.once('error', err => {
+      cleanup()
+      reject(err)
+    })
+    child.once('exit', exitCode => {
+      cleanup()
+      resolve(exitCode)
+    })
+  })
   const terminationMsg = (code == null
     ? 'process was interrupted'
     : 'process completed with code ' + code

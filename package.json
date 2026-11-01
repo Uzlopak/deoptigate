@@ -26,7 +26,6 @@
   "homepage": "https://github.com/thlorenz/deoptigate",
   "dependencies": {
     "files-provider": "~0.2.0",
-    "ispawn": "~0.2.0",
     "opn": "~5.4.0"
   },
   "keywords": [],
