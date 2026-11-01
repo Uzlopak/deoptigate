@@ -84,6 +84,7 @@ async function createLog(args, head, simpleHead) {
 
   const execArgv = [
       inlineCacheArg
+    , '--log-deopt'
     , `--logfile=${logFile}`
     , '--no-logfile-per-isolate'
   ].concat(extraExecArgv)

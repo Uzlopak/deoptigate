@@ -1,4 +1,4 @@
-const { readFile, writeFile, mkdir } = require('fs').promises
+const { readFile, writeFile, mkdir, unlink } = require('fs').promises
 const path = require('path')
 const { tmpdir } = require('os')
 const { spawnSync } = require('child_process')
@@ -15,8 +15,23 @@ const testOutPath = (...args) =>
   path.join(tmpdir(), 'deoptigate-tests', ...args)
 
 const binPath = repoRoot('bin/deoptigate')
+const supportsDeoptLog = spawnSync(
+  process.execPath,
+  ['--log-deopt', '--version'],
+  { stdio: 'ignore' }
+).status === 0
 
 async function runDeoptigate(srcPath) {
+  // Old V8 versions may append logs and the CLI writes a shared render-data
+  // file. Clear both so a prior invocation cannot mask this run's result.
+  for (const file of [
+    path.join(tmpdir(), 'deoptigate', 'v8.log'),
+    renderDataPath
+  ]) {
+    await unlink(file).catch((err) => {
+      if (err.code !== 'ENOENT') throw err
+    })
+  }
   spawnSync(process.execPath, [binPath, srcPath])
 
   const contents = await readFile(renderDataPath, 'utf8')
@@ -32,6 +47,12 @@ async function runDeoptigate(srcPath) {
 }
 
 test('deoptigate simple/adders.js', async (t) => {
+  if (!supportsDeoptLog) {
+    t.skip('current Node/V8 does not support --log-deopt')
+    t.end()
+    return
+  }
+
   const srcPath = repoRoot('examples/simple/adders.js')
 
   const renderData = await runDeoptigate(srcPath)
@@ -51,6 +72,12 @@ test('deoptigate simple/adders.js', async (t) => {
 })
 
 test('deoptigate two-modules/adders.js', async (t) => {
+  if (!supportsDeoptLog) {
+    t.skip('current Node/V8 does not support --log-deopt')
+    t.end()
+    return
+  }
+
   const srcPaths = [
     repoRoot('examples/two-modules/adders.js'),
     repoRoot('examples/two-modules/objects.js'),

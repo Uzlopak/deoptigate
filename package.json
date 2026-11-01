@@ -12,7 +12,7 @@
     "deoptigate*"
   ],
   "scripts": {
-    "test": "tape test/*.test.js"
+    "test": "DEOPTIGATE_OPEN_BROWSER=0 tape test/*.test.js"
   },
   "repository": {
     "type": "git",

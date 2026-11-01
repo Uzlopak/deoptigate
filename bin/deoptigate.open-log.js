@@ -18,7 +18,9 @@ ${head}: Successfully generated deoptimization visualization  🎉 ⚡ ✨
     ${indexHtmlFile}
 ${head}: Opening now in your default browser.
     `)
-    open(indexHtmlFile, { wait: false })
+    if (process.env.DEOPTIGATE_OPEN_BROWSER !== '0') {
+      open(indexHtmlFile, { wait: false })
+    }
 }
 
 module.exports = openLog

@@ -34,9 +34,9 @@ function locationKey(file, line, column) {
   return `${file}:${line}:${column}`
 }
 
-const propertyICParser = [
-  parseInt, parseInt, parseInt, null, null, parseInt, null, null, null
-]
+// IC records gained a timestamp field after the PC in newer V8 releases.
+// Parse them as raw fields and normalize both layouts in the processor.
+const propertyICParser = [ 'var-args' ]
 
 class DeoptProcessor extends LogReader {
   constructor(root, { silentErrors = true } = {}) {
@@ -116,16 +116,17 @@ class DeoptProcessor extends LogReader {
 
   _processPropertyIC(
       type
-    , pc
-    , line
-    , column
-    , old_state
-    , new_state
-    , map
-    , propertyKey
-    , modifier
-    , slow_reason
+    , fields
   ) {
+    const modernFormat = fields.length >= 10
+    const pc = parseInt(fields[0])
+    const line = parseInt(fields[modernFormat ? 2 : 1])
+    const column = parseInt(fields[modernFormat ? 3 : 2])
+    const old_state = fields[modernFormat ? 4 : 3]
+    const new_state = fields[modernFormat ? 5 : 4]
+    const map = parseInt(fields[modernFormat ? 6 : 5])
+    const propertyKey = fields[modernFormat ? 7 : 6]
+
     const { fnFile, state } = this.functionInfo(pc)
     const key = locationKey(fnFile, line, column)
     if (!this.entriesIC.has(key)) {
@@ -171,8 +172,10 @@ class DeoptProcessor extends LogReader {
       this._profile.addFuncCode(
         type, name, timestamp, start, size, funcAddr, state
       )
+      // V8 13 (Node 24) reports JavaScript functions as `JS`; older V8
+      // versions use `LazyCompile`.
       const isScript = type === 'Script'
-      const isUserFunction = type === 'LazyCompile'
+      const isUserFunction = type === 'LazyCompile' || type === 'JS'
       if (isUserFunction || isScript) {
         let { fnFile, line, column } = this.functionInfo(start)
 
