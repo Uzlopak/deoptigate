@@ -11,7 +11,7 @@ function loadCreateLog(options = {}) {
     exists: false,
     isDirectory: true,
     exitCode: 0,
-    modernNode: true,
+    nodeVersion: '16.0.0',
     logDir: '/tmp/deoptigate-create-log-test'
   }, options)
   state.spawnCalls = []
@@ -28,12 +28,19 @@ function loadCreateLog(options = {}) {
       err.code = 'ENOENT'
       callback(err)
     },
-    mkdir(file, callback) {
+    mkdir(file, options, callback) {
+      if (typeof options === 'function') callback = options
       state.mkdirCalls.push(file)
       callback(null)
     },
     stat(file, callback) {
       state.statCalls.push(file)
+      if (!state.exists) {
+        const err = new Error('not found')
+        err.code = 'ENOENT'
+        callback(err)
+        return
+      }
       callback(null, { isDirectory: () => state.isDirectory })
     }
   }
@@ -51,7 +58,7 @@ function loadCreateLog(options = {}) {
     }
     if (request === 'os') return { tmpdir: () => state.logDir }
     if (request === 'fs') return fakeFs
-    if (request === 'semver') return { gte: () => state.modernNode }
+    if (request === 'process') return { versions: { node: state.nodeVersion } }
     return originalLoad.call(this, request, parent, isMain)
   }
   console.log = () => {}
@@ -96,7 +103,7 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
 })
 
 test('create-log supports the node executable and legacy IC flag', async (t) => {
-  const state = loadCreateLog({ modernNode: false })
+  const state = loadCreateLog({ nodeVersion: '15.0.0' })
   await state.createLog([ '--', 'node', '--trace-warnings', 'app.js' ], 'head', 'simple')
   t.equal(state.spawnCalls[0].node, undefined, 'uses the default Node executable')
   t.deepEqual(state.spawnCalls[0].argv, [ 'app.js' ], 'passes app arguments after Node flags')

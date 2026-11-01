@@ -19,7 +19,6 @@ async function main() {
     for (const line of lines) fieldsParsed += parser.parseLine(line).length
     return fieldsParsed
   })
-
   await bench.run()
   console.table(bench.table())
 }

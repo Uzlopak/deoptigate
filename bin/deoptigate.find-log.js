@@ -1,6 +1,6 @@
 'use strict'
 
-const { brightBlack } = require('ansicolors')
+const { brightBlack } = require('./ansi')
 const {
     createFilesProvider
   , RETURN
