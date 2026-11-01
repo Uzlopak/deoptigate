@@ -8,7 +8,7 @@ const firstMajor = 8
 const lastMajor = 15
 const headerPath = 'src/deoptimizer/deoptimize-reason.h'
 const cachedHeadersDir = process.argv[2]
-const outputPath = process.argv[3] || path.join(__dirname, 'fixtures/v8-deopt-reason-aliases.json')
+const outputPath = process.argv[3] || path.join(__dirname, '..', 'lib', 'fixtures', 'v8-deopt-reason-aliases.json')
 
 function parseReasonAliases(header) {
   const aliases = Object.create(null)

@@ -3,10 +3,10 @@
 const fs = require('fs')
 const path = require('path')
 
-// Test-only aliases for human-readable reason strings written to V8 logs.
-// Generated snapshots come from each major's lowest V8 git tag. The fallback
-// aliases cover messages observed in Node builds that differ from that tag.
-const generatedPath = path.join(__dirname, 'fixtures/v8-deopt-reason-aliases.json')
+// Aliases for human-readable reason strings written to V8 logs. Generated
+// snapshots come from each major's lowest V8 git tag. The fallback aliases
+// cover messages observed in Node builds that differ from that tag.
+const generatedPath = path.join(__dirname, '..', 'lib', 'fixtures', 'v8-deopt-reason-aliases.json')
 const generatedAliasesByMajor = fs.existsSync(generatedPath)
   ? require(generatedPath)
   : {}
