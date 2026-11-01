@@ -14,7 +14,8 @@
   "scripts": {
     "test": "DEOPTIGATE_OPEN_BROWSER=0 tape test/*.test.js",
     "bench": "node benchmark/parse-v8-log.js",
-    "test:coverage": "c8 --check-coverage --statements 100 --branches 100 --functions 100 --lines 100 --include=deoptigate.js --include=deoptigate.log.js --include='app/lib/**/*.js' --include='bin/**/*.js' --include='lib/**/*.js' --reporter=text npm test"
+    "bench:csvparser": "node benchmark/csvparser.js",
+    "test:coverage": "c8 --check-coverage --statements 100 --branches 100 --functions 100 --lines 100 --include=deoptigate.js --include=deoptigate.log.js --include='app/lib/**/*.js' --include='bin/**/*.js' --include='lib/**/*.js' --exclude='lib/v8-tools-core/**' --reporter=text npm test"
   },
   "repository": {
     "type": "git",
@@ -27,8 +28,7 @@
     "ispawn": "~0.2.0",
     "mkdirp": "~0.5.1",
     "opn": "~5.4.0",
-    "semver": "^7.3.6",
-    "v8-tools-core": "~0.1.1"
+    "semver": "^7.3.6"
   },
   "keywords": [],
   "author": {

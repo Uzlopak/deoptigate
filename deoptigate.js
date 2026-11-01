@@ -2,8 +2,8 @@
 
 /* eslint-disable camelcase */
 
-const LogReader = require('v8-tools-core/logreader')
-const { Profile } = require('v8-tools-core/profile')
+const LogReader = require('./lib/v8-tools-core/logreader')
+const { Profile } = require('./lib/v8-tools-core/profile')
 
 const IcEntry = require('./lib/log-processing/ic-entry')
 const DeoptEntry = require('./lib/log-processing/deopt-entry')
@@ -208,12 +208,6 @@ class DeoptProcessor extends LogReader {
     if (this._silentErrors) return
     console.trace()
     console.error(msg)
-  }
-
-  // v8-tools-core decodes every backslash as an escape sequence. Protect
-  // V8's escaped literal backslashes so its CSV parser decodes them as data.
-  processLogLine(line) {
-    return super.processLogLine(line.replace(/\\\\/g, '\\u005c'))
   }
 
   processString(string) {

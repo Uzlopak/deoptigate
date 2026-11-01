@@ -1,7 +1,7 @@
 'use strict'
 
 const test = require('tape')
-const { Profile } = require('v8-tools-core/profile')
+const { Profile } = require('../lib/v8-tools-core/profile')
 const {
     parseOptimizationState
   , nameOptimizationState
