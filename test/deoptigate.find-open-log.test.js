@@ -5,7 +5,7 @@ const path = require('path')
 const test = require('tape')
 
 const findLogPath = path.join(__dirname, '../bin/deoptigate.find-log.js')
-const openLogPath = path.join(__dirname, '../bin/deoptigate.open-log.js')
+const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-report.js')
 
 function loadFindLog(files) {
   const state = { providerOptions: null, root: null }
@@ -47,15 +47,12 @@ function loadFindLog(files) {
   return state
 }
 
-function loadOpenLog() {
-  const state = { opened: [], pages: [], entries: [], errors: [], logCalls: [] }
+function loadGenerateReport() {
+  const state = { pages: [], entries: [], errors: [], logCalls: [] }
   const originalLoad = Module._load
   const originalLog = console.log
   const originalError = console.error
   Module._load = function (request, parent, isMain) {
-    if (request === 'opn') {
-      return (file, options) => state.opened.push([ file, options ])
-    }
     if (request === '../deoptigate.log') {
       return {
         async logToJSON(file, options) {
@@ -80,9 +77,9 @@ function loadOpenLog() {
     }
     return originalLoad.call(this, request, parent, isMain)
   }
-  delete require.cache[openLogPath]
+  delete require.cache[generateReportPath]
   try {
-    state.openLog = require(openLogPath)
+    state.generateReport = require(generateReportPath)
   } finally {
     Module._load = originalLoad
   }
@@ -131,24 +128,17 @@ test('find-log returns the first provider result', async (t) => {
   }
 })
 
-test('open-log saves output and opens browser unless disabled', async (t) => {
-  const state = loadOpenLog()
-  const originalSetting = process.env.DEOPTIGATE_OPEN_BROWSER
-  process.env.DEOPTIGATE_OPEN_BROWSER = '1'
+test('generate-report saves output and reports the generated page path', async (t) => {
+  const state = loadGenerateReport()
   try {
-    await state.openLog('/logs/v8.log', 'deoptigate')
+    await state.generateReport('/logs/v8.log', 'deoptigate')
     t.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log in the current root')
     t.deepEqual(state.pages, [ '<html>fake page</html>' ], 'saves the generated HTML page')
     t.deepEqual(state.entries, [ '{"files":[]}' ], 'saves parsed render data')
-    t.deepEqual(state.opened, [ [ '/tmp/fake-deoptigate/index.html', { wait: false } ] ], 'opens the result in the browser')
     t.ok(state.errors[0].includes('Successfully generated deoptimization visualization'), 'reports successful generation')
-
-    process.env.DEOPTIGATE_OPEN_BROWSER = '0'
-    await state.openLog('/logs/second.log', 'deoptigate')
-    t.equal(state.opened.length, 1, 'skips browser launch when disabled')
+    t.ok(state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'prints the generated page path')
+    t.notOk(state.errors[0].includes('Opening now in your default browser'), 'does not claim to open a browser')
   } finally {
-    if (originalSetting === undefined) delete process.env.DEOPTIGATE_OPEN_BROWSER
-    else process.env.DEOPTIGATE_OPEN_BROWSER = originalSetting
     state.restore()
   }
   t.end()

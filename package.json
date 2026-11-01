@@ -12,7 +12,7 @@
     "deoptigate*"
   ],
   "scripts": {
-    "test": "DEOPTIGATE_OPEN_BROWSER=0 tape test/*.test.js",
+    "test": "tape test/*.test.js",
     "bench": "node benchmark/parse-v8-log.js",
     "bench:csv-escape-field": "node benchmark/csv-escape-field.bench.js",
     "bench:csv-parse-line": "node benchmark/csv-parse-line.bench.js",
@@ -25,8 +25,7 @@
   },
   "homepage": "https://github.com/thlorenz/deoptigate",
   "dependencies": {
-    "files-provider": "~0.2.0",
-    "opn": "~5.4.0"
+    "files-provider": "~0.2.0"
   },
   "keywords": [],
   "author": {

@@ -5,7 +5,7 @@ const simpleHead = blue('deoptigate')
 const happyHead = blue('deoptigate 💪')
 const errorHead = red('deoptigate 🚫')
 
-const openLog = require('./deoptigate.open-log')
+const generateReport = require('./deoptigate.generate-report')
 const findLog = require('./deoptigate.find-log')
 const createLog = require('./deoptigate.create-log')
 
@@ -15,7 +15,7 @@ const createLog = require('./deoptigate.create-log')
       ? await findLog(happyHead)
       : await createLog(process.argv.slice(2), happyHead, simpleHead)
     )
-    await openLog(log, happyHead)
+    await generateReport(log, happyHead)
   } catch (err) {
     console.error(`${errorHead}: ${err}`)
     process.exitCode = 1
