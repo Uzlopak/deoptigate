@@ -1,18 +1,28 @@
-function collect (array) { return Array.from(array) }
-for (let i = 0; i < 1_000; i++) collect(new Uint8Array([1, 2, 3]))
-; %OptimizeFunctionOnNextCall(collect)
-collect(new Uint8Array([1, 2, 3]))
-const firstBuffer = new ArrayBuffer(3)
-const firstView = new Uint8Array(firstBuffer)
-firstView.set([1, 2, 3])
-structuredClone(firstBuffer, { transfer: [firstBuffer] })
-try { collect(firstView) } catch (_) {}
+// Invalidate V8's detaching protector before compiling the target function.
+// This makes the optimized operation emit an explicit buffer-validity guard
+// instead of depending on the protector and deoptimizing for that dependency.
+const protectorBuffer = new ArrayBuffer(1)
+new DataView(protectorBuffer)
+structuredClone(protectorBuffer, { transfer: [protectorBuffer] })
 
-function readNext (array) { return array.values().next().value }
-for (let i = 0; i < 1_000; i++) readNext(new Uint8Array([1, 2]))
-; %OptimizeFunctionOnNextCall(readNext)
-readNext(new Uint8Array([1, 2]))
-const buffer = new ArrayBuffer(2)
-const view = new Uint8Array(buffer)
+const buffer = new ArrayBuffer(4)
+const view = new DataView(buffer)
+
+function readByte (dataView) {
+  try {
+    return dataView.getInt8(0)
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error
+    return -1
+  }
+}
+
+; %PrepareFunctionForOptimization(readByte)
+for (let i = 0; i < 100; i++) readByte(view)
+; %OptimizeFunctionOnNextCall(readByte)
+readByte(view)
+
+// The explicit validity guard now fails and deoptimizes with
+// ArrayBufferWasDetached before DataView throws for the detached view.
 structuredClone(buffer, { transfer: [buffer] })
-try { readNext(view) } catch (_) {}
+readByte(view)

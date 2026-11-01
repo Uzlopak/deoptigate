@@ -6,6 +6,6 @@ function readForInKeys (enumerator, receiver) {
 
 const source = { x: 1, y: 2 }
 for (let i = 0; i < 1_000; i++) readForInKeys(source, source)
-%OptimizeMaglevOnNextCall(readForInKeys)
+; %OptimizeMaglevOnNextCall(readForInKeys)
 readForInKeys(source, source)
 readForInKeys(source, { x: 1, y: 2, extra: 3 })

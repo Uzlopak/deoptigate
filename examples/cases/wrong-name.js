@@ -6,6 +6,6 @@ function readGlobal (name) {
 }
 
 for (let i = 0; i < 1_000; i++) readGlobal('deoptigateWrongNameFirst')
-%OptimizeFunctionOnNextCall(readGlobal)
+; %OptimizeFunctionOnNextCall(readGlobal)
 readGlobal('deoptigateWrongNameFirst')
 readGlobal('deoptigateWrongNameSecond')

@@ -1,30 +1,43 @@
-// Candidate only: this follows the deprecated-map / integrity-transition
-// sequence from V8's regress-932953 test. It has not produced an exact
-// `instance migration failed` deopt on Node 24 or 26. The runtime probe below
-// is a test intrinsic; a numeric result means V8 declined the migration, but
-// does not by itself prove that the object's map was deprecated.
-function C() {
+// The stale instance takes an integrity-level transition, followed by an
+// accessor transition. A peer stays on the shared extensible ancestor map and
+// changes x to a double, deprecating that map and its descendants. Rebuilding
+// stale's map then fails because its integrity/accessor transition sequence
+// cannot be replayed.
+const getter = function () {}
+const setter = function () {}
+
+function C () {
   this.x = 42
-  this.__defineGetter__('y', function () {})
-  Object.preventExtensions(this)
-  this.__defineSetter__('y', function () {})
+  this.__defineGetter__('y', getter)
 }
 
 const stale = new C()
-const changed = new C()
+Object.preventExtensions(stale)
+stale.__defineSetter__('y', setter)
 
-function readX (object) {
+const normal = new C()
+const peer = new C()
+
+// Running optimized code with the old extensible map migrates normal and
+// marks the new double-field map as a migration target.
+function markMigrationTarget (object) {
   return object.x
 }
 
-for (let i = 0; i < 1000; i++) readX(stale)
-; %OptimizeFunctionOnNextCall(readX)
-readX(stale)
+%PrepareFunctionForOptimization(markMigrationTarget)
+for (let i = 0; i < 5; i++) markMigrationTarget(normal)
+peer.x = 0.1
+; %OptimizeFunctionOnNextCall(markMigrationTarget)
+markMigrationTarget(normal)
 
-// Reconfigure a peer with the same constructor shape, then change a field
-// representation. This attempts the map-update path while stale retains its
-// original shape.
-changed.x = 0.1
-const migrationResult = %TryMigrateInstance(stale)
-void migrationResult
-readX(stale)
+// This optimized check accepts the migration target. Passing stale makes V8
+// attempt to migrate its deprecated, non-extensible map and deopt on failure.
+function readTarget (object) {
+  return object.x
+}
+
+%PrepareFunctionForOptimization(readTarget)
+for (let i = 0; i < 10; i++) readTarget(peer)
+; %OptimizeFunctionOnNextCall(readTarget)
+readTarget(peer)
+readTarget(stale)

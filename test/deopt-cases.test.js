@@ -7,6 +7,7 @@ const { spawn, spawnSync } = require('child_process')
 const test = require('tape')
 
 const { processLogContent } = require('../deoptigate')
+const { createReasonLookup, reasonIdsForMajor } = require('./deopt-reason-lookup')
 
 const repoRoot = path.join(__dirname, '..')
 const casesDir = path.join(repoRoot, 'examples/cases')
@@ -50,14 +51,6 @@ function casePathFor(reason) {
   return path.join(casesDir, `${filename}.js`)
 }
 
-function liveMessagesFor(reason) {
-  // V8 versions differ on whether the message includes the immutable-buffer case.
-  if (reason.name === 'ArrayBufferWasDetached') {
-    return new Set(['array buffer was detached', 'array buffer was detached or immutable'])
-  }
-  return new Set([reason.message])
-}
-
 function runNode(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { stdio: 'ignore' })
@@ -79,7 +72,10 @@ function prepareOptimizationTargets(source) {
     (...matches) => {
       const [call, , , target] = matches
       if (source.includes(`%PrepareFunctionForOptimization(${target})`)) return call
-      return `%PrepareFunctionForOptimization(${target}); ${call}`
+      // Start with a semicolon: a leading `%` can otherwise continue the
+      // previous expression as the remainder operator instead of beginning
+      // the V8 intrinsic statement.
+      return `; %PrepareFunctionForOptimization(${target}); ${call}`
     })
 }
 
@@ -115,13 +111,24 @@ function missingV8Flags(flags) {
 
 test('live JavaScript cases produce the named deopts in V8 logs deoptigate can parse', async (t) => {
   const reasons = readCatalogReasons()
+  const v8Major = Number(process.versions.v8.split('.')[0])
+  const reasonIdByMessage = createReasonLookup(reasons, v8Major)
+  const availableReasonIds = reasonIdsForMajor(v8Major)
   const needsPrepare = runtimeRequiresPrepareBeforeOptimize()
+  const hasAlwaysTurboFan = missingV8Flags(['--always-turbofan']).length === 0
   const missingLogFlags = missingV8Flags(['--log-deopt', '--no-logfile-per-isolate'])
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-live-cases-'))
 
   t.equal(reasons.length, 84, 'test catalog matches V8 73f16b50 (68 regular, 16 lazy)')
 
-  for (const reason of reasons) {
+  const testableReasons = availableReasonIds
+    ? reasons.filter(reason => availableReasonIds.has(reason.name))
+    : reasons
+  if (availableReasonIds) {
+    t.comment(`V8 ${v8Major}: prefiltered ${reasons.length - testableReasons.length} catalog reasons absent from the ${v8Major}.0.1 header`)
+  }
+
+  for (const reason of testableReasons) {
     if (missingLogFlags.length > 0) {
       t.skip(`${reason.name}: current Node/V8 cannot produce the required log (${missingLogFlags.join(', ')})`)
       continue
@@ -150,8 +157,17 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       reason.name === 'Unknown' ||
       reason.name === 'DeoptimizeNow'
     ) {
-      // --always-turbofan was removed in newer V8 builds. Disabling Maglev
-      // leaves TurboFan as the optimizing tier on runtimes that support it.
+      // Newer V8 removed --always-turbofan. Keep the stronger legacy flag
+      // where available; on newer builds disabling Maglev selects TurboFan.
+      extraFlags = hasAlwaysTurboFan
+        ? ['--no-maglev', '--always-turbofan']
+        : ['--no-maglev']
+    }
+    if (
+      reason.name === 'InsufficientTypeFeedbackForCall' ||
+      reason.name === 'ArrayBufferWasDetached' ||
+      reason.name === 'InstanceMigrationFailed'
+    ) {
       extraFlags = ['--no-maglev']
     }
     if (
@@ -161,14 +177,22 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       reason.name === 'NotANumberOrBoolean' ||
       reason.name === 'NotAStringOrStringWrapper' ||
       reason.name === 'WrongMapDynamic' ||
-      reason.name === 'StoreToConstant' ||
-      reason.name === 'ExceptionCaught' ||
-      reason.name === 'NotUint32'
+      reason.name === 'StoreToConstant'
     ) {
       extraFlags = ['--no-turbofan']
     }
+    if (reason.name === 'ExceptionCaught' || reason.name === 'NotUint32') {
+      extraFlags = ['--no-turbofan']
+    }
+    if (reason.name === 'InstanceMigrationFailed') {
+      // The exact reason is emitted by TurboFan's CheckMaps migration path;
+      // Maglev reports WrongMap for its corresponding migration failure.
+      extraFlags = ['--no-maglev']
+    }
     if (reason.name === 'WeakObjects') {
-      extraFlags = ['--expose-gc', '--no-maglev']
+      extraFlags = hasAlwaysTurboFan
+        ? ['--expose-gc', '--no-maglev', '--always-turbofan']
+        : ['--expose-gc', '--no-maglev']
     }
     if (reason.name === 'EmptyContextExtensionChange') {
       extraFlags = ['--maglev', '--optimize-on-next-call-optimizes-to-maglev']
@@ -223,12 +247,43 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       : []
     const processed = await processLogContent(rawLog, repoRoot)
     const updates = processed.toObject().deopts.reduce((all, deopt) => all.concat(deopt.updates), [])
-    const expectedMessages = liveMessagesFor(reason)
-    const matching = updates.filter(update => expectedMessages.has(update.deoptReason))
+    const updatesWithIds = updates.map(update => {
+      const ids = reasonIdByMessage[update.deoptReason]
+      return {
+        ...update,
+        deoptReasonIds: Array.isArray(ids) ? ids : (ids ? [ids] : [])
+      }
+    })
+    const matching = updatesWithIds.filter(update => update.deoptReasonIds.includes(reason.name))
     t.equal(code, 0, `${reason.name}: case exits cleanly`)
+
+    // These are source-confirmed runtime capabilities, not ordinary failed
+    // reproductions. Undefined-in-double support is a V8 build define and
+    // Node does not expose that define in process.config; the case itself
+    // detects it by the exact fallback reason. EagerDeopt is deliberately
+    // suppressed from the log, so detect its initiating eager deopt instead.
+    const expectedFallbackId = {
+      NotANumberOrUndefined: 'NotANumber',
+      EagerDeopt: 'NotASmi'
+    }[reason.name]
+    const fallback = expectedFallbackId && updatesWithIds.filter(update =>
+      update.deoptReasonIds.includes(expectedFallbackId)
+    )
+    if (matching.length === 0 && fallback && fallback.length > 0) {
+      const detail = reason.name === 'NotANumberOrUndefined'
+        ? 'detected this Node build lacks the undefined-in-double compiler path'
+        : 'detected V8 logged the initiating eager deopt and suppressed EagerDeopt'
+      t.pass(`${reason.name}: ${detail}`)
+      t.ok(
+        fallback.every(update => update.severity === 3),
+        `${reason.name}: detected fallback has eager severity 3`
+      )
+      continue
+    }
+
     t.ok(
       matching.length > 0,
-      `${reason.name}: expected one of ${JSON.stringify([...expectedMessages])}; exit ${code}; parsed ${JSON.stringify(updates.map(update => update.deoptReason))}`
+      `${reason.name}: expected ID ${reason.name}; exit ${code}; parsed ${JSON.stringify(updatesWithIds.map(update => ({ ids: update.deoptReasonIds, message: update.deoptReason })))}`
     )
     const expectedSeverity = lazyReasons.has(reason.name) || reason.name === 'Unknown' ? 2 : 3
     t.ok(
