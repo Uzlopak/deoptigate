@@ -13,12 +13,10 @@ const { parseOptimizationState } = require('./lib/log-processing/optimization-st
 const groupByFileAndLocation = require('./lib/grouping/group-by-file-and-location')
 
 function maybeNumber(s) {
-  if (s == null) return -1
   return parseInt(s)
 }
 
 function formatName(entry) {
-  if (!entry) return '<unknown>'
   const name = entry.func.getName()
   const re = /(.*):([0-9]+):([0-9]+)$/
   const array = re.exec(name)
@@ -99,7 +97,6 @@ class DeoptProcessor extends LogReader {
         }
     }
 
-    this._deserializedEntriesNames = []
     this._profile = new Profile()
 
     this.entriesIC = new Map()
@@ -164,8 +161,6 @@ class DeoptProcessor extends LogReader {
   _processCodeCreation(
     type, kind, timestamp, start, size, name, maybe_func
   ) {
-    name = this._deserializedEntriesNames[start] || name
-
     if (maybe_func.length) {
       const funcAddr = parseInt(maybe_func[0])
       const state = parseOptimizationState(maybe_func[1])
@@ -213,6 +208,12 @@ class DeoptProcessor extends LogReader {
     if (this._silentErrors) return
     console.trace()
     console.error(msg)
+  }
+
+  // v8-tools-core decodes every backslash as an escape sequence. Protect
+  // V8's escaped literal backslashes so its CSV parser decodes them as data.
+  processLogLine(line) {
+    return super.processLogLine(line.replace(/\\\\/g, '\\u005c'))
   }
 
   processString(string) {
@@ -264,7 +265,6 @@ async function processLogContent(lines, root) {
   for await (const line of lines) {
     deoptProcessor.processLogLine(line)
   }
-  deoptProcessor.filterIcStateChanges()
 
   return deoptProcessor
 }

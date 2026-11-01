@@ -11,6 +11,7 @@ const Theme = require('../theme.browser')
 const MarkerResolver = require('../../lib/rendering/marker-resolver')
 
 const markOnly = require('../../lib/rendering/mark-only')
+const escapeHtml = require('../../lib/rendering/escape-html')
 
 const MAX_HIGHLIGHT_LEN = 1E5
 
@@ -117,7 +118,7 @@ class CodeView extends Component {
         // Even marking only failed, just show the code :(
         return `
           <p>Deoptigate was unable to highlight/mark the below code</p>
-          <pre style='white-space: pre'>${code}</pre>
+          <pre style='white-space: pre'>${escapeHtml(code)}</pre>
         `
       }
     }

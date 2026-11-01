@@ -41,7 +41,10 @@ function determineArgs(args) {
   let sawApp = false
 
   for (const arg of afterDashesArgs) {
-    if (sawApp) argv.push(arg)
+    if (sawApp) {
+      argv.push(arg)
+      continue
+    }
     if (!arg.startsWith('-')) {
       sawApp = true
       argv.push(arg)

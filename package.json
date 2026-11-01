@@ -12,7 +12,9 @@
     "deoptigate*"
   ],
   "scripts": {
-    "test": "DEOPTIGATE_OPEN_BROWSER=0 tape test/*.test.js"
+    "test": "DEOPTIGATE_OPEN_BROWSER=0 tape test/*.test.js",
+    "bench": "node benchmark/parse-v8-log.js",
+    "test:coverage": "c8 --check-coverage --statements 100 --branches 100 --functions 100 --lines 100 --include=deoptigate.js --include=deoptigate.log.js --include='app/lib/**/*.js' --include='bin/**/*.js' --include='lib/**/*.js' --reporter=text npm test"
   },
   "repository": {
     "type": "git",
@@ -42,7 +44,9 @@
     "node": ">=8"
   },
   "devDependencies": {
+    "c8": "^12.0.0",
     "escape-string-regexp": "^4.0.0",
-    "tape": "^5.0.0"
+    "tape": "^5.0.0",
+    "tinybench": "^2.9.0"
   }
 }

@@ -18,5 +18,6 @@ const createLog = require('./deoptigate.create-log')
     await openLog(log, happyHead)
   } catch (err) {
     console.error(`${errorHead}: ${err}`)
+    process.exitCode = 1
   }
 })()

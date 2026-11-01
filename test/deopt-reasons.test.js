@@ -25,7 +25,7 @@ function v8CsvField(value) {
   return value.replace(/,/g, '\\x2c')
 }
 
-test('deoptigate preserves every catalogued V8 deoptimization reason', async (t) => {
+test('deoptigate retains every supplied catalog deoptimization message', async (t) => {
   const reasons = readCatalogReasons()
   const start = '0x1000'
   const func = '0x2000'
@@ -50,7 +50,7 @@ test('deoptigate preserves every catalogued V8 deoptimization reason', async (t)
   t.equal(deopts[0].updates.length, reasons.length, 'all reason records were retained')
 
   const actualReasons = deopts[0].updates.map(update => update.deoptReason)
-  t.deepEqual(actualReasons, reasons.map(reason => reason.message), 'reason messages are preserved in order')
+  t.deepEqual(actualReasons, reasons.map(reason => reason.message), 'supplied messages are preserved in order')
   t.ok(deopts[0].updates.slice(0, 68).every(update => update.severity === 3), 'modern eager events get a visible severity')
   t.ok(deopts[0].updates.slice(68).every(update => update.severity === 2), 'dependency-change events get lazy severity')
   t.deepEqual(
@@ -58,5 +58,38 @@ test('deoptigate preserves every catalogued V8 deoptimization reason', async (t)
     { file: 'C:\\work\\app.js', line: 12, column: 8 },
     'Windows source paths with drive colons are parsed'
   )
+  t.end()
+})
+
+test('processor parses complete strings and serializes its output as JSON', async (t) => {
+  const processor = await processLogContent([], repoRoot)
+  const lines = [
+    `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
+    'sfi-move,0x2000,0x4000',
+    `code-creation,JS,12,2,0x3000,100,run ${sourceFile}:1:1,0x4000,*`
+  ]
+
+  // The final unterminated fragment is ignored by processString.
+  processor.processString(lines.join('\n') + '\nignored trailing fragment')
+
+  const output = JSON.parse(processor.toJSON())
+  t.equal(output.root, repoRoot, 'JSON output includes the configured root')
+  t.equal(output.codes.length, 1, 'code creations at the same location are grouped')
+  t.equal(output.codes[0].updates.length, 2, 'both code state updates are serialized')
+  t.end()
+})
+
+test('sfi-move updates the function identity associated with existing code', async (t) => {
+  const processor = await processLogContent([], repoRoot)
+  processor.processString([
+    `code-creation,JS,9,1,0x1000,100,before ${sourceFile}:1:1,0x2000,~`,
+    'sfi-move,0x2000,0x4000',
+    `code-creation,JS,12,2,0x3000,100,after ${sourceFile}:2:1,0x4000,*`,
+    `code-deopt,3,100,0x1000,-1,12,deopt-eager,<${sourceFile}:3:1>,after move`
+  ].join('\n') + '\n')
+
+  const deopts = processor.toObject().deopts
+  t.equal(deopts.length, 1, 'deopt record for the original code is retained')
+  t.equal(deopts[0].functionName, 'after', 'the old code resolves through the moved function entry')
   t.end()
 })
