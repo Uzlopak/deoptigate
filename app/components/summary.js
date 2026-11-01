@@ -1,10 +1,10 @@
 'use strict'
 
-const React = require('react')
-const { Component } = React
+const Preact = require('preact')
+const { Component } = Preact
 const scrollIntoView = require('scroll-into-view-if-needed')
 
-const assert = require('assert')
+const assert = require('../../lib/assert')
 const { nameIcState, severityIcState } = require('../../lib/log-processing/ic-state')
 const {
     nameOptimizationState
@@ -73,7 +73,7 @@ class SummaryView extends Component {
     const renderedCodes = this._renderCodes(codes, codeLocations, selectedTabIdx === OPT_TAB_IDX)
     return (
       <div className={className}>
-        <div className='flex flex-row'>
+        <div className='flex flex-row summary-tabs'>
           {this._renderTabHeader('Optimizations', OPT_TAB_IDX)}
           {this._renderTabHeader('Deoptimizations', DEOPT_TAB_IDX)}
           {this._renderTabHeader('Inline Caches', ICS_TAB_IDX)}
@@ -94,12 +94,17 @@ class SummaryView extends Component {
   _renderTabHeader(label, idx) {
     const { selectedTabIdx } = this.props
     const selected = idx === selectedTabIdx
-    const baseClass = 'flex flex-column ttu dib link pa3 bt outline-0 tab-header'
-    const selectedClass = 'b--blue blue'
-    const unselectedClass = 'white b--white'
+    const baseClass = 'flex flex-column ttu dib link outline-0 tab-header summary-tab'
+    const selectedClass = 'tab-active'
+    const unselectedClass = 'tab-inactive'
     const className = selected ? `${baseClass} ${selectedClass}` : `${baseClass} ${unselectedClass}`
 
-    return <a className={className} href='#' onClick={() => this._ontabHeaderClicked(idx)}>{label}</a>
+    return (
+      <a className={className} href='#' onClick={e => {
+        e.preventDefault()
+        this._ontabHeaderClicked(idx)
+      }}>{label}</a>
+    )
   }
 
   _renderDataPoint(data, locations, renderDetails) {
@@ -111,7 +116,7 @@ class SummaryView extends Component {
       if (!includeAllSeverities && info.severity <= MIN_SEVERITY) continue
 
       const highlightedClass = selectedLocation === info.id ? 'bg-light-yellow' : 'bg-light-green'
-      const className = `${highlightedClass} ba br2 bw1 ma3 pa2`
+      const className = `${highlightedClass} summary-card`
       rendered.push(
         <div className={className} key={info.id}>
           {this._summary(info, relativePath)}
@@ -171,7 +176,7 @@ class SummaryView extends Component {
 
     const fullLoc = (
       <a href='#'
-        className='i items'
+        className='summary-location-link'
         onClick={onclicked}>
         {functionName} at {relativePath}:{line}:{column}
       </a>

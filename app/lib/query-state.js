@@ -1,8 +1,6 @@
 'use strict'
 
 /* global location */
-const qs = require('qs')
-
 function parseNum(s) {
   return s === '' ? null : parseInt(s)
 }
@@ -14,14 +12,13 @@ function parseBool(s) {
 function stateFromUrl() {
   if (location.search == null || location.search.length < 2) return null
   const query = location.search.slice(1)
-  const queryState = qs.parse(query)
+  const queryState = new URLSearchParams(query)
   const state = {
-      highlightCode         : parseBool(queryState.highlightCode)
-    , includeAllSeverities  : parseBool(queryState.includeAllSeverities)
-    , selectedFileIdx       : parseNum(queryState.selectedFileIdx)
-    , selectedLocation      : parseNum(queryState.selectedLocation)
-    , selectedTabIdx        : parseNum(queryState.selectedTabIdx)
-    , selectedSummaryTabIdx : parseNum(queryState.selectedSummaryTabIdx)
+      includeAllSeverities  : parseBool(queryState.get('includeAllSeverities'))
+    , selectedFileIdx       : parseNum(queryState.get('selectedFileIdx'))
+    , selectedLocation      : parseNum(queryState.get('selectedLocation'))
+    , selectedTabIdx        : parseNum(queryState.get('selectedTabIdx'))
+    , selectedSummaryTabIdx : parseNum(queryState.get('selectedSummaryTabIdx'))
   }
   return state
 }
@@ -29,7 +26,11 @@ function stateFromUrl() {
 function urlFromState(state) {
   const rootUrl = location.origin
   const path = location.pathname
-  const queryString = qs.stringify(state)
+  const queryParams = new URLSearchParams()
+  Object.keys(state).forEach((key) => {
+    if (state[key] !== undefined) queryParams.append(key, state[key] == null ? '' : state[key])
+  })
+  const queryString = queryParams.toString()
   const url = `${rootUrl}${path}?${queryString}`
   return url
 }

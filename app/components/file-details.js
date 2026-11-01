@@ -1,12 +1,12 @@
 'use strict'
 
-const React = require('react')
-const { Component } = React
+const Preact = require('preact')
+const { Component } = Preact
 
 const { CodeView } = require('./code')
 const { SummaryView } = require('./summary')
 
-const assert = require('assert')
+const assert = require('../../lib/assert')
 
 class FileDetailsView extends Component {
   constructor(props) {
@@ -29,7 +29,6 @@ class FileDetailsView extends Component {
       , selectedFile
       , selectedLocation
       , includeAllSeverities
-      , highlightCode
       , className = ''
       , selectedSummaryTabIdx
       , onsummaryClicked
@@ -49,7 +48,7 @@ class FileDetailsView extends Component {
     return (
       <div className={className}>
         <CodeView
-          className='flex-column vh-85 w-50 code-view'
+          className='flex-column code-view'
           selectedLocation={selectedLocation}
           fileName={selectedFile}
           code={src}
@@ -60,10 +59,9 @@ class FileDetailsView extends Component {
           codes={codes}
           codeLocations={codeLocations}
           includeAllSeverities={includeAllSeverities}
-          highlightCode={highlightCode}
           onmarkerClicked={this._onmarkerClicked} />
         <SummaryView
-          className='flex-column vh-85 w-50 summary-view'
+          className='flex-column summary-view'
           file={selectedFile}
           relativePath={relativePath}
           selectedLocation={selectedLocation}

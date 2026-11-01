@@ -1,9 +1,9 @@
 'use strict'
 
-const React = require('react')
-const { Component } = React
+const Preact = require('preact')
+const { Component } = Preact
 const summarizeFile = require('../../lib/grouping/summarize-file')
-const assert = require('assert')
+const assert = require('../../lib/assert')
 
 const severityClassNames = [
     'green i tc'
@@ -58,9 +58,25 @@ class FilesView extends Component {
       })
       rows.push(rendered)
     }
+
+    if (rows.length === 0) {
+      const message = includeAllSeverities
+        ? 'No files were found in this V8 log.'
+        : 'No files with critical events. Enable “Include low severities” to show all files.'
+      rows.push(
+        <tr key='empty-state'>
+          <td className='empty-table-state' colSpan='10'>{message}</td>
+        </tr>
+      )
+    }
+
     return (
       <div className={className}>
-        <table cellSpacing='0'>
+        <table className='files-table' cellSpacing='0'>
+          <colgroup>
+            <col className='file-column' />
+            <col span='9' className='metric-column' />
+          </colgroup>
           {tableHeader}
           <tbody>{rows}</tbody>
         </table>
@@ -74,22 +90,21 @@ class FilesView extends Component {
     return (
       <thead>
         <tr>
-          <td className={topHeaderClass + ' '}>File</td>
-          <td colSpan='3' className={topHeaderClass}>Optimizations</td>
-          <td colSpan='3' className={topHeaderClass}>Deoptimizations</td>
-          <td colSpan='3' className={topHeaderClass}>Inline Caches</td>
+          <th scope='col' rowSpan='2' className={topHeaderClass + ' file-header'}>File</th>
+          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Optimizations</th>
+          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Deoptimizations</th>
+          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Inline Caches</th>
         </tr>
         <tr>
-          <td className={subHeaderClass} />
-          <td className={subHeaderClass}>Optimized</td>
-          <td className={subHeaderClass}>Optimizable</td>
-          <td className={subHeaderClass}>Compiled</td>
-          <td className={subHeaderClass}>Severity 1</td>
-          <td className={subHeaderClass}>Severity 2</td>
-          <td className={subHeaderClass}>Severity 3</td>
-          <td className={subHeaderClass}>Severity 1</td>
-          <td className={subHeaderClass}>Severity 2</td>
-          <td className={subHeaderClass}>Severity 3</td>
+          <th scope='col' className={subHeaderClass}>Optimized</th>
+          <th scope='col' className={subHeaderClass}>Optimizable</th>
+          <th scope='col' className={subHeaderClass}>Compiled</th>
+          <th scope='col' className={subHeaderClass}>Severity 1</th>
+          <th scope='col' className={subHeaderClass}>Severity 2</th>
+          <th scope='col' className={subHeaderClass}>Severity 3</th>
+          <th scope='col' className={subHeaderClass}>Severity 1</th>
+          <th scope='col' className={subHeaderClass}>Severity 2</th>
+          <th scope='col' className={subHeaderClass}>Severity 3</th>
         </tr>
       </thead>
     )
@@ -110,7 +125,11 @@ class FilesView extends Component {
         <td class='underlined'>
           <a className={'items pl2 pr2'}
             href='#'
-            onClick={onfileClicked}>
+            title={relativePath}
+            onClick={e => {
+              e.preventDefault()
+              onfileClicked()
+            }}>
             {relativePath}
           </a>
         </td>

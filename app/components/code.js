@@ -1,9 +1,8 @@
 'use strict'
 
-const React = require('react')
-const { Component } = React
-const ReactDOM = require('react-dom')
-const assert = require('assert')
+const Preact = require('preact')
+const { Component } = Preact
+const assert = require('../../lib/assert')
 const scrollIntoView = require('scroll-into-view-if-needed')
 const { highlight } = require('peacock')
 
@@ -17,10 +16,11 @@ const MAX_HIGHLIGHT_LEN = 1E5
 
 class CodeView extends Component {
   constructor(props) {
-    super()
+    super(props)
 
     const { onmarkerClicked } = props
     assert.equal(typeof onmarkerClicked, 'function', 'need to pass onmarkerClicked function')
+    this._rootRef = Preact.createRef()
     this._bind()
   }
 
@@ -37,7 +37,7 @@ class CodeView extends Component {
   }
 
   componentDidMount() {
-    const rootEl = ReactDOM.findDOMNode(this)
+    const rootEl = this._rootRef.current
     rootEl.addEventListener('click', event => {
       const tgt = event.target
       const { markerid, markertype } = tgt.dataset
@@ -59,7 +59,6 @@ class CodeView extends Component {
          props.code !== nextProps.code
       || props.selectedLocation !== nextProps.selectedLocation
       || props.includeAllSeverities !== nextProps.includeAllSeverities
-      || props.highlightCode !== nextProps.highlightCode
     )
   }
 
@@ -90,15 +89,15 @@ class CodeView extends Component {
     const theme = new Theme(markerResolver).theme
     const highlightedCode = this._tryHighlightCode(theme, markerResolver)
     return (
-      <div className={className}>
+      <div ref={this._rootRef} className={className}>
         <div dangerouslySetInnerHTML={{__html: highlightedCode}} />
       </div>
     )
   }
 
   _tryHighlightCode(theme, markerResolver) {
-    const { fileName, code, highlightCode } = this.props
-    const nohighlight = !highlightCode || code.length > MAX_HIGHLIGHT_LEN
+    const { fileName, code } = this.props
+    const nohighlight = code.length > MAX_HIGHLIGHT_LEN
     if (nohighlight) return markOnly(code, markerResolver)
     try {
       try {

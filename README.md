@@ -4,7 +4,7 @@
 deoptigate app.js
 ```
 
-[![xml2js](assets/xml2js.png)](https://nodesource.github.io/deoptigate-examples/xml2js/01_start/?selectedFileIdx=31&selectedLocation=157&includeAllSeverities=false&highlightCode=true&selectedTabIdx=1&selectedSummaryTabIdx=1)
+[![xml2js](assets/xml2js.png)](https://nodesource.github.io/deoptigate-examples/xml2js/01_start/?selectedFileIdx=31&selectedLocation=157&includeAllSeverities=false&selectedTabIdx=1&selectedSummaryTabIdx=1)
 
 ## What Performance Experts Say About Deoptigate
 
@@ -60,6 +60,9 @@ deoptigate app.js
 
     npm install -g deoptigate
 
+The command-line tool requires Node.js 12 or newer. Building the browser app
+from source requires Node.js 18 or newer.
+
 ## Usage
 
 ### Deoptigate your App in one Step
@@ -78,9 +81,11 @@ deoptigate -- /bin/mynode app.js
 deoptigate -- node --allow-natives-syntax app.js
 ```
 
-### Deoptigate existing `*-v8.log`
+### Deoptigate existing V8 logs
 
-Simply run `deoptigate` from the directory that contains the log file(s).
+Run `deoptigate` from the directory containing `v8.log` or
+`isolate-*-v8.log`. A single matching log is opened automatically; if there
+are multiple matching logs, Deoptigate prompts you to choose one.
 
 ## License
 
