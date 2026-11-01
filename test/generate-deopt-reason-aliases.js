@@ -9,10 +9,11 @@ const lastMajor = 15
 const headerPath = 'src/deoptimizer/deoptimize-reason.h'
 const cachedHeadersDir = process.argv[2]
 const outputPath = process.argv[3] || path.join(__dirname, '..', 'lib', 'fixtures', 'v8-deopt-reason-aliases.json')
+const DEOPT_REASON_MACRO_RX = /V\(\s*([A-Za-z0-9_]+)\s*,\s*"((?:\\.|[^"\\])*)"/
 
 function parseReasonAliases(header) {
   const aliases = Object.create(null)
-  const expression = /V\(\s*([A-Za-z0-9_]+)\s*,\s*"((?:\\.|[^"\\])*)"/g
+  const expression = new RegExp(DEOPT_REASON_MACRO_RX.source, 'g')
   let match
   while ((match = expression.exec(header)) !== null) {
     const message = JSON.parse(`"${match[2]}"`)

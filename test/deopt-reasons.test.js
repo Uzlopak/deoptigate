@@ -10,19 +10,22 @@ const DeoptEntry = require('../lib/log-processing/deopt-entry')
 const repoRoot = path.join(__dirname, '..')
 const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
 const catalogPath = path.join(repoRoot, 'assets/deoptimization.md')
+const CATALOG_REASON_LINE_RX = /^\| `([^`]+)` \| ([^|]+) \|/
+const BACKTICK_EDGE_RX = /^`(.*)`$/
+const CSV_COMMA_RX = /,/g
 
 function readCatalogReasons() {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
   for (const line of contents.split('\n')) {
-    const match = /^\| `([^`]+)` \| ([^|]+) \|/.exec(line)
-    if (match) reasons.push({ name: match[1], message: match[2].trim().replace(/^`(.*)`$/, '$1') })
+    const match = CATALOG_REASON_LINE_RX.exec(line)
+    if (match) reasons.push({ name: match[1], message: match[2].trim().replace(BACKTICK_EDGE_RX, '$1') })
   }
   return reasons
 }
 
 function v8CsvField(value) {
-  return value.replace(/,/g, '\\x2c')
+  return value.replace(CSV_COMMA_RX, '\\x2c')
 }
 
 test('deoptigate retains every supplied catalog deoptimization message', async (t) => {

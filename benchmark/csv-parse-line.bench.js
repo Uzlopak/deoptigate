@@ -5,12 +5,14 @@ const path = require('path')
 const { Bench } = require('tinybench')
 const CsvParser = require('../lib/v8-tools-core/csvparser')
 
+const LINE_ENDINGS_RX = /\r?\n/
+
 const logPath = path.resolve(
   process.argv[2] || path.join(__dirname, '../test/logs/adders.prepared.v8.log')
 )
 
 async function main() {
-  const lines = fs.readFileSync(logPath, 'utf8').split(/\r?\n/).filter(Boolean)
+  const lines = fs.readFileSync(logPath, 'utf8').split(LINE_ENDINGS_RX).filter(Boolean)
   const parser = new CsvParser()
   const bench = new Bench({ time: 1000 })
 

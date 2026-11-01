@@ -12,14 +12,15 @@ const { parseOptimizationState } = require('./lib/log-processing/optimization-st
 
 const groupByFileAndLocation = require('./lib/grouping/group-by-file-and-location')
 
+const FUNCTION_LOCATION_RX = /(.*):([0-9]+):([0-9]+)$/
+
 function maybeNumber(s) {
   return parseInt(s)
 }
 
 function formatName(entry) {
   const name = entry.func.getName()
-  const re = /(.*):([0-9]+):([0-9]+)$/
-  const array = re.exec(name)
+  const array = FUNCTION_LOCATION_RX.exec(name)
   if (!array) return { fnFile: name, line: -1, column: -1 }
   return {
       fnFile: array[1]

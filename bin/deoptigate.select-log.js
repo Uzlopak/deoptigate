@@ -5,7 +5,7 @@ const fs = require('fs')
 const path = require('path')
 const readline = require('readline')
 
-const logFilePattern = /^(isolate-.+-)?v8\.log$/
+const logFilePattern = /^(?:isolate-.+-)?v8\.log$/
 
 async function findLogFiles(root) {
   const entries = await fs.promises.readdir(root)

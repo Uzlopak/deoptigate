@@ -13,6 +13,11 @@ const repoRoot = path.join(__dirname, '..')
 const casesDir = path.join(repoRoot, 'examples/cases')
 const catalogPath = path.join(repoRoot, 'assets/deoptimization.md')
 const nativeSyntax = '--allow-natives-syntax'
+const CATALOG_REASON_LINE_RX = /^\| `([^`]+)` \| ([^|]+) \|/
+const BACKTICK_EDGE_RX = /^`(.*)`$/
+const REASON_NAME_CAPITAL_RX = /[A-Z]/g
+const OPTIMIZATION_INTRINSIC_CALL_RX = /(?:%+)(?:OptimizeFunctionOnNextCall|OptimizeMaglevOnNextCall|OptimizeOsr)\s*\(\s*([\w$]+)\s*\)/g
+const LINE_ENDINGS_RX = /\r?\n/
 const severityByBailoutType = {
   soft: 1,
   lazy: 2,
@@ -24,15 +29,15 @@ function readCatalogReasons() {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
   for (const line of contents.split('\n')) {
-    const match = /^\| `([^`]+)` \| ([^|]+) \|/.exec(line)
-    if (match) reasons.push({ name: match[1], message: match[2].trim().replace(/^`(.*)`$/, '$1') })
+    const match = CATALOG_REASON_LINE_RX.exec(line)
+    if (match) reasons.push({ name: match[1], message: match[2].trim().replace(BACKTICK_EDGE_RX, '$1') })
   }
   return reasons
 }
 
 function casePathFor(reason) {
   const filename = reason
-    .replace(/[A-Z]/g, (letter, index) => `${index ? '-' : ''}${letter.toLowerCase()}`)
+    .replace(REASON_NAME_CAPITAL_RX, (letter, index) => `${index ? '-' : ''}${letter.toLowerCase()}`)
     .replace('java-script', 'javascript')
     .replace('na-n', 'nan')
     .replace('o-s-r-', 'osr-')
@@ -56,9 +61,9 @@ function runtimeRequiresPrepareBeforeOptimize() {
 }
 
 function prepareOptimizationTargets(source) {
-  return source.replace(/(%+)(OptimizeFunctionOnNextCall|OptimizeMaglevOnNextCall|OptimizeOsr)\s*\(\s*([\w$]+)\s*\)/g,
+  return source.replace(OPTIMIZATION_INTRINSIC_CALL_RX,
     (...matches) => {
-      const [call, , , target] = matches
+      const [call, target] = matches
       if (source.includes(`%PrepareFunctionForOptimization(${target})`)) return call
       // Start with a semicolon: a leading `%` can otherwise continue the
       // previous expression as the remainder operator instead of beginning
@@ -282,7 +287,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
 
     const readUpdates = async (filePath) => {
       const lines = fs.existsSync(filePath)
-        ? fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
+        ? fs.readFileSync(filePath, 'utf8').split(LINE_ENDINGS_RX)
         : []
       const parsed = await processLogContent(lines, repoRoot)
       const updates = parsed.toObject().deopts.reduce((all, deopt) => all.concat(deopt.updates), [])

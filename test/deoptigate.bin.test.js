@@ -4,6 +4,7 @@ const { tmpdir } = require('os')
 const { spawnSync } = require('child_process')
 const Module = require('module')
 const test = require('tape')
+const JAVASCRIPT_SUFFIX_RX = /\.js$/
 
 const repoRoot = (...args) => path.join(__dirname, '..', ...args)
 const binPath = repoRoot('bin/deoptigate')
@@ -46,7 +47,7 @@ async function runDeoptigate(srcPath) {
     const outPath = path.join(isolatedTmpDir, 'render-data.js')
     await writeFile(outPath, newContents, 'utf8')
 
-    return require(outPath.replace(/.js$/, ''))
+    return require(outPath.replace(JAVASCRIPT_SUFFIX_RX, ''))
   } finally {
     await removeDirectory(isolatedTmpDir)
   }

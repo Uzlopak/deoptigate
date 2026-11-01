@@ -8,6 +8,8 @@ const test = require('tape')
 const util = require('util')
 const readFile = util.promisify(fs.readFile)
 const writeFile = util.promisify(fs.writeFile)
+const WINDOWS_LINE_ENDINGS_RX = /\r\n/g
+const V8_LOG_SUFFIX_RX = /\.v8\.log$/
 
 const { deoptigateLog } = require('../deoptigate.log')
 
@@ -25,7 +27,7 @@ async function prepareLogFile(srcLog, replacements, destDir) {
   let contents = await readFile(srcLog, 'utf8')
 
   // Windows + Git shenanigans
-  contents = contents.replace(/\r\n/g, '\n');
+  contents = contents.replace(WINDOWS_LINE_ENDINGS_RX, '\n');
   for (const [template, realPath] of replacements) {
     contents = contents.replace(
       new RegExp(escapeRegex(template), 'g'),
@@ -33,14 +35,14 @@ async function prepareLogFile(srcLog, replacements, destDir) {
     )
   }
 
-  const destLog = path.join(destDir, path.basename(srcLog).replace(/\.v8\.log$/g, '.prepared.v8.log'))
+  const destLog = path.join(destDir, path.basename(srcLog).replace(V8_LOG_SUFFIX_RX, '.prepared.v8.log'))
   await writeFile(destLog, contents, 'utf8')
   return destLog
 }
 
 async function withPreparedLog(srcLog, replacements, run) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-prepared-log-'))
-  const destLog = path.join(tempDir, path.basename(srcLog).replace(/\.v8\.log$/g, '.prepared.v8.log'))
+  const destLog = path.join(tempDir, path.basename(srcLog).replace(V8_LOG_SUFFIX_RX, '.prepared.v8.log'))
   try {
     await prepareLogFile(srcLog, replacements, tempDir)
     return await run(destLog)
