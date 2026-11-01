@@ -30395,7 +30395,9 @@ module.exports = ThemeBrowser
 /* eslint-disable camelcase */
 
 const LogReader = require('v8-tools-core/logreader')
-const { Profile } = require('v8-tools-core/profile')
+const OPTIMIZATION_STATE_COMPILED = 0
+const OPTIMIZATION_STATE_OPTIMIZABLE = 1
+const OPTIMIZATION_STATE_OPTIMIZED = 2
 
 const IcEntry = require('./lib/log-processing/ic-entry')
 const DeoptEntry = require('./lib/log-processing/deopt-entry')
@@ -31127,22 +31129,24 @@ module.exports = {
 },{"../severities":68}],65:[function(require,module,exports){
 'use strict'
 
-const { Profile } = require('v8-tools-core/profile')
+const OPTIMIZATION_STATE_COMPILED = 0
+const OPTIMIZATION_STATE_OPTIMIZABLE = 1
+const OPTIMIZATION_STATE_OPTIMIZED = 2
 
 function parseOptimizationState(s) {
   switch (s) {
-    case '': return Profile.CodeState.COMPILED
-    case '~': return Profile.CodeState.OPTIMIZABLE
-    case '*': return Profile.CodeState.OPTIMIZED
+    case '': return OPTIMIZATION_STATE_COMPILED
+    case '~': return OPTIMIZATION_STATE_OPTIMIZABLE
+    case '*': return OPTIMIZATION_STATE_OPTIMIZED
     default: throw new Error('unknown code state: ' + s)
   }
 }
 
 function nameOptimizationState(state) {
   switch (state) {
-    case Profile.CodeState.COMPILED: return 'compiled'
-    case Profile.CodeState.OPTIMIZABLE: return 'optimizable'
-    case Profile.CodeState.OPTIMIZED: return 'optimized'
+    case OPTIMIZATION_STATE_COMPILED: return 'compiled'
+    case OPTIMIZATION_STATE_OPTIMIZABLE: return 'optimizable'
+    case OPTIMIZATION_STATE_OPTIMIZED: return 'optimized'
     case -1: return 'unknown'
     default: throw new Error('unknown code state: ' + state)
   }
@@ -31150,21 +31154,24 @@ function nameOptimizationState(state) {
 
 function severityOfOptimizationState(state) {
   switch (state) {
-    case Profile.CodeState.COMPILED: return 3
-    case Profile.CodeState.OPTIMIZABLE: return 2
-    case Profile.CodeState.OPTIMIZED: return 1
+    case OPTIMIZATION_STATE_COMPILED: return 3
+    case OPTIMIZATION_STATE_OPTIMIZABLE: return 2
+    case OPTIMIZATION_STATE_OPTIMIZED: return 1
     case -1: return 3
     default: throw new Error('unknown code state: ' + state)
   }
 }
 
 module.exports = {
-    parseOptimizationState
+    OPTIMIZATION_STATE_COMPILED
+  , OPTIMIZATION_STATE_OPTIMIZABLE
+  , OPTIMIZATION_STATE_OPTIMIZED
+  , parseOptimizationState
   , nameOptimizationState
   , severityOfOptimizationState
 }
 
-},{"v8-tools-core/profile":72}],66:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 'use strict'
 
 function getDigits(n) {
@@ -32241,17 +32248,6 @@ Profile.Operation = {
 
 
 /**
- * Enum for code state regarding its dynamic optimization.
- *
- * @enum {number}
- */
-Profile.CodeState = {
-  COMPILED: 0,
-  OPTIMIZABLE: 1,
-  OPTIMIZED: 2
-};
-
-
 /**
  * Called whenever the specified operation has failed finding a function
  * containing the specified address. Should be overriden by subclasses.
@@ -32325,7 +32321,7 @@ Profile.prototype.addCode = function(
  * @param {number} start Starting address.
  * @param {number} size Code entry size.
  * @param {number} funcAddr Shared function object address.
- * @param {Profile.CodeState} state Optimization state.
+ * @param {number} state Optimization state.
  */
 Profile.prototype.addFuncCode = function(
     type, name, timestamp, start, size, funcAddr, state) {
@@ -32687,7 +32683,7 @@ Profile.DynamicCodeEntry.prototype.toString = function() {
  * @param {number} size Code size.
  * @param {string} type Code type.
  * @param {Profile.FunctionEntry} func Shared function entry.
- * @param {Profile.CodeState} state Code optimization state.
+ * @param {number} state Code optimization state.
  * @constructor
  */
 Profile.DynamicFuncCodeEntry = function(size, type, func, state) {

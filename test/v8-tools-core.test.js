@@ -5,6 +5,7 @@ const LogReader = require('../lib/v8-tools-core/logreader')
 const CodeMap = require('../lib/v8-tools-core/codemap')
 const SplayTree = require('../lib/v8-tools-core/splaytree')
 const { Profile } = require('../lib/v8-tools-core/profile')
+const { OPTIMIZATION_STATE_OPTIMIZED } = require('../lib/log-processing/optimization-state')
 
 test('LogReader dispatches parsed records and reports malformed rows without stopping', (t) => {
   const calls = []
@@ -64,7 +65,7 @@ test('SplayTree maintains ordered address lookup and export', (t) => {
 
 test('Profile associates optimized code with functions through moves and deletes', (t) => {
   const profile = new Profile()
-  const state = Profile.CodeState.OPTIMIZED
+  const state = OPTIMIZATION_STATE_OPTIMIZED
   profile.addFuncCode('JS', 'run /tmp/example.js:2:1', 1, 100, 20, 50, state)
 
   let entry = profile.findEntry(110)
