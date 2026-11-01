@@ -101,6 +101,30 @@ const specialFlagsByReason = {
   StringTooLarge: ['--max-old-space-size=96']
 }
 
+// These cases exercise Maglev-specific guards/OSR paths. Some Node binaries,
+// including Node 22.23.4, accept --maglev but are built with Maglev disabled.
+const maglevOnlyReasons = new Set([
+  'ArrayLengthChanged',
+  'Hole',
+  'NotANumber',
+  'NotInt32',
+  'NotUint32',
+  'OSREarlyExit',
+  'PrepareForOnStackReplacement',
+  'StoreToConstant',
+  'WrongInstanceType'
+])
+const canUseTurboFanForMaglevCase = new Set([
+  'NotANumberOrBoolean',
+  'NotANumberOrOddball'
+])
+
+function runtimeHasMaglev() {
+  const buildSetting = process.config.variables.v8_enable_maglev
+  if (buildSetting === undefined) return null
+  return buildSetting === 1 || buildSetting === '1'
+}
+
 function missingV8Flags(flags) {
   return flags.filter(flag => spawnSync(
     process.execPath,
@@ -115,6 +139,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
   const reasonIdByMessage = createReasonLookup(reasons, v8Major)
   const availableReasonIds = reasonIdsForMajor(v8Major)
   const needsPrepare = runtimeRequiresPrepareBeforeOptimize()
+  const hasMaglev = runtimeHasMaglev()
   const hasAlwaysTurboFan = missingV8Flags(['--always-turbofan']).length === 0
   const missingLogFlags = missingV8Flags(['--log-deopt', '--no-logfile-per-isolate'])
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-live-cases-'))
@@ -137,6 +162,11 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
     const sourcePath = casePathFor(reason.name)
     if (!fs.existsSync(sourcePath)) {
       t.skip(`${reason.name}: no verified live JavaScript case yet`)
+      continue
+    }
+
+    if (hasMaglev === false && maglevOnlyReasons.has(reason.name)) {
+      t.pass(`${reason.name}: detected this Node binary was built without Maglev; its Maglev-only path is unavailable`)
       continue
     }
 
@@ -221,11 +251,19 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       ? []
       : ['--no-concurrent-recompilation']
     const caseSource = fs.readFileSync(sourcePath, 'utf8')
-    const executableSource = needsPrepare ? prepareOptimizationTargets(caseSource) : caseSource
+    let executableSource = caseSource
+    if (hasMaglev === false && canUseTurboFanForMaglevCase.has(reason.name)) {
+      executableSource = executableSource.replace(
+        /%OptimizeMaglevOnNextCall\s*\(\s*([\w$]+)\s*\)/g,
+        '; %PrepareFunctionForOptimization($1); %OptimizeFunctionOnNextCall($1)'
+      )
+      extraFlags = ['--no-maglev']
+    }
+    if (needsPrepare) executableSource = prepareOptimizationTargets(executableSource)
     let caseArgs
     if (reason.name === 'ContextCellChange') {
       caseArgs = ['-e', executableSource]
-    } else if (needsPrepare && executableSource !== caseSource) {
+    } else if (executableSource !== caseSource) {
       const preparedCasePath = path.join(tempDir, `${reason.name}.prepared.js`)
       fs.writeFileSync(preparedCasePath, executableSource)
       caseArgs = [preparedCasePath]
@@ -262,21 +300,35 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
     // Node does not expose that define in process.config; the case itself
     // detects it by the exact fallback reason. EagerDeopt is deliberately
     // suppressed from the log, so detect its initiating eager deopt instead.
-    const expectedFallbackId = {
-      NotANumberOrUndefined: 'NotANumber',
-      EagerDeopt: 'NotASmi'
+    const expectedFallback = {
+      NotANumberOrUndefined: {
+        id: 'NotANumber',
+        severity: 3,
+        detail: 'detected this Node build lacks the undefined-in-double compiler path'
+      },
+      EagerDeopt: {
+        id: 'NotASmi',
+        severity: 3,
+        detail: 'detected V8 logged the initiating eager deopt and suppressed EagerDeopt'
+      },
+      ...(v8Major === 12
+        ? {
+            WrongValue: {
+              id: 'ConstTrackingLet',
+              severity: 3,
+              detail: 'detected V8 12 uses the eager ConstTrackingLet reason for this top-level let invalidation'
+            }
+          }
+        : {})
     }[reason.name]
-    const fallback = expectedFallbackId && updatesWithIds.filter(update =>
-      update.deoptReasonIds.includes(expectedFallbackId)
+    const fallback = expectedFallback && updatesWithIds.filter(update =>
+      update.deoptReasonIds.includes(expectedFallback.id)
     )
     if (matching.length === 0 && fallback && fallback.length > 0) {
-      const detail = reason.name === 'NotANumberOrUndefined'
-        ? 'detected this Node build lacks the undefined-in-double compiler path'
-        : 'detected V8 logged the initiating eager deopt and suppressed EagerDeopt'
-      t.pass(`${reason.name}: ${detail}`)
+      t.pass(`${reason.name}: ${expectedFallback.detail}`)
       t.ok(
-        fallback.every(update => update.severity === 3),
-        `${reason.name}: detected fallback has eager severity 3`
+        fallback.every(update => update.severity === expectedFallback.severity),
+        `${reason.name}: detected fallback has severity ${expectedFallback.severity}`
       )
       continue
     }

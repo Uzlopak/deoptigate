@@ -27,6 +27,9 @@ function markMigrationTarget (object) {
 %PrepareFunctionForOptimization(markMigrationTarget)
 for (let i = 0; i < 5; i++) markMigrationTarget(normal)
 peer.x = 0.1
+// Some older V8 versions don't migrate through the optimized setup call's
+// wrong-map deopt. Exercise the ordinary store IC as a migration fallback.
+normal.x = normal.x
 ; %OptimizeFunctionOnNextCall(markMigrationTarget)
 markMigrationTarget(normal)
 

@@ -18,6 +18,7 @@ for (let major = 8; major <= 15; major++) {
   }
 }
 observedAliasesByMajor[11]['weak objects'] = 'WeakObjects'
+observedAliasesByMajor[12]['const tracking let constness invalidated'] = 'ConstTrackingLet'
 
 function createReasonLookup(reasons, v8Major) {
   const aliases = Object.create(null)
