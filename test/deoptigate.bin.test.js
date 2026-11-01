@@ -125,7 +125,7 @@ test('CLI sets a nonzero exit status when a command fails', async (t) => {
   Module._load = function (request, parent, isMain) {
     if (parent && parent.filename === binPath) {
       if (request === './deoptigate.generate-report') return async () => {}
-      if (request === './deoptigate.find-log') return async () => 'unused.log'
+      if (request === './deoptigate.select-log') return async () => 'unused.log'
       if (request === './deoptigate.create-log') return async () => { throw new Error('synthetic CLI failure') }
     }
     return originalLoad.call(this, request, parent, isMain)

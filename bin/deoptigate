@@ -6,13 +6,13 @@ const happyHead = blue('deoptigate 💪')
 const errorHead = red('deoptigate 🚫')
 
 const generateReport = require('./deoptigate.generate-report')
-const findLog = require('./deoptigate.find-log')
+const selectLog = require('./deoptigate.select-log')
 const createLog = require('./deoptigate.create-log')
 
 ;(async () => {
   try {
     const log = (process.argv.length <= 2
-      ? await findLog(happyHead)
+      ? await selectLog(happyHead)
       : await createLog(process.argv.slice(2), happyHead, simpleHead)
     )
     await generateReport(log, happyHead)

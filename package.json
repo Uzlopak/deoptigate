@@ -24,9 +24,6 @@
     "url": "git://github.com/thlorenz/deoptigate.git"
   },
   "homepage": "https://github.com/thlorenz/deoptigate",
-  "dependencies": {
-    "files-provider": "~0.2.0"
-  },
   "keywords": [],
   "author": {
     "name": "Thorsten Lorenz",
