@@ -8,5 +8,8 @@ function setLimit (value) {
   return limit
 }
 
-for (let i = 0; i < 50_000; i++) setLimit(1)
+; %PrepareFunctionForOptimization(setLimit)
+for (let i = 0; i < 20; i++) setLimit(1)
+; %OptimizeFunctionOnNextCall(setLimit)
+setLimit(1)
 setLimit(2)

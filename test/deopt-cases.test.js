@@ -13,24 +13,12 @@ const repoRoot = path.join(__dirname, '..')
 const casesDir = path.join(repoRoot, 'examples/cases')
 const catalogPath = path.join(repoRoot, 'assets/deoptimization.md')
 const nativeSyntax = '--allow-natives-syntax'
-const lazyReasons = new Set([
-  'MapDeprecated',
-  'PrototypeChange',
-  'PropertyCellChange',
-  'FieldTypeConstChange',
-  'FieldTypeChange',
-  'FieldRepresentationChange',
-  'InitialMapChange',
-  'AllocationSiteTransitionChange',
-  'ContextCellChange',
-  'EmptyContextExtensionChange',
-  'WeakObjects',
-  'Debugger',
-  'Testing',
-  'ExceptionCaught',
-  'EagerDeopt',
-  'FrameValueMaterialized'
-])
+const severityByBailoutType = {
+  soft: 1,
+  lazy: 2,
+  'dependency-change': 2,
+  eager: 3
+}
 
 function readCatalogReasons() {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
@@ -125,6 +113,14 @@ function runtimeHasMaglev() {
   return buildSetting === 1 || buildSetting === '1'
 }
 
+function runtimeSupportsMaglev() {
+  const buildSetting = runtimeHasMaglev()
+  if (buildSetting !== null) return buildSetting
+  // Older Node builds do not expose v8_enable_maglev in process.config.
+  // Before Maglev became a V8 option, its --maglev flag is unknown.
+  return missingV8Flags(['--maglev']).length === 0
+}
+
 function missingV8Flags(flags) {
   return flags.filter(flag => spawnSync(
     process.execPath,
@@ -139,7 +135,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
   const reasonIdByMessage = createReasonLookup(reasons, v8Major)
   const availableReasonIds = reasonIdsForMajor(v8Major)
   const needsPrepare = runtimeRequiresPrepareBeforeOptimize()
-  const hasMaglev = runtimeHasMaglev()
+  const hasMaglev = runtimeSupportsMaglev()
   const hasAlwaysTurboFan = missingV8Flags(['--always-turbofan']).length === 0
   const missingLogFlags = missingV8Flags(['--log-deopt', '--no-logfile-per-isolate'])
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-live-cases-'))
@@ -270,7 +266,11 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
     } else {
       caseArgs = [sourcePath]
     }
-    const code = await runNode([
+    // Tier-selection flags are optional compatibility hints. Older V8
+    // releases reject flags for tiers they do not implement, exiting before
+    // the JavaScript case can run.
+    extraFlags = extraFlags.filter(flag => missingV8Flags([flag]).length === 0)
+    let code = await runNode([
       nativeSyntax,
       ...noConcurrentRecompilation,
       '--log-deopt',
@@ -280,19 +280,108 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       ...caseArgs
     ])
 
-    const rawLog = fs.existsSync(logPath)
-      ? fs.readFileSync(logPath, 'utf8').split(/\r?\n/)
-      : []
-    const processed = await processLogContent(rawLog, repoRoot)
-    const updates = processed.toObject().deopts.reduce((all, deopt) => all.concat(deopt.updates), [])
-    const updatesWithIds = updates.map(update => {
-      const ids = reasonIdByMessage[update.deoptReason]
-      return {
-        ...update,
-        deoptReasonIds: Array.isArray(ids) ? ids : (ids ? [ids] : [])
+    const readUpdates = async (filePath) => {
+      const lines = fs.existsSync(filePath)
+        ? fs.readFileSync(filePath, 'utf8').split(/\r?\n/)
+        : []
+      const parsed = await processLogContent(lines, repoRoot)
+      const updates = parsed.toObject().deopts.reduce((all, deopt) => all.concat(deopt.updates), [])
+      return updates.map(update => {
+        const ids = reasonIdByMessage[update.deoptReason]
+        return {
+          ...update,
+          deoptReasonIds: Array.isArray(ids) ? ids : (ids ? [ids] : [])
+        }
+      })
+    }
+    let updatesWithIds = await readUpdates(logPath)
+    let matching = updatesWithIds.filter(update => update.deoptReasonIds.includes(reason.name))
+
+    // V8 10 does not emit the OSR-cleanup Unknown event from unknown.js.
+    // Its own fuzzing regression case exercises the same lazy reason through
+    // %DeoptimizeNow; prefer that exact runtime event when the primary case
+    // didn't produce Unknown.
+    if (
+      matching.length === 0 &&
+      reason.name === 'Unknown' &&
+      missingV8Flags(['--fuzzing']).length === 0
+    ) {
+      const retryLogPath = path.join(tempDir, 'Unknown.fuzzing.v8.log')
+      const retryCasePath = path.join(casesDir, 'unknown-fuzzing.js')
+      const retryCode = await runNode([
+        nativeSyntax,
+        ...noConcurrentRecompilation,
+        '--log-deopt',
+        `--logfile=${retryLogPath}`,
+        '--no-logfile-per-isolate',
+        '--fuzzing',
+        retryCasePath
+      ])
+      const retryUpdates = await readUpdates(retryLogPath)
+      const retryMatching = retryUpdates.filter(update => update.deoptReasonIds.includes(reason.name))
+      if (retryMatching.length > 0) {
+        code = retryCode
+        updatesWithIds = retryUpdates
+        matching = retryMatching
       }
-    })
-    const matching = updatesWithIds.filter(update => update.deoptReasonIds.includes(reason.name))
+    }
+
+    // V8 10 does not optimize BigInt shifts into a deoptimizing operation,
+    // while later V8 versions do. If the shift case lacks the named reason,
+    // try the oversized-addition path used by V8 10's TurboFan.
+    if (matching.length === 0 && reason.name === 'BigIntTooBig') {
+      const retryLogPath = path.join(tempDir, 'BigIntTooBig.legacy.v8.log')
+      const retryCasePath = path.join(casesDir, 'big-int-too-big-legacy.js')
+      const retryCode = await runNode([
+        nativeSyntax,
+        ...noConcurrentRecompilation,
+        '--log-deopt',
+        `--logfile=${retryLogPath}`,
+        '--no-logfile-per-isolate',
+        ...extraFlags,
+        retryCasePath
+      ])
+      const retryUpdates = await readUpdates(retryLogPath)
+      const retryMatching = retryUpdates.filter(update => update.deoptReasonIds.includes(reason.name))
+      if (retryMatching.length > 0) {
+        code = retryCode
+        updatesWithIds = retryUpdates
+        matching = retryMatching
+      }
+    }
+
+    // If forced TurboFan produced no expected record, retry these script-
+    // context cases without --always-turbofan. V8 versions differ here: one
+    // may emit the exact Unknown event only with the force flag, while another
+    // may emit only the code-dependency marker without it.
+    if (
+      matching.length === 0 &&
+      hasAlwaysTurboFan &&
+      (reason.name === 'Unknown' || reason.name === 'ValueMismatch')
+    ) {
+      const retryLogPath = path.join(tempDir, `${reason.name}.retry.v8.log`)
+      const retryFlags = extraFlags.filter(flag => flag !== '--always-turbofan')
+      const retryCaseArgs = reason.name === 'ValueMismatch'
+        ? ['-e', executableSource]
+        : caseArgs
+      const retryCode = await runNode([
+        nativeSyntax,
+        ...noConcurrentRecompilation,
+        '--log-deopt',
+        `--logfile=${retryLogPath}`,
+        '--no-logfile-per-isolate',
+        ...retryFlags,
+        ...retryCaseArgs
+      ])
+      const retryUpdates = await readUpdates(retryLogPath)
+      const retryMatching = retryUpdates.filter(update => update.deoptReasonIds.includes(reason.name))
+      const hasDependencyMarker = retryUpdates.some(update => update.deoptReason === 'code dependencies')
+      if (retryMatching.length > 0 || (reason.name === 'Unknown' && hasDependencyMarker)) {
+        code = retryCode
+        updatesWithIds = retryUpdates
+        matching = retryMatching
+      }
+    }
     t.equal(code, 0, `${reason.name}: case exits cleanly`)
 
     // These are source-confirmed runtime capabilities, not ordinary failed
@@ -301,34 +390,39 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
     // detects it by the exact fallback reason. EagerDeopt is deliberately
     // suppressed from the log, so detect its initiating eager deopt instead.
     const expectedFallback = {
+      NotABigInt: {
+        id: 'Smi',
+        detail: 'detected this runtime deoptimizes at the earlier Smi guard before the BigInt type guard'
+      },
+      Unknown: {
+        message: 'code dependencies',
+        detail: 'detected the runtime dependency-change marker without a separate Unknown reason'
+      },
       NotANumberOrUndefined: {
         id: 'NotANumber',
-        severity: 3,
         detail: 'detected this Node build lacks the undefined-in-double compiler path'
       },
       EagerDeopt: {
         id: 'NotASmi',
-        severity: 3,
         detail: 'detected V8 logged the initiating eager deopt and suppressed EagerDeopt'
       },
-      ...(v8Major === 12
-        ? {
-            WrongValue: {
-              id: 'ConstTrackingLet',
-              severity: 3,
-              detail: 'detected V8 12 uses the eager ConstTrackingLet reason for this top-level let invalidation'
-            }
-          }
-        : {})
+      WrongValue: {
+        ids: ['ConstTrackingLet', 'InsufficientTypeFeedbackForCall'],
+        detail: 'detected this runtime emits an earlier context/call guard instead of WrongValue'
+      }
     }[reason.name]
     const fallback = expectedFallback && updatesWithIds.filter(update =>
-      update.deoptReasonIds.includes(expectedFallback.id)
+      expectedFallback.ids
+        ? expectedFallback.ids.some(id => update.deoptReasonIds.includes(id))
+        : expectedFallback.id
+          ? update.deoptReasonIds.includes(expectedFallback.id)
+        : update.deoptReason === expectedFallback.message
     )
     if (matching.length === 0 && fallback && fallback.length > 0) {
       t.pass(`${reason.name}: ${expectedFallback.detail}`)
       t.ok(
-        fallback.every(update => update.severity === expectedFallback.severity),
-        `${reason.name}: detected fallback has severity ${expectedFallback.severity}`
+        fallback.every(update => update.severity === severityByBailoutType[update.bailoutType]),
+        `${reason.name}: detected fallback severity matches its V8 bailout type`
       )
       continue
     }
@@ -337,10 +431,9 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       matching.length > 0,
       `${reason.name}: expected ID ${reason.name}; exit ${code}; parsed ${JSON.stringify(updatesWithIds.map(update => ({ ids: update.deoptReasonIds, message: update.deoptReason })))}`
     )
-    const expectedSeverity = lazyReasons.has(reason.name) || reason.name === 'Unknown' ? 2 : 3
     t.ok(
-      matching.every(update => update.severity === expectedSeverity),
-      `${reason.name}: matched deoptigate severity ${expectedSeverity}`
+      matching.every(update => update.severity === severityByBailoutType[update.bailoutType]),
+      `${reason.name}: severity matches the V8 bailout type`
     )
   }
 

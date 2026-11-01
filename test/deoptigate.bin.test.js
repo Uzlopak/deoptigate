@@ -21,29 +21,40 @@ const supportsDeoptLog = spawnSync(
   { stdio: 'ignore' }
 ).status === 0
 
+let previousDeoptigateRun = Promise.resolve()
+
 async function runDeoptigate(srcPath) {
-  // Old V8 versions may append logs and the CLI writes a shared render-data
-  // file. Clear both so a prior invocation cannot mask this run's result.
-  for (const file of [
-    path.join(tmpdir(), 'deoptigate', 'v8.log'),
-    renderDataPath
-  ]) {
-    await unlink(file).catch((err) => {
-      if (err.code !== 'ENOENT') throw err
-    })
+  const previousRun = previousDeoptigateRun
+  let releaseRun
+  previousDeoptigateRun = new Promise(resolve => { releaseRun = resolve })
+  await previousRun
+
+  try {
+    // Old V8 versions may append logs and the CLI writes a shared render-data
+    // file. Clear both so a prior invocation cannot mask this run's result.
+    for (const file of [
+      path.join(tmpdir(), 'deoptigate', 'v8.log'),
+      renderDataPath
+    ]) {
+      await unlink(file).catch((err) => {
+        if (err.code !== 'ENOENT') throw err
+      })
+    }
+    spawnSync(process.execPath, [binPath, srcPath])
+
+    const contents = await readFile(renderDataPath, 'utf8')
+
+    const outDir = path.dirname(path.relative(repoRoot(), srcPath))
+    await mkdir(testOutPath(outDir), { recursive: true })
+
+    const newContents = `function deoptigateRender(info) { return info; }; \nmodule.exports = ${contents.trim()};`
+    const outPath = testOutPath(outDir, 'deoptigate.render-data.js')
+    await writeFile(outPath, newContents, 'utf8')
+
+    return require(outPath.replace(/.js$/, ''))
+  } finally {
+    releaseRun()
   }
-  spawnSync(process.execPath, [binPath, srcPath])
-
-  const contents = await readFile(renderDataPath, 'utf8')
-
-  const outDir = path.dirname(path.relative(repoRoot(), srcPath))
-  await mkdir(testOutPath(outDir), { recursive: true })
-
-  const newContents = `function deoptigateRender(info) { return info; }; \nmodule.exports = ${contents.trim()};`
-  const outPath = testOutPath(outDir, 'deoptigate.render-data.js')
-  await writeFile(outPath, newContents, 'utf8')
-
-  return require(outPath.replace(/.js$/, ''))
 }
 
 test('deoptigate simple/adders.js', async (t) => {
