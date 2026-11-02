@@ -2,7 +2,7 @@
 
 const path = require('path')
 
-const { processLogContent, deoptigate } = require('./')
+const { processLogContent, deoptigate } = require('./deoptigate')
 const lineReader = require('./lib/line-reader')
 const resolveFiles = require('./lib/grouping/resolve-files')
 const groupByFile = require('./lib/grouping/group-by-file')

@@ -4,7 +4,7 @@
 
 const Preact = require('preact')
 const { Component, render } = Preact
-const { deoptigate } = require('../')
+const { deoptigate } = require('../deoptigate')
 const { urlFromState, stateFromUrl } = require('./lib/query-state')
 
 const { ToolbarView } = require('./components/toolbar')

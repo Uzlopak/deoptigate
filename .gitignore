@@ -17,3 +17,5 @@ node_modules
 coverage/
 
 v8/
+
+.playwright-mcp/

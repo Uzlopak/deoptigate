@@ -1,92 +1,129 @@
-# deoptigate
+# Clinic.js Deoptigate
 
-```js
-deoptigate app.js
-```
+[![npm version][npm-version]][npm-url] [![Stability Stable][stability-stable]][stability-docs]
 
-[![xml2js](assets/xml2js.png)](https://nodesource.github.io/deoptigate-examples/xml2js/01_start/?selectedFileIdx=31&selectedLocation=157&includeAllSeverities=false&selectedTabIdx=1&selectedSummaryTabIdx=1)
+Programmable interface to [Clinic.js][clinic-url] Deoptigate. It records V8
+deoptimizations and inline cache changes, then generates an interactive HTML
+report using a Clinic.js visualizer. The report can be filtered by low, medium,
+or high severity and source path. The original Deoptigate app remains in the
+repository under `./app`.
 
-## What Performance Experts Say About Deoptigate
+## Issues
 
-<table>
-  <thead>
-  <tr>
-    <td>
-      Jason Miller aka
-      <a href="https://twitter.com/_developit">@_developit</a>, creator of
-      <a href="https://preactjs.com/">preact</a>.
-    </td>
-    <td>
-    John-David Dalton aka
-      <a href="https://twitter.com/jdalton">@jdalton</a>, creator of
-      <a href="https://lodash.com/">lodash</a>.
-    </td>
-  </tr>
-  </thead>
-  <tbody>
-  <tr>
-    <td>
-      <img alt="developit" src="assets/developit.png">
-    </td>
-    <td>
-      <img alt="jdalton" src="assets/jdalton.png">
-    </td>
-  </tr>
-  </tbody>
-</table>
-
-## Blogposts about Deoptigate
-
-<table>
-  <body>
-  <tr>
-    <td>
-      <a href="https://nodesource.com/blog/why-the-new-v8-is-so-damn-fast">
-        <span>Why the New V8 is so Damn Fast</span>
-        <img alt="damn-fast" src="assets/damn-fast.png">
-      </a>
-    </td>
-    <td>
-      <a href="https://nodesource.com/blog/tracking-down-performance-bottlenecks-nsolid-deoptigate">
-        <span>Tracking Down and Fixing Performance Bottlenecks with N|Solid and Deoptigate</span>
-        <img alt="damn-fast" src="assets/tracking-down.png">
-      </a>
-    </td>
-  </tr>
-  </tbody>
-</table>
+To open an issue, use the [main Clinic.js repository][issues-url] with the
+`deoptigate` label.
 
 ## Installation
 
-    npm install -g deoptigate
-
-The command-line tool requires Node.js 12 or newer. Building the browser app
-from source requires Node.js 18 or newer.
-
-## Usage
-
-### Deoptigate your App in one Step
-
+```console
+npm install --save @clinic/deoptigate
 ```
+
+## Supported Node.js versions
+
+- Node.js 12.13.0 and above
+
+## Run with the Clinic CLI
+
+Install Clinic and this profiler in your project, then start the application
+through Clinic:
+
+```sh
+npm install --save-dev clinic @clinic/deoptigate
+npx clinic deoptigate -- node server.js
+```
+
+Clinic opens the report after the profiled process exits. Pass `--no-open` to
+generate the report without launching a browser. To collect data on a server
+and build the report later:
+
+```sh
+npx clinic deoptigate --collect-only -- node server.js
+npx clinic deoptigate --visualize-only .clinic/123.clinic-deoptigate
+```
+
+Replace `123` with the identifier in the path printed by the first command.
+
+To run a workload when the application starts listening, use `--autocannon`:
+
+```sh
+npx clinic deoptigate --autocannon [ -c 10 -d 10 ] -- node server.js
+```
+
+## Standalone Deoptigate CLI
+
+The package also keeps the original `deoptigate` executable and its report UI.
+Use it to profile an application directly:
+
+```sh
 deoptigate app.js
 ```
 
-Override Node.js executable and/or pass it custom arguments
+Or run `deoptigate` in a directory containing V8 log files to open an existing
+log. If several logs match, it prompts you to select one.
 
-```
-deoptigate -- /bin/mynode app.js
+## Programmatic API
+
+```js
+const ClinicDeoptigate = require('@clinic/deoptigate')
+const deoptigate = new ClinicDeoptigate()
+
+deoptigate.collect(['node', './server.js'], function (err, dataPath) {
+  if (err) throw err
+
+  deoptigate.visualize(dataPath, `${dataPath}.html`, function (err) {
+    if (err) throw err
+  })
+})
 ```
 
-```
-deoptigate -- node --allow-natives-syntax app.js
-```
+### `new ClinicDeoptigate([settings])`
 
-### Deoptigate existing V8 logs
+- `dest` — destination for collected data. Defaults to `.clinic`.
+- `name` — name for the data directory. Defaults to the process ID.
+- `root` — root used to resolve source files. Defaults to the current directory.
+- `collectOnFailure` — return collected data when the profiled process exits unsuccessfully. Defaults to `false`.
+- `detectPort` — detect the first TCP listening port and emit a `port` event. Defaults to `false`.
 
-Run `deoptigate` from the directory containing `v8.log` or
-`isolate-*-v8.log`. A single matching log is opened automatically; if there
-are multiple matching logs, Deoptigate prompts you to choose one.
+### `deoptigate.collect(args, callback)`
+
+Runs the supplied Node.js command with V8 deoptimization and inline cache
+logging enabled. The callback receives the path to the collected data
+directory. The application’s stdout and stderr are relayed to the current
+process.
+
+### `deoptigate.visualize(dataPath, outputFilename, callback)`
+
+Reads collected data and writes a standalone HTML report to `outputFilename`.
+
+### `deoptigate.stopViaIPC()`
+
+When constructed with `detectPort: true`, this stops the profiled process. It
+is called by Clinic after an `--on-port` command or `--autocannon` workload
+finishes.
+
+### `ClinicDeoptigate.lookupDeoptimizationReason(reasonCode)`
+
+Looks up an exact V8 reason code such as `Hole` in the bundled reason catalog.
+It returns the reason code, category, log message, explanation, and examples, or
+`null` if the code is unknown. The Clinic MCP server exposes the same lookup as
+`lookup_deoptimization_reason`.
+
+## Examples
+
+Run examples from the repository root with Node.js:
+
+```sh
+node examples/two-modules/adders.js
+```
 
 ## License
 
-MIT
+[MIT](LICENSE)
+
+[npm-version]: https://img.shields.io/npm/v/@clinic/deoptigate.svg?style=flat-square
+[npm-url]: https://www.npmjs.org/@clinic/deoptigate
+[stability-stable]: https://img.shields.io/badge/stability-stable-green.svg?style=flat-square
+[stability-docs]: https://nodejs.org/api/documentation.html#documentation_stability_index
+[clinic-url]: https://github.com/clinicjs/node-clinic
+[issues-url]: https://github.com/clinicjs/node-clinic/issues

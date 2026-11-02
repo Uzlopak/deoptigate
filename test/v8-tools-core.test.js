@@ -28,9 +28,16 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
   }
 
   const reader = new Reader()
+  let parsedRows = 0
+  const parseLine = reader.csvParser_.parseLine
+  reader.csvParser_.parseLine = function (line) {
+    parsedRows++
+    return parseLine.call(this, line)
+  }
   reader.processLogChunk('record,12,hello\\nworld\nunknown,ignored\nrecord,13,throws\nrecord,14,still-runs')
   t.deepEqual(calls, [ [ 12, 'hello\nworld' ], [ 14, 'still-runs' ] ], 'known records are parsed and processing continues after an error')
   t.deepEqual(errors, [ 'line 3: synthetic dispatch error' ], 'reports errors with the source line number')
+  t.equal(parsedRows, 3, 'skips CSV parsing for unsupported record types')
   t.end()
 })
 
