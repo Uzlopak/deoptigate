@@ -49,7 +49,7 @@
     "node": ">=22.8.0"
   },
   "dependencies": {
-    "@clinic/clinic-common": "^7.1.0"
+    "@clinic/clinic-common": "^8.0.0"
   },
   "devDependencies": {
     "escape-string-regexp": "^4.0.0",

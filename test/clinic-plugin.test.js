@@ -101,10 +101,10 @@ test('ClinicDeoptigate reports spawn and visualize errors', async (t) => {
 
   const badMetadataDir = path.join(tempDir, 'bad-metadata')
   await fs.promises.mkdir(badMetadataDir)
-  await fs.promises.copyFile(path.join(__dirname, 'logs', 'adders.prepared.v8.log'), path.join(badMetadataDir, 'v8.log'))
+  await fs.promises.copyFile(path.join(__dirname, 'logs', 'adders.v8.log'), path.join(badMetadataDir, 'v8.log'))
   await fs.promises.writeFile(path.join(badMetadataDir, 'deoptigate.json'), '{invalid json')
   await rejects(t, visualize(profiler, badMetadataDir, path.join(tempDir, 'invalid.html')), /JSON/, 'reports invalid metadata')
-  await rejects(t, visualize(profiler, path.join(__dirname, 'logs', 'adders.prepared.v8.log'), path.join(tempDir, 'missing-output', 'report.html')), /ENOENT/, 'reports output write errors')
+  await rejects(t, visualize(profiler, path.join(__dirname, 'logs', 'adders.v8.log'), path.join(tempDir, 'missing-output', 'report.html')), /ENOENT/, 'reports output write errors')
 })
 
 test('ClinicDeoptigate reports log cleanup errors before spawning', async (t) => {
@@ -194,8 +194,14 @@ test('ClinicDeoptigate visualizes a V8 log directly when metadata is absent', as
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-log-'))
   t.after(() => removeDirectory(tempDir))
 
-  const profiler = new ClinicDeoptigate({ root: path.resolve(__dirname, '..') })
-  const logFile = path.join(__dirname, 'logs', 'adders.prepared.v8.log')
+  const root = path.join(tempDir, 'root')
+  const source = path.join(root, 'examples/simple/adders.js')
+  await fs.promises.mkdir(path.dirname(source), { recursive: true })
+  await fs.promises.writeFile(source, 'function add (a, b) { return a + b }; for (let i = 0; i < 10000; i++) add(i, i)\n')
+  const profiler = new ClinicDeoptigate({ dest: tempDir, name: 'direct-log', root })
+  const dataPath = await collect(profiler, [process.execPath, source])
+  const logFile = path.join(dataPath, 'v8.log')
+  await fs.promises.unlink(path.join(dataPath, 'deoptigate.json'))
   const output = path.join(tempDir, 'report.html')
   await visualize(profiler, logFile, output)
   const html = await fs.promises.readFile(output, 'utf8')
