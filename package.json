@@ -25,8 +25,8 @@
     "bench:csvparser": "npm run bench:csv-escape-field && npm run bench:csv-parse-line",
     "test:coverage": "node --experimental-test-coverage --test-coverage-include=deoptigate.js --test-coverage-include=deoptigate.log.js --test-coverage-include='app/lib/**/*.js' --test-coverage-include='bin/**/*.js' --test-coverage-include='lib/**/*.js' --test-coverage-include='src/**/*.js' --test-coverage-exclude='lib/v8-tools-core/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 --test test/*.test.js"
   },
-  "repository": "https://github.com/clinicjs/node-clinic-deoptigate-profiler",
-  "homepage": "https://github.com/clinicjs/node-clinic-deoptigate-profiler",
+  "repository": "https://github.com/clinicjs/node-clinic-deoptigate",
+  "homepage": "https://github.com/clinicjs/node-clinic-deoptigate",
   "keywords": [
     "clinicjs",
     "v8",
