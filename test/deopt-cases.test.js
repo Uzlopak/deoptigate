@@ -4,7 +4,7 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 const { spawn, spawnSync } = require('child_process')
-const test = require('tape')
+const test = require('node:test')
 
 const { processLogContent } = require('../deoptigate')
 const { createReasonLookup, reasonIdsForMajor } = require('./deopt-reason-lookup')
@@ -144,30 +144,31 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
   const hasAlwaysTurboFan = missingV8Flags(['--always-turbofan']).length === 0
   const missingLogFlags = missingV8Flags(['--log-deopt', '--no-logfile-per-isolate'])
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-live-cases-'))
+  t.after(() => fs.rmSync(tempDir, { recursive: true, force: true }))
 
-  t.equal(reasons.length, 84, 'test catalog matches V8 73f16b50 (68 regular, 16 lazy)')
+  t.assert.equal(reasons.length, 84, 'test catalog matches V8 73f16b50 (68 regular, 16 lazy)')
 
   const testableReasons = availableReasonIds
     ? reasons.filter(reason => availableReasonIds.has(reason.name))
     : reasons
   if (availableReasonIds) {
-    t.comment(`V8 ${v8Major}: prefiltered ${reasons.length - testableReasons.length} catalog reasons absent from the ${v8Major}.0.1 header`)
+    t.diagnostic(`V8 ${v8Major}: prefiltered ${reasons.length - testableReasons.length} catalog reasons absent from the ${v8Major}.0.1 header`)
   }
 
   for (const reason of testableReasons) {
     if (missingLogFlags.length > 0) {
-      t.skip(`${reason.name}: current Node/V8 cannot produce the required log (${missingLogFlags.join(', ')})`)
+      t.diagnostic(`Skipping ${reason.name}: current Node/V8 cannot produce the required log (${missingLogFlags.join(', ')})`)
       continue
     }
 
     const sourcePath = casePathFor(reason.name)
     if (!fs.existsSync(sourcePath)) {
-      t.skip(`${reason.name}: no verified live JavaScript case yet`)
+      t.diagnostic(`Skipping ${reason.name}: no verified live JavaScript case yet`)
       continue
     }
 
     if (hasMaglev === false && maglevOnlyReasons.has(reason.name)) {
-      t.pass(`${reason.name}: detected this Node binary was built without Maglev; its Maglev-only path is unavailable`)
+      t.assert.ok(true, `${reason.name}: detected this Node binary was built without Maglev; its Maglev-only path is unavailable`)
       continue
     }
 
@@ -177,7 +178,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
     ]
     const missingFlags = missingV8Flags(requiredFlags)
     if (missingFlags.length > 0) {
-      t.skip(`${reason.name}: current Node/V8 does not recognize ${missingFlags.join(', ')}`)
+      t.diagnostic(`Skipping ${reason.name}: current Node/V8 does not recognize ${missingFlags.join(', ')}`)
       continue
     }
     const logPath = path.join(tempDir, `${reason.name}.v8.log`)
@@ -387,7 +388,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
         matching = retryMatching
       }
     }
-    t.equal(code, 0, `${reason.name}: case exits cleanly`)
+    t.assert.equal(code, 0, `${reason.name}: case exits cleanly`)
 
     // These are source-confirmed runtime capabilities, not ordinary failed
     // reproductions. Undefined-in-double support is a V8 build define and
@@ -424,25 +425,22 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
         : update.deoptReason === expectedFallback.message
     )
     if (matching.length === 0 && fallback && fallback.length > 0) {
-      t.pass(`${reason.name}: ${expectedFallback.detail}`)
-      t.ok(
+      t.assert.ok(true, `${reason.name}: ${expectedFallback.detail}`)
+      t.assert.ok(
         fallback.every(update => update.severity === severityByBailoutType[update.bailoutType]),
         `${reason.name}: detected fallback severity matches its V8 bailout type`
       )
       continue
     }
 
-    t.ok(
+    t.assert.ok(
       matching.length > 0,
       `${reason.name}: expected ID ${reason.name}; exit ${code}; parsed ${JSON.stringify(updatesWithIds.map(update => ({ ids: update.deoptReasonIds, message: update.deoptReason })))}`
     )
-    t.ok(
+    t.assert.ok(
       matching.every(update => update.severity === severityByBailoutType[update.bailoutType]),
       `${reason.name}: severity matches the V8 bailout type`
     )
   }
 
-  for (const filename of fs.readdirSync(tempDir)) fs.unlinkSync(path.join(tempDir, filename))
-  fs.rmdirSync(tempDir)
-  t.end()
 })

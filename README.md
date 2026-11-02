@@ -21,7 +21,9 @@ npm install --save @clinic/deoptigate
 
 ## Supported Node.js versions
 
-- Node.js 12.13.0 and above
+- Node.js 22.8.0 and above
+
+The native test suite uses Node's built-in test runner and coverage thresholds.
 
 ## Run with the Clinic CLI
 

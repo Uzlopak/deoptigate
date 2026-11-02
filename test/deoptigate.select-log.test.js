@@ -2,7 +2,7 @@
 
 const Module = require('module')
 const path = require('path')
-const test = require('tape')
+const { test } = require('node:test')
 
 const selectLogPath = path.join(__dirname, '../bin/deoptigate.select-log.js')
 const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-report.js')
@@ -115,43 +115,44 @@ function loadGenerateReport() {
 }
 
 test('select-log reports when no V8 logs are present', async (t) => {
+  t.plan(4)
   const state = loadSelectLog([])
   try {
     const result = await state.selectLog('deoptigate')
-    t.equal(result, undefined, 'returns no path when the provider finds no files')
-    t.equal(state.errors.length, 3, 'prints all three recovery messages')
-    t.ok(state.errors[1].includes('Unable to find a v8.log'), 'explains which log file names are accepted')
-    t.equal(state.root, process.cwd(), 'searches the current directory')
+    t.assert.equal(result, undefined, 'returns no path when the provider finds no files')
+    t.assert.equal(state.errors.length, 3, 'prints all three recovery messages')
+    t.assert.ok(state.errors[1].includes('Unable to find a v8.log'), 'explains which log file names are accepted')
+    t.assert.equal(state.root, process.cwd(), 'searches the current directory')
   } finally {
     state.restoreConsole()
   }
-  t.end()
 })
 
 test('select-log prompts when multiple logs are present', async (t) => {
+  t.plan(7)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
   ], [ '2' ])
   try {
     const result = await state.selectLog('deoptigate')
-    t.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected path')
-    t.equal(state.errors.length, 0, 'does not report an error when logs exist')
-    t.ok(state.logs.some(log => log.includes(path.join(process.cwd(), 'isolate-other-v8.log'))), 'reports the selected log path')
-    t.ok(state.logs.some(log => log.includes('1:  v8.log')), 'lists the first matching log')
-    t.ok(state.logs.some(log => log.includes('2:  isolate-other-v8.log')), 'lists the second matching log')
-    t.deepEqual(state.questions, [ '\n\nYour choice: ' ], 'prompts for a selection')
-    t.equal(state.closeCount, 1, 'closes the prompt after selection')
-    t.comment('Simulated input: 2')
-    state.logs.forEach(line => t.comment(line))
-    t.comment(state.questions.join(''))
-    t.end()
+    t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected path')
+    t.assert.equal(state.errors.length, 0, 'does not report an error when logs exist')
+    t.assert.ok(state.logs.some(log => log.includes(path.join(process.cwd(), 'isolate-other-v8.log'))), 'reports the selected log path')
+    t.assert.ok(state.logs.some(log => log.includes('1:  v8.log')), 'lists the first matching log')
+    t.assert.ok(state.logs.some(log => log.includes('2:  isolate-other-v8.log')), 'lists the second matching log')
+    t.assert.deepEqual(state.questions, [ '\n\nYour choice: ' ], 'prompts for a selection')
+    t.assert.equal(state.closeCount, 1, 'closes the prompt after selection')
+    t.diagnostic('Simulated input: 2')
+    state.logs.forEach(line => t.diagnostic(line))
+    t.diagnostic(state.questions.join(''))
   } finally {
     state.restoreConsole()
   }
 })
 
 test('select-log skips unreadable files, directories, and unrelated names', async (t) => {
+  t.plan(2)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log'), readable: false },
     { fullPath: path.join(process.cwd(), 'isolate-dir-v8.log'), isFile: false },
@@ -160,43 +161,42 @@ test('select-log skips unreadable files, directories, and unrelated names', asyn
   ])
   try {
     const result = await state.selectLog('deoptigate')
-    t.equal(result, path.join(process.cwd(), 'isolate-123-v8.log'), 'returns the only readable matching file')
-    t.equal(state.questions.length, 0, 'does not prompt for one matching file')
+    t.assert.equal(result, path.join(process.cwd(), 'isolate-123-v8.log'), 'returns the only readable matching file')
+    t.assert.equal(state.questions.length, 0, 'does not prompt for one matching file')
   } finally {
     state.restoreConsole()
   }
-  t.end()
 })
 
 test('select-log reports invalid choices and accepts a later valid choice', async (t) => {
+  t.plan(4)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
   ], [ 'not a number', '3', '2' ])
   try {
     const result = await state.selectLog('deoptigate')
-    t.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected second path')
-    t.equal(state.questions.length, 3, 'repeats the prompt until a valid selection is entered')
-    t.equal(state.errors.length, 2, 'reports each invalid choice')
-    t.equal(state.closeCount, 3, 'closes each prompt after receiving an answer')
+    t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected second path')
+    t.assert.equal(state.questions.length, 3, 'repeats the prompt until a valid selection is entered')
+    t.assert.equal(state.errors.length, 2, 'reports each invalid choice')
+    t.assert.equal(state.closeCount, 3, 'closes each prompt after receiving an answer')
   } finally {
     state.restoreConsole()
   }
-  t.end()
 })
 
 test('generate-report saves output and reports the generated page path', async (t) => {
+  t.plan(6)
   const state = loadGenerateReport()
   try {
     await state.generateReport('/logs/v8.log', 'deoptigate')
-    t.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log in the current root')
-    t.deepEqual(state.pages, [ '<html>fake page</html>' ], 'saves the generated HTML page')
-    t.deepEqual(state.entries, [ '{"files":[]}' ], 'saves parsed render data')
-    t.ok(state.errors[0].includes('Successfully generated deoptimization visualization'), 'reports successful generation')
-    t.ok(state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'prints the generated page path')
-    t.notOk(state.errors[0].includes('Opening now in your default browser'), 'does not claim to open a browser')
+    t.assert.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log in the current root')
+    t.assert.deepEqual(state.pages, [ '<html>fake page</html>' ], 'saves the generated HTML page')
+    t.assert.deepEqual(state.entries, [ '{"files":[]}' ], 'saves parsed render data')
+    t.assert.ok(state.errors[0].includes('Successfully generated deoptimization visualization'), 'reports successful generation')
+    t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'prints the generated page path')
+    t.assert.ok(!state.errors[0].includes('Opening now in your default browser'), 'does not claim to open a browser')
   } finally {
     state.restore()
   }
-  t.end()
 })

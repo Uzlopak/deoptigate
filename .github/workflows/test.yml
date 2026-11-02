@@ -11,15 +11,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [12, 16, 18, 20]
+        node-version: [22, 24, 26, latest]
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
-      - name: Use Node.js 20 to install dependencies
+      - name: Use Node.js 22.8 to install dependencies
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 22.8.0
       - name: Install dependencies
         run: npm ci
       - name: Use Node.js ${{ matrix.node-version }} to run tests

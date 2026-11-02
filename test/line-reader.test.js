@@ -3,7 +3,7 @@
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const test = require('tape')
+const { test } = require('node:test')
 
 const lineReader = require('../lib/line-reader')
 
@@ -12,6 +12,7 @@ test('lineReader yields complete and final UTF-8 lines and handles empty files',
   const populatedPath = path.join(dir, 'populated.log')
   const emptyPath = path.join(dir, 'empty.log')
   const boundaryPath = path.join(dir, 'boundary.log')
+  t.plan(5)
 
   try {
     fs.writeFileSync(populatedPath, 'first line\nzweite Zeile ä\nlast line')
@@ -21,15 +22,15 @@ test('lineReader yields complete and final UTF-8 lines and handles empty files',
 
     const lines = []
     for await (const line of lineReader(populatedPath, 'utf8')) lines.push(line)
-    t.deepEqual(lines, [ 'first line', 'zweite Zeile ä', 'last line' ], 'final unterminated line is yielded')
+    t.assert.deepEqual(lines, [ 'first line', 'zweite Zeile ä', 'last line' ], 'final unterminated line is yielded')
 
     const emptyLines = []
     for await (const line of lineReader(emptyPath, 'utf8')) emptyLines.push(line)
-    t.deepEqual(emptyLines, [], 'empty files yield no lines')
+    t.assert.deepEqual(emptyLines, [], 'empty files yield no lines')
 
     const boundaryLines = []
     for await (const line of lineReader(boundaryPath, 'utf8', { maxBufferSize: 5 })) boundaryLines.push(line)
-    t.deepEqual(boundaryLines, [ 'abcdé', 'last' ], 'decodes a multibyte character split across chunks')
+    t.assert.deepEqual(boundaryLines, [ 'abcdé', 'last' ], 'decodes a multibyte character split across chunks')
 
     let readCalls = 0
     const noReadLines = []
@@ -40,29 +41,27 @@ test('lineReader yields complete and final UTF-8 lines and handles empty files',
         return { bytesRead: 0, buffer }
       }
     })) noReadLines.push(line)
-    t.equal(readCalls, 1, 'stops after a defensive zero-byte read')
-    t.deepEqual(noReadLines, [], 'a zero-byte read yields no lines')
+    t.assert.equal(readCalls, 1, 'stops after a defensive zero-byte read')
+    t.assert.deepEqual(noReadLines, [], 'a zero-byte read yields no lines')
   } finally {
     fs.unlinkSync(populatedPath)
     fs.unlinkSync(emptyPath)
     fs.unlinkSync(boundaryPath)
     fs.rmdirSync(dir)
   }
-
-  t.end()
 })
 
 test('lineReader rejects invalid chunk sizes before opening the file', async (t) => {
+  t.plan(4)
   for (const maxBufferSize of [ 0, -1, 1.5, NaN ]) {
     let error
     try {
       for await (const line of lineReader('/missing/path', 'utf8', { maxBufferSize })) {
-        t.fail(`unexpected line: ${line}`)
+        t.assert.fail(`unexpected line: ${line}`)
       }
     } catch (err) {
       error = err
     }
-    t.ok(error instanceof RangeError, `rejects chunk size ${maxBufferSize}`)
+    t.assert.ok(error instanceof RangeError, `rejects chunk size ${maxBufferSize}`)
   }
-  t.end()
 })

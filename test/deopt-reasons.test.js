@@ -2,7 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
-const test = require('tape')
+const { test } = require('node:test')
 
 const { processLogContent } = require('../deoptigate')
 const DeoptEntry = require('../lib/log-processing/deopt-entry')
@@ -29,6 +29,7 @@ function v8CsvField(value) {
 }
 
 test('deoptigate retains every supplied catalog deoptimization message', async (t) => {
+  t.plan(7)
   const reasons = readCatalogReasons()
   const start = '0x1000'
   const func = '0x2000'
@@ -48,23 +49,23 @@ test('deoptigate retains every supplied catalog deoptimization message', async (
   const processed = await processLogContent(lines, repoRoot)
   const deopts = processed.toObject().deopts
 
-  t.equal(reasons.length, 84, 'catalog contains 68 regular and 16 lazy reasons')
-  t.equal(deopts.length, 1, 'all synthetic records map to the source location')
-  t.equal(deopts[0].updates.length, reasons.length, 'all reason records were retained')
+  t.assert.equal(reasons.length, 84, 'catalog contains 68 regular and 16 lazy reasons')
+  t.assert.equal(deopts.length, 1, 'all synthetic records map to the source location')
+  t.assert.equal(deopts[0].updates.length, reasons.length, 'all reason records were retained')
 
   const actualReasons = deopts[0].updates.map(update => update.deoptReason)
-  t.deepEqual(actualReasons, reasons.map(reason => reason.message), 'supplied messages are preserved in order')
-  t.ok(deopts[0].updates.slice(0, 68).every(update => update.severity === 3), 'modern eager events get a visible severity')
-  t.ok(deopts[0].updates.slice(68).every(update => update.severity === 2), 'dependency-change events get lazy severity')
-  t.deepEqual(
+  t.assert.deepEqual(actualReasons, reasons.map(reason => reason.message), 'supplied messages are preserved in order')
+  t.assert.ok(deopts[0].updates.slice(0, 68).every(update => update.severity === 3), 'modern eager events get a visible severity')
+  t.assert.ok(deopts[0].updates.slice(68).every(update => update.severity === 2), 'dependency-change events get lazy severity')
+  t.assert.deepEqual(
     DeoptEntry.disassembleSourcePosition('<C:\\work\\app.js:12:8>'),
     { file: 'C:\\work\\app.js', line: 12, column: 8 },
     'Windows source paths with drive colons are parsed'
   )
-  t.end()
 })
 
 test('processor parses complete strings and serializes its output as JSON', async (t) => {
+  t.plan(3)
   const processor = await processLogContent([], repoRoot)
   const lines = [
     `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
@@ -76,13 +77,13 @@ test('processor parses complete strings and serializes its output as JSON', asyn
   processor.processString(lines.join('\n') + '\nignored trailing fragment')
 
   const output = JSON.parse(processor.toJSON())
-  t.equal(output.root, repoRoot, 'JSON output includes the configured root')
-  t.equal(output.codes.length, 1, 'code creations at the same location are grouped')
-  t.equal(output.codes[0].updates.length, 2, 'both code state updates are serialized')
-  t.end()
+  t.assert.equal(output.root, repoRoot, 'JSON output includes the configured root')
+  t.assert.equal(output.codes.length, 1, 'code creations at the same location are grouped')
+  t.assert.equal(output.codes[0].updates.length, 2, 'both code state updates are serialized')
 })
 
 test('sfi-move updates the function identity associated with existing code', async (t) => {
+  t.plan(2)
   const processor = await processLogContent([], repoRoot)
   processor.processString([
     `code-creation,JS,9,1,0x1000,100,before ${sourceFile}:1:1,0x2000,~`,
@@ -92,7 +93,6 @@ test('sfi-move updates the function identity associated with existing code', asy
   ].join('\n') + '\n')
 
   const deopts = processor.toObject().deopts
-  t.equal(deopts.length, 1, 'deopt record for the original code is retained')
-  t.equal(deopts[0].functionName, 'after', 'the old code resolves through the moved function entry')
-  t.end()
+  t.assert.equal(deopts.length, 1, 'deopt record for the original code is retained')
+  t.assert.equal(deopts[0].functionName, 'after', 'the old code resolves through the moved function entry')
 })

@@ -3,7 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const vm = require('vm')
-const test = require('tape')
+const test = require('node:test')
 
 class FakeElement {
   constructor (tagName) {
@@ -171,26 +171,27 @@ function sampleData () {
 }
 
 test('event categories expose accessible tabs and support arrow-key navigation', (t) => {
+  t.plan(8)
   const nodes = createVisualizer(sampleData())
   let tabs = findByClass(nodes.get('deoptigate-details'), 'deoptigate-tab')
   const tablist = findByClass(nodes.get('deoptigate-details'), 'deoptigate-tabs')[0]
-  t.equal(tablist.attributes.role, 'tablist', 'groups categories as a tablist')
-  t.equal(tabs[1].attributes.role, 'tab', 'exposes each category as a tab')
-  t.equal(tabs[1].tabIndex, 0, 'makes the selected tab the keyboard entry point')
+  t.assert.equal(tablist.attributes.role, 'tablist', 'groups categories as a tablist')
+  t.assert.equal(tabs[1].attributes.role, 'tab', 'exposes each category as a tab')
+  t.assert.equal(tabs[1].tabIndex, 0, 'makes the selected tab the keyboard entry point')
   const eventPanel = findById(nodes.get('deoptigate-details'), 'deoptigate-event-panel')
-  t.equal(eventPanel.attributes.role, 'tabpanel', 'labels the event content as the tab panel')
-  t.equal(eventPanel.attributes['aria-labelledby'], tabs[1].id, 'associates the panel with the selected tab')
+  t.assert.equal(eventPanel.attributes.role, 'tabpanel', 'labels the event content as the tab panel')
+  t.assert.equal(eventPanel.attributes['aria-labelledby'], tabs[1].id, 'associates the panel with the selected tab')
 
   let prevented = false
   tabs[1].dispatch('keydown', { key: 'ArrowRight', preventDefault: () => { prevented = true } })
   tabs = findByClass(nodes.get('deoptigate-details'), 'deoptigate-tab')
-  t.ok(prevented, 'prevents the page from scrolling when moving between tabs')
-  t.equal(tabs[2].attributes['aria-selected'], 'true', 'moves to the next category with ArrowRight')
-  t.equal(tabs[2].focused, true, 'keeps keyboard focus on the newly selected tab')
-  t.end()
+  t.assert.ok(prevented, 'prevents the page from scrolling when moving between tabs')
+  t.assert.equal(tabs[2].attributes['aria-selected'], 'true', 'moves to the next category with ArrowRight')
+  t.assert.equal(tabs[2].focused, true, 'keeps keyboard focus on the newly selected tab')
 })
 
 test('repeated event updates collapse and render on demand', (t) => {
+  t.plan(5)
   const nodes = createVisualizer([
     ['/app/repeats.js', {
       relativePath: 'repeats.js',
@@ -208,16 +209,15 @@ test('repeated event updates collapse and render on demand', (t) => {
   const details = nodes.get('deoptigate-details')
   const card = findByClass(details, 'deoptigate-event')[0]
   const history = findByClass(card, 'deoptigate-event-history')[0]
-  t.equal(findByClass(card, 'deoptigate-event-meta').length, 1, 'shows one representative update by default')
-  t.equal(history.open, false, 'keeps repeated details collapsed initially')
-  t.equal(history.children[0].textContent, 'Show 2 more updates', 'makes the hidden event count clear')
+  t.assert.equal(findByClass(card, 'deoptigate-event-meta').length, 1, 'shows one representative update by default')
+  t.assert.equal(history.open, false, 'keeps repeated details collapsed initially')
+  t.assert.equal(history.children[0].textContent, 'Show 2 more updates', 'makes the hidden event count clear')
 
   history.open = true
   history.dispatch('toggle')
-  t.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'loads every update when the user expands the history')
+  t.assert.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'loads every update when the user expands the history')
   history.dispatch('toggle')
-  t.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'does not duplicate history when reopened')
-  t.end()
+  t.assert.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'does not duplicate history when reopened')
 })
 
 test('severity filter keeps file list, tabs and event rows in sync', (t) => {
@@ -232,43 +232,42 @@ test('severity filter keeps file list, tabs and event rows in sync', (t) => {
     }
   }
 
-  t.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['true', 'true', 'true'], 'starts with each severity enabled')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'shows both files initially')
-  t.ok(findByClass(fileList, 'deoptigate-file')[0].attributes['aria-current'] === 'true', 'selects the highest-ranked file shown first')
-  t.equal(findByClass(details, 'deoptigate-event').length, 2, 'shows events for the highest-ranked file')
+  t.assert.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['true', 'true', 'true'], 'starts with each severity enabled')
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'shows both files initially')
+  t.assert.ok(findByClass(fileList, 'deoptigate-file')[0].attributes['aria-current'] === 'true', 'selects the highest-ranked file shown first')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 2, 'shows events for the highest-ranked file')
 
   selectOnlySeverity('3')
-  t.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['false', 'false', 'true'], 'allows only high severity to remain enabled')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 1, 'keeps files with severity 3')
-  t.equal(findByClass(fileList, 'deoptigate-files-heading')[0].textContent, '1 source file', 'updates the visible file count')
-  t.ok(fileList.textContent.includes('high.js'), 'selects the remaining matching file')
-  t.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows only the severity 3 deopt')
-  t.equal(findByClass(details, 'deoptigate-tab-count')[1].textContent, '1', 'updates tab counts')
-  t.ok(findByClass(details, 'deoptigate-muted')[0].textContent.includes('1 deoptimizations'), 'updates the selected file summary')
+  t.assert.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['false', 'false', 'true'], 'allows only high severity to remain enabled')
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 1, 'keeps files with severity 3')
+  t.assert.equal(findByClass(fileList, 'deoptigate-files-heading')[0].textContent, '1 source file', 'updates the visible file count')
+  t.assert.ok(fileList.textContent.includes('high.js'), 'selects the remaining matching file')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows only the severity 3 deopt')
+  t.assert.equal(findByClass(details, 'deoptigate-tab-count')[1].textContent, '1', 'updates tab counts')
+  t.assert.ok(findByClass(details, 'deoptigate-muted')[0].textContent.includes('1 deoptimizations'), 'updates the selected file summary')
 
   selectOnlySeverity('2')
-  t.equal(findByClass(details, 'deoptigate-event').length, 1, 'filters to medium severity')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'filters to medium severity')
 
   selectOnlySeverity('1')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 1, 'filters to severity 1 files')
-  t.ok(fileList.textContent.includes('low.js'), 'selects the severity 1 file')
-  t.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows only severity 1 events')
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 1, 'filters to severity 1 files')
+  t.assert.ok(fileList.textContent.includes('low.js'), 'selects the severity 1 file')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows only severity 1 events')
 
   severityButtons.find(button => button.dataset.severity === '2').dispatch('click')
   severityButtons.find(button => button.dataset.severity === '3').dispatch('click')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'restores all files')
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'restores all files')
 
   selectOnlySeverity('3')
   nodes.get('deoptigate-search').value = 'low.js'
   nodes.get('deoptigate-search').dispatch('input')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 0, 'allows combining severity and source filters')
-  t.ok(findByClass(details, 'deoptigate-empty')[0].textContent.includes('match these filters'), 'explains when filters hide every file')
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 0, 'allows combining severity and source filters')
+  t.assert.ok(findByClass(details, 'deoptigate-empty')[0].textContent.includes('match these filters'), 'explains when filters hide every file')
   findByClass(details, 'deoptigate-clear-filters')[0].dispatch('click')
-  t.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'clear filters restores every file')
-  t.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['true', 'true', 'true'], 'clear filters enables every severity')
-  t.equal(nodes.get('deoptigate-search').value, '', 'clear filters resets source search')
-  t.equal(nodes.get('deoptigate-search').focused, true, 'moves focus to the source filter after clearing filters')
-  t.end()
+  t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'clear filters restores every file')
+  t.assert.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['true', 'true', 'true'], 'clear filters enables every severity')
+  t.assert.equal(nodes.get('deoptigate-search').value, '', 'clear filters resets source search')
+  t.assert.equal(nodes.get('deoptigate-search').focused, true, 'moves focus to the source filter after clearing filters')
 })
 
 test('selecting a file opens its most populated event category', (t) => {
@@ -294,14 +293,13 @@ test('selecting a file opens its most populated event category', (t) => {
   const details = nodes.get('deoptigate-details')
   let selectedTab = findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true')
 
-  t.ok(selectedTab.textContent.startsWith('Inline caches'), 'starts on the category with the most events')
-  t.equal(findByClass(details, 'deoptigate-event').length, 2, 'shows the available inline cache events')
+  t.assert.ok(selectedTab.textContent.startsWith('Inline caches'), 'starts on the category with the most events')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 2, 'shows the available inline cache events')
   findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')[1].dispatch('click')
-  t.equal(findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')[1].focused, true, 'keeps keyboard focus on the selected file after rerendering')
+  t.assert.equal(findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')[1].focused, true, 'keeps keyboard focus on the selected file after rerendering')
   selectedTab = findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true')
-  t.ok(selectedTab.textContent.startsWith('Deoptimizations'), 'switches to deoptimizations when the selected file has no inline cache events')
-  t.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows the selected file’s deoptimization')
-  t.end()
+  t.assert.ok(selectedTab.textContent.startsWith('Deoptimizations'), 'switches to deoptimizations when the selected file has no inline cache events')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows the selected file’s deoptimization')
 })
 
 test('severity filtering ranks files by the events currently shown', (t) => {
@@ -324,11 +322,10 @@ test('severity filtering ranks files by the events currently shown', (t) => {
   const fileList = nodes.get('deoptigate-files')
   const severityButtons = nodes.get('deoptigate-severity').children
 
-  t.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('hidden-high.js'), 'all severities rank the high-impact file first')
+  t.assert.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('hidden-high.js'), 'all severities rank the high-impact file first')
   severityButtons.find(button => button.dataset.severity === '2').dispatch('click')
   severityButtons.find(button => button.dataset.severity === '3').dispatch('click')
-  t.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('many-low.js'), 'low severity ranks by the low-severity events now visible')
-  t.end()
+  t.assert.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('many-low.js'), 'low severity ranks by the low-severity events now visible')
 })
 
 test('unresolved source files show a useful recovery hint', (t) => {
@@ -336,10 +333,9 @@ test('unresolved source files show a useful recovery hint', (t) => {
   const fileList = nodes.get('deoptigate-files')
   const details = nodes.get('deoptigate-details')
 
-  t.equal(findByClass(fileList, 'deoptigate-files-heading')[0].textContent, '0 source files', 'reports that no source files were resolved')
-  t.ok(findByClass(details, 'deoptigate-empty')[0].textContent.includes('No source files were resolved'), 'explains why the details pane is empty')
-  t.ok(findByClass(details, 'deoptigate-empty-hint')[0].textContent.includes('project root'), 'suggests checking the profile project root')
-  t.end()
+  t.assert.equal(findByClass(fileList, 'deoptigate-files-heading')[0].textContent, '0 source files', 'reports that no source files were resolved')
+  t.assert.ok(findByClass(details, 'deoptigate-empty')[0].textContent.includes('No source files were resolved'), 'explains why the details pane is empty')
+  t.assert.ok(findByClass(details, 'deoptigate-empty-hint')[0].textContent.includes('project root'), 'suggests checking the profile project root')
 })
 
 test('large event lists render in pages and keep every event reachable', (t) => {
@@ -353,24 +349,23 @@ test('large event lists render in pages and keep every event reachable', (t) => 
   ])
   const details = nodes.get('deoptigate-details')
 
-  t.equal(findByClass(details, 'deoptigate-event').length, 30, 'renders the first page')
-  t.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 1–30 of 31 events', 'shows the current range in a long event list')
-  t.equal(findByClass(details, 'deoptigate-page-status')[0].attributes.role, 'status', 'announces page changes to assistive technology')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 30, 'renders the first page')
+  t.assert.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 1–30 of 31 events', 'shows the current range in a long event list')
+  t.assert.equal(findByClass(details, 'deoptigate-page-status')[0].attributes.role, 'status', 'announces page changes to assistive technology')
   const showMore = findByClass(details, 'deoptigate-show-more')[0]
-  t.ok(showMore, 'offers a control for the remaining event')
-  t.match(showMore.textContent, /Show next 1 event \(1 remaining\)/, 'announces how many events remain')
+  t.assert.ok(showMore, 'offers a control for the remaining event')
+  t.assert.match(showMore.textContent, /Show next 1 event \(1 remaining\)/, 'announces how many events remain')
   showMore.dispatch('click')
-  t.equal(findByClass(details, 'deoptigate-event').length, 1, 'moves to the remaining event page')
-  t.ok(findByClass(details, 'deoptigate-event-title')[0].textContent.includes('function30'), 'keeps the remaining event visible')
-  t.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 31–31 of 31 events', 'updates the visible range on the next page')
-  t.equal(findByClass(details, 'deoptigate-show-more')[0].focused, true, 'keeps focus on the page control after moving forward')
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'moves to the remaining event page')
+  t.assert.ok(findByClass(details, 'deoptigate-event-title')[0].textContent.includes('function30'), 'keeps the remaining event visible')
+  t.assert.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 31–31 of 31 events', 'updates the visible range on the next page')
+  t.assert.equal(findByClass(details, 'deoptigate-show-more')[0].focused, true, 'keeps focus on the page control after moving forward')
   const showPrevious = findByClass(details, 'deoptigate-show-more')[0]
-  t.match(showPrevious.textContent, /Show previous 30 events/, 'offers navigation back to earlier events')
+  t.assert.match(showPrevious.textContent, /Show previous 30 events/, 'offers navigation back to earlier events')
   showPrevious.dispatch('click')
-  t.equal(findByClass(details, 'deoptigate-event').length, 30, 'returns to the first event page')
-  t.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 1–30 of 31 events', 'restores the visible range on the previous page')
-  t.equal(findByClass(details, 'deoptigate-show-more')[0].focused, true, 'keeps focus on the page control after moving back')
-  t.end()
+  t.assert.equal(findByClass(details, 'deoptigate-event').length, 30, 'returns to the first event page')
+  t.assert.equal(findByClass(details, 'deoptigate-page-status')[0].textContent, 'Showing 1–30 of 31 events', 'restores the visible range on the previous page')
+  t.assert.equal(findByClass(details, 'deoptigate-show-more')[0].focused, true, 'keeps focus on the page control after moving back')
 })
 
 test('source code shows clickable markers at optimization event locations', (t) => {
@@ -390,40 +385,39 @@ test('source code shows clickable markers at optimization event locations', (t) 
   const code = findByClass(line, 'deoptigate-line-text')[0]
   const sourcePanel = findByClass(details, 'deoptigate-source')[0]
 
-  t.equal(sourcePanel.tabIndex, 0, 'makes the source panel keyboard scrollable')
-  t.equal(sourcePanel.attributes['aria-label'], 'Source code for markers.js', 'names the source region for assistive technology')
-  t.equal(sourceLines[0].style.height || '19px', '19px', 'keeps lines without markers at the normal line height')
-  t.equal(line.style.height || '19px', '19px', 'keeps marker lines on the same source row')
-  t.deepEqual(markers.map(marker => marker.textContent), ['▼', '▲'], 'shows deoptimization before optimization at their shared column')
-  t.deepEqual(markers.map(marker => marker.dataset.severity), ['3', '2'], 'retains severity on each source marker')
-  t.equal(markers.every(marker => findByClass(code, 'deoptigate-source-marker-group')[0].children.includes(marker)), true, 'keeps markers grouped as inline source characters')
+  t.assert.equal(sourcePanel.tabIndex, 0, 'makes the source panel keyboard scrollable')
+  t.assert.equal(sourcePanel.attributes['aria-label'], 'Source code for markers.js', 'names the source region for assistive technology')
+  t.assert.equal(sourceLines[0].style.height || '19px', '19px', 'keeps lines without markers at the normal line height')
+  t.assert.equal(line.style.height || '19px', '19px', 'keeps marker lines on the same source row')
+  t.assert.deepEqual(markers.map(marker => marker.textContent), ['▼', '▲'], 'shows deoptimization before optimization at their shared column')
+  t.assert.deepEqual(markers.map(marker => marker.dataset.severity), ['3', '2'], 'retains severity on each source marker')
+  t.assert.equal(markers.every(marker => findByClass(code, 'deoptigate-source-marker-group')[0].children.includes(marker)), true, 'keeps markers grouped as inline source characters')
   const markerGroup = findByClass(code, 'deoptigate-source-marker-group')[0]
-  t.equal(markerGroup.dataset.column, '3', 'anchors the triangle group at its one-based source column')
-  t.equal(markerGroup.dataset.column, '3', 'places the inline marker at its one-based source column')
-  t.equal(code.children[0].textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'keeps source text around inline markers')
+  t.assert.equal(markerGroup.dataset.column, '3', 'anchors the triangle group at its one-based source column')
+  t.assert.equal(markerGroup.dataset.column, '3', 'places the inline marker at its one-based source column')
+  t.assert.equal(code.children[0].textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'keeps source text around inline markers')
   const sourceText = code.textContent.replace(/[▲▼◆]/g, '')
-  t.equal(sourceText, 'const value = run()', 'keeps each source character once at a shared marker column')
+  t.assert.equal(sourceText, 'const value = run()', 'keeps each source character once at a shared marker column')
   markers[1].dispatch('click')
   const optimizationTab = findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Optimizations'))
-  t.equal(optimizationTab.attributes['aria-selected'], 'true', 'clicking an optimization marker selects its event category')
-  t.equal(findByClass(details, 'deoptigate-source-marker').some(marker => marker.focused), true, 'keeps focus on the selected source marker after rerendering')
+  t.assert.equal(optimizationTab.attributes['aria-selected'], 'true', 'clicking an optimization marker selects its event category')
+  t.assert.equal(findByClass(details, 'deoptigate-source-marker').some(marker => marker.focused), true, 'keeps focus on the selected source marker after rerendering')
   const selectedEvent = findByClass(details, 'deoptigate-event')[0]
-  t.equal(selectedEvent.dataset.selected, 'true', 'selects the matching event in the list')
-  t.equal(selectedEvent.scrollIntoViewOptions.block, 'center', 'scrolls the matching event into view')
+  t.assert.equal(selectedEvent.dataset.selected, 'true', 'selects the matching event in the list')
+  t.assert.equal(selectedEvent.scrollIntoViewOptions.block, 'center', 'scrolls the matching event into view')
   const inlineCacheMarkers = findByClass(findByClass(details, 'deoptigate-source-line')[2], 'deoptigate-source-marker')
   const inlineCacheCode = findByClass(findByClass(details, 'deoptigate-source-line')[2], 'deoptigate-line-text')[0]
   const inlineCacheGroup = findByClass(inlineCacheCode, 'deoptigate-source-marker-group')[0]
-  t.equal(inlineCacheMarkers[0].textContent, '◆', 'shows an inline-cache marker at its source location')
-  t.equal(inlineCacheMarkers[0].dataset.severity, '1', 'retains inline-cache severity')
-  t.equal(inlineCacheGroup.dataset.column, '4', 'places inline-cache markers at their one-based source column')
+  t.assert.equal(inlineCacheMarkers[0].textContent, '◆', 'shows an inline-cache marker at its source location')
+  t.assert.equal(inlineCacheMarkers[0].dataset.severity, '1', 'retains inline-cache severity')
+  t.assert.equal(inlineCacheGroup.dataset.column, '4', 'places inline-cache markers at their one-based source column')
   inlineCacheMarkers[0].dispatch('click')
   const inlineCacheTab = findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Inline caches'))
-  t.equal(inlineCacheTab.attributes['aria-selected'], 'true', 'clicking an inline-cache marker selects its event category')
+  t.assert.equal(inlineCacheTab.attributes['aria-selected'], 'true', 'clicking an inline-cache marker selects its event category')
   nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '1').dispatch('click')
   nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '2').dispatch('click')
   const highSeverityMarkers = findByClass(findByClass(details, 'deoptigate-source-line')[1], 'deoptigate-source-marker')
-  t.deepEqual(highSeverityMarkers.map(marker => marker.textContent), ['▼'], 'severity filtering hides lower-severity source markers')
-  t.end()
+  t.assert.deepEqual(highSeverityMarkers.map(marker => marker.textContent), ['▼'], 'severity filtering hides lower-severity source markers')
 })
 
 test('source markers preserve their V8 columns and keep source text visible', (t) => {
@@ -439,14 +433,13 @@ test('source markers preserve their V8 columns and keep source text visible', (t
   const code = findByClass(nodes.get('deoptigate-details'), 'deoptigate-line-text')[0]
   const groups = findByClass(code, 'deoptigate-source-marker-group')
 
-  t.deepEqual(groups.map(group => group.dataset.column), ['3', '12'], 'keeps each marker anchored to its source column')
-  t.deepEqual(groups.map(group => group.dataset.column), ['3', '12'], 'keeps inline markers at their V8 source columns')
-  t.deepEqual(groups.map(group => group.children[0].textContent), ['▼', '▲'], 'keeps marker buttons associated with their source locations')
-  t.equal(code.children[0].textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'keeps source text around inline markers')
-  t.equal(code.children[0].style.paddingTop || '', '', 'keeps source text on its normal baseline')
-  t.equal(code.style.height || '19px', '19px', 'keeps marker lines at the normal line height')
-  t.equal(code.textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'does not consume or duplicate source characters')
-  t.end()
+  t.assert.deepEqual(groups.map(group => group.dataset.column), ['3', '12'], 'keeps each marker anchored to its source column')
+  t.assert.deepEqual(groups.map(group => group.dataset.column), ['3', '12'], 'keeps inline markers at their V8 source columns')
+  t.assert.deepEqual(groups.map(group => group.children[0].textContent), ['▼', '▲'], 'keeps marker buttons associated with their source locations')
+  t.assert.equal(code.children[0].textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'keeps source text around inline markers')
+  t.assert.equal(code.children[0].style.paddingTop || '', '', 'keeps source text on its normal baseline')
+  t.assert.equal(code.style.height || '19px', '19px', 'keeps marker lines at the normal line height')
+  t.assert.equal(code.textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'does not consume or duplicate source characters')
 })
 
 test('source markers follow the full token at a one-based V8 column', (t) => {
@@ -463,12 +456,11 @@ test('source markers follow the full token at a one-based V8 column', (t) => {
   const sourceText = code.children[0]
   const markerGroup = findByClass(code, 'deoptigate-source-marker-group')[0]
 
-  t.equal(sourceText.children[0].textContent, 'obj.flag', 'keeps the complete property token before the marker')
-  t.equal(sourceText.children[1], markerGroup, 'inserts the marker immediately after the property token')
-  t.equal(sourceText.children.length, 2, 'does not add an empty text node after the marker')
-  t.equal(markerGroup.dataset.column, '5', 'retains the original one-based V8 column')
-  t.equal(markerGroup.dataset.characterOffset, '8', 'positions the marker after the complete identifier token')
-  t.end()
+  t.assert.equal(sourceText.children[0].textContent, 'obj.flag', 'keeps the complete property token before the marker')
+  t.assert.equal(sourceText.children[1], markerGroup, 'inserts the marker immediately after the property token')
+  t.assert.equal(sourceText.children.length, 2, 'does not add an empty text node after the marker')
+  t.assert.equal(markerGroup.dataset.column, '5', 'retains the original one-based V8 column')
+  t.assert.equal(markerGroup.dataset.characterOffset, '8', 'positions the marker after the complete identifier token')
 })
 
 test('source markers stay at the parameter boundary after its opening parenthesis', (t) => {
@@ -484,10 +476,9 @@ test('source markers stay at the parameter boundary after its opening parenthesi
   const sourceText = findByClass(nodes.get('deoptigate-details'), 'deoptigate-source-text')[0]
   const markerGroup = findByClass(sourceText, 'deoptigate-source-marker-group')[0]
 
-  t.equal(sourceText.children[0].textContent, 'function f(', 'keeps the marker after the opening parenthesis')
-  t.equal(sourceText.children[1], markerGroup, 'places the marker before the parameter name')
-  t.equal(sourceText.children[2].textContent, 'arg) {}', 'preserves the parameter and following source text')
-  t.end()
+  t.assert.equal(sourceText.children[0].textContent, 'function f(', 'keeps the marker after the opening parenthesis')
+  t.assert.equal(sourceText.children[1], markerGroup, 'places the marker before the parameter name')
+  t.assert.equal(sourceText.children[2].textContent, 'arg) {}', 'preserves the parameter and following source text')
 })
 
 test('script wrapper markers stay before the first source token', (t) => {
@@ -503,9 +494,8 @@ test('script wrapper markers stay before the first source token', (t) => {
   const sourceText = findByClass(nodes.get('deoptigate-details'), 'deoptigate-source-text')[0]
   const markerGroup = findByClass(sourceText, 'deoptigate-source-marker-group')[0]
 
-  t.equal(sourceText.children[0], markerGroup, 'places the script wrapper marker before the first token')
-  t.equal(sourceText.children[1].textContent, 'use strict', 'preserves the source after its wrapper marker')
-  t.end()
+  t.assert.equal(sourceText.children[0], markerGroup, 'places the script wrapper marker before the first token')
+  t.assert.equal(sourceText.children[1].textContent, 'use strict', 'preserves the source after its wrapper marker')
 })
 
 test('source markers jump to event pages beyond the first page', (t) => {
@@ -528,11 +518,10 @@ test('source markers jump to event pages beyond the first page', (t) => {
   const target = eventCards.find(card => card.textContent.includes('function45'))
   const sourcePanel = findById(details, 'deoptigate-source')
   const selectedSourceLine = findByClass(details, 'deoptigate-source-line').find(line => line.attributes['aria-current'] === 'true')
-  t.equal(eventCards.length, 30, 'keeps only one event page in the DOM')
-  t.ok(target, 'opens the page containing the clicked marker event')
-  t.equal(target.dataset.selected, 'true', 'marks the matching event as selected')
-  t.equal(target.scrollIntoViewOptions.block, 'center', 'scrolls the off-page event into view')
-  t.ok(sourcePanel.scrollTop > 0, 'scrolls the source panel to the clicked marker line')
-  t.equal(selectedSourceLine.children[0].textContent, '46', 'renders the clicked marker line as the current source line')
-  t.end()
+  t.assert.equal(eventCards.length, 30, 'keeps only one event page in the DOM')
+  t.assert.ok(target, 'opens the page containing the clicked marker event')
+  t.assert.equal(target.dataset.selected, 'true', 'marks the matching event as selected')
+  t.assert.equal(target.scrollIntoViewOptions.block, 'center', 'scrolls the off-page event into view')
+  t.assert.ok(sourcePanel.scrollTop > 0, 'scrolls the source panel to the clicked marker line')
+  t.assert.equal(selectedSourceLine.children[0].textContent, '46', 'renders the clicked marker line as the current source line')
 })

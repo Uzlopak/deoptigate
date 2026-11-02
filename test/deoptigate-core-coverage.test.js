@@ -1,12 +1,13 @@
 'use strict'
 
 const path = require('path')
-const test = require('tape')
+const { test } = require('node:test')
 const { processLogContent } = require('../deoptigate')
 
 const repoRoot = path.join(__dirname, '..')
 
 test('processor handles code deletion and reports errors when configured', async (t) => {
+  t.plan(4)
   const processor = await processLogContent([], repoRoot)
   const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
 
@@ -16,8 +17,8 @@ test('processor handles code deletion and reports errors when configured', async
     `code-deopt,3,100,0x1234,-1,12,deopt-eager,<${sourceFile}:9:3>,after deletion`
   ].join('\n') + '\n')
   const deopts = processor.toObject().deopts
-  t.equal(deopts.length, 1, 'deopt record is retained after code deletion')
-  t.equal(deopts[0].functionName, '', 'deleted code no longer resolves to its former function')
+  t.assert.equal(deopts.length, 1, 'deopt record is retained after code deletion')
+  t.assert.equal(deopts[0].functionName, '', 'deleted code no longer resolves to its former function')
 
   let traceCalls = 0
   const errors = []
@@ -33,12 +34,12 @@ test('processor handles code deletion and reports errors when configured', async
     console.error = originalError
   }
 
-  t.equal(traceCalls, 1, 'an error prints a trace when silent errors are disabled')
-  t.deepEqual(errors, [ 'synthetic parser error' ], 'the error message is printed')
-  t.end()
+  t.assert.equal(traceCalls, 1, 'an error prints a trace when silent errors are disabled')
+  t.assert.deepEqual(errors, [ 'synthetic parser error' ], 'the error message is printed')
 })
 
 test('processor handles names without positions, missing code, and non-wrapper scripts', async (t) => {
+  t.plan(4)
   const processor = await processLogContent([], repoRoot)
   const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
   const lines = [
@@ -49,9 +50,8 @@ test('processor handles names without positions, missing code, and non-wrapper s
   processor.processString(lines.join('\n') + '\n')
 
   const output = processor.toObject()
-  t.equal(output.codes.length, 1, 'script code outside the Node wrapper is filtered')
-  t.equal(output.codes[0].functionName, 'plain', 'a name without line and column is retained')
-  t.equal(output.codes[0].line, -1, 'missing source positions use the unknown line')
-  t.equal(output.deopts[0].functionName, '', 'a deopt without a matching code entry has an empty function name')
-  t.end()
+  t.assert.equal(output.codes.length, 1, 'script code outside the Node wrapper is filtered')
+  t.assert.equal(output.codes[0].functionName, 'plain', 'a name without line and column is retained')
+  t.assert.equal(output.codes[0].line, -1, 'missing source positions use the unknown line')
+  t.assert.equal(output.deopts[0].functionName, '', 'a deopt without a matching code entry has an empty function name')
 })

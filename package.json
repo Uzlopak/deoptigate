@@ -18,12 +18,12 @@
     "visualizer/"
   ],
   "scripts": {
-    "test": "tape test/*.test.js",
+    "test": "node --test test/*.test.js",
     "bench": "node benchmark/parse-v8-log.js",
     "bench:csv-escape-field": "node benchmark/csv-escape-field.bench.js",
     "bench:csv-parse-line": "node benchmark/csv-parse-line.bench.js",
     "bench:csvparser": "npm run bench:csv-escape-field && npm run bench:csv-parse-line",
-    "test:coverage": "c8 --check-coverage --statements 100 --branches 100 --functions 100 --lines 100 --include=deoptigate.js --include=deoptigate.log.js --include='app/lib/**/*.js' --include='bin/**/*.js' --include='lib/**/*.js' --include='src/**/*.js' --exclude='lib/v8-tools-core/**' --reporter=text npm test"
+    "test:coverage": "node --experimental-test-coverage --test-coverage-include=deoptigate.js --test-coverage-include=deoptigate.log.js --test-coverage-include='app/lib/**/*.js' --test-coverage-include='bin/**/*.js' --test-coverage-include='lib/**/*.js' --test-coverage-include='src/**/*.js' --test-coverage-exclude='lib/v8-tools-core/**' --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 --test test/*.test.js"
   },
   "repository": "https://github.com/clinicjs/node-clinic-deoptigate-profiler",
   "homepage": "https://github.com/clinicjs/node-clinic-deoptigate-profiler",
@@ -46,15 +46,13 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=12.13.0"
+    "node": ">=22.8.0"
   },
   "dependencies": {
     "@clinic/clinic-common": "^7.1.0"
   },
   "devDependencies": {
-    "c8": "^12.0.0",
     "escape-string-regexp": "^4.0.0",
-    "tape": "^5.0.0",
     "tinybench": "^2.9.0"
   }
 }

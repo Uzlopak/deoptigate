@@ -1,6 +1,6 @@
 'use strict'
 
-const test = require('tape')
+const { test } = require('node:test')
 const { MIN_SEVERITY } = require('../lib/severities')
 const {
     parseIcState
@@ -9,6 +9,7 @@ const {
 } = require('../lib/log-processing/ic-state')
 
 test('parseIcState supports V8 inline-cache state codes', (t) => {
+  t.plan(9)
   const states = [
       [ '0', 0 ]
     , [ 'X', 0 ]
@@ -21,13 +22,13 @@ test('parseIcState supports V8 inline-cache state codes', (t) => {
   ]
 
   for (const [ code, state ] of states) {
-    t.equal(parseIcState(code), state, `${JSON.stringify(code)} maps to state ${state}`)
+    t.assert.equal(parseIcState(code), state, `${JSON.stringify(code)} maps to state ${state}`)
   }
-  t.throws(() => parseIcState('?'), /unknown ic code state/, 'unknown state codes throw')
-  t.end()
+  t.assert.throws(() => parseIcState('?'), /unknown ic code state/, 'unknown state codes throw')
 })
 
 test('nameIcState names every inline-cache state', (t) => {
+  t.plan(8)
   const names = [
       [ 0, 'unintialized' ]
     , [ 1, 'premonomorphic' ]
@@ -39,13 +40,13 @@ test('nameIcState names every inline-cache state', (t) => {
   ]
 
   for (const [ state, name ] of names) {
-    t.equal(nameIcState(state), name, `state ${state} is named ${name}`)
+    t.assert.equal(nameIcState(state), name, `state ${state} is named ${name}`)
   }
-  t.throws(() => nameIcState(-1), /unknown ic code state/, 'unknown states throw')
-  t.end()
+  t.assert.throws(() => nameIcState(-1), /unknown ic code state/, 'unknown states throw')
 })
 
 test('severityIcState groups inline-cache states by severity', (t) => {
+  t.plan(8)
   const severities = [
       [ 0, MIN_SEVERITY ]
     , [ 1, MIN_SEVERITY ]
@@ -57,8 +58,7 @@ test('severityIcState groups inline-cache states by severity', (t) => {
   ]
 
   for (const [ state, severity ] of severities) {
-    t.equal(severityIcState(state), severity, `state ${state} has severity ${severity}`)
+    t.assert.equal(severityIcState(state), severity, `state ${state} has severity ${severity}`)
   }
-  t.throws(() => severityIcState(-1), /unknown ic code state/, 'unknown states throw')
-  t.end()
+  t.assert.throws(() => severityIcState(-1), /unknown ic code state/, 'unknown states throw')
 })

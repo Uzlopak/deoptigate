@@ -4,7 +4,7 @@ const escapeRegex = require('escape-string-regexp')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
-const test = require('tape')
+const { test } = require('node:test')
 const util = require('util')
 const readFile = util.promisify(fs.readFile)
 const writeFile = util.promisify(fs.writeFile)
@@ -65,24 +65,24 @@ test('adders.v8.log', async (t) => {
   const srcLogPath = path.join(__dirname, 'logs', 'adders.v8.log')
   await withPreparedLog(srcLogPath, replacements, async destLogPath => {
     const result = await deoptigateLog(destLogPath)
-    t.equal(result.size, 1, 'number of files')
+    t.assert.equal(result.size, 1, 'number of files')
 
     const fileData = result.get(addersSrcFile)
     const fileSrc = await readFile(addersSrcFile, 'utf8')
-    t.equal(fileData.fullPath, addersSrcFile, 'fullPath')
-    t.equal(fileData.ics.size, 33, 'number of ics')
-    t.equal(fileData.deopts.size, 7, 'number of deopts')
-    t.equal(fileData.codes.size, 16, 'number of codes')
-    t.equal(fileData.src, fileSrc, 'file source')
+    t.assert.equal(fileData.fullPath, addersSrcFile, 'fullPath')
+    t.assert.equal(fileData.ics.size, 33, 'number of ics')
+    t.assert.equal(fileData.deopts.size, 7, 'number of deopts')
+    t.assert.equal(fileData.codes.size, 16, 'number of codes')
+    t.assert.equal(fileData.src, fileSrc, 'file source')
 
     const deoptLocation = fileData.deoptLocations[0]
-    t.equal(deoptLocation, 'addAny:93:27', 'first deoptLocation')
+    t.assert.equal(deoptLocation, 'addAny:93:27', 'first deoptLocation')
 
     const deoptData = fileData.deopts.get(deoptLocation)
-    t.equal(deoptData.file, addersSrcFile, 'deopt file path')
+    t.assert.equal(deoptData.file, addersSrcFile, 'deopt file path')
 
     const updateData = deoptData.updates[2]
-    t.equal(updateData.bailoutType, 'eager', 'deopt update bailout type')
+    t.assert.equal(updateData.bailoutType, 'eager', 'deopt update bailout type')
   })
 })
 
@@ -104,23 +104,23 @@ test('two-modules.v8.log', async (t) => {
   const srcLogPath = path.join(__dirname, 'logs', 'two-modules.v8.log')
   await withPreparedLog(srcLogPath, replacements, async destLogPath => {
     const result = await deoptigateLog(destLogPath)
-    t.equal(result.size, 2, 'number of files')
+    t.assert.equal(result.size, 2, 'number of files')
 
     const fileData = result.get(srcFile)
     const fileSrc = await readFile(srcFile, 'utf8')
-    t.equal(fileData.fullPath, srcFile, 'fullPath')
-    t.equal(fileData.ics.size, 25, 'number of ics')
-    t.equal(fileData.deopts.size, 0, 'number of deopts')
-    t.equal(fileData.codes.size, 8, 'number of codes')
-    t.equal(fileData.src, fileSrc, 'file source')
+    t.assert.equal(fileData.fullPath, srcFile, 'fullPath')
+    t.assert.equal(fileData.ics.size, 25, 'number of ics')
+    t.assert.equal(fileData.deopts.size, 0, 'number of deopts')
+    t.assert.equal(fileData.codes.size, 8, 'number of codes')
+    t.assert.equal(fileData.src, fileSrc, 'file source')
 
     const icLocation = fileData.icLocations[0]
-    t.equal(icLocation, 'Object1:3:12', 'first icLocation')
+    t.assert.equal(icLocation, 'Object1:3:12', 'first icLocation')
 
     const icData = fileData.ics.get(icLocation)
-    t.equal(icData.file, srcFile, 'ics file path')
+    t.assert.equal(icData.file, srcFile, 'ics file path')
 
     const updateData = icData.updates[0]
-    t.equal(updateData.map, '37cdf3b7a811', 'ics update map')
+    t.assert.equal(updateData.map, '37cdf3b7a811', 'ics update map')
   })
 })

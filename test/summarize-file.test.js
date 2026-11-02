@@ -1,6 +1,6 @@
 'use strict'
 
-const test = require('tape')
+const { test } = require('node:test')
 const DeoptEntry = require('../lib/log-processing/deopt-entry')
 const summarizeFile = require('../lib/grouping/summarize-file')
 
@@ -19,6 +19,7 @@ function criticalInput(category, severity) {
 }
 
 test('unknown deopt kinds are counted conservatively in file summaries', (t) => {
+  t.plan(4)
   const entry = new DeoptEntry('run /src/app.js', '/src/app.js', 12, 4)
   entry.addUpdate(1, 'future-kind', 'reason', -1, -1)
 
@@ -28,14 +29,14 @@ test('unknown deopt kinds are counted conservatively in file summaries', (t) => 
     codes: new Map()
   })
 
-  t.equal(entry.updates[0].severity, 3, 'unknown bailout gets the highest severity')
-  t.deepEqual(summary.deoptSeverities, [ 0, 0, 0, 1 ], 'summary counts it in the highest bucket')
-  t.equal(summary.severityScore, 30, 'summary score reflects the conservative severity')
-  t.equal(summary.hasCriticalSeverities, true, 'summary flags the unknown bailout for review')
-  t.end()
+  t.assert.equal(entry.updates[0].severity, 3, 'unknown bailout gets the highest severity')
+  t.assert.deepEqual(summary.deoptSeverities, [ 0, 0, 0, 1 ], 'summary counts it in the highest bucket')
+  t.assert.equal(summary.severityScore, 30, 'summary score reflects the conservative severity')
+  t.assert.equal(summary.hasCriticalSeverities, true, 'summary flags the unknown bailout for review')
 })
 
 test('summarizeFile counts all severity buckets and final code states', (t) => {
+  t.plan(8)
   const data = {
     ics: new Map([
       [ 'ic-soft', vector({ severity: 1 }) ],
@@ -61,18 +62,18 @@ test('summarizeFile counts all severity buckets and final code states', (t) => {
   }
 
   const summary = summarizeFile(data)
-  t.deepEqual(summary.icSeverities, [ 0, 1, 1, 1 ], 'IC entries occupy all severity buckets')
-  t.deepEqual(summary.deoptSeverities, [ 0, 1, 1, 1 ], 'deopt entries occupy all severity buckets')
-  t.deepEqual(summary.codeSeverities, [ 0, 1, 1, 2 ], 'code entries include the repeated-update escalation')
-  t.deepEqual(summary.codeStates, [ 1, 1, 2 ], 'counts each code entry by its last state')
-  t.equal(summary.severityScore, 153, 'combines weighted severity counts')
-  t.equal(summary.hasCriticalSeverities, true, 'flags critical severities')
-  t.equal(data.codes.get('code-optimized').severity, 1, 'short update list retains its lowest severity')
-  t.equal(data.codes.get('code-many-updates').severity, 3, 'long update list escalates to severity three')
-  t.end()
+  t.assert.deepEqual(summary.icSeverities, [ 0, 1, 1, 1 ], 'IC entries occupy all severity buckets')
+  t.assert.deepEqual(summary.deoptSeverities, [ 0, 1, 1, 1 ], 'deopt entries occupy all severity buckets')
+  t.assert.deepEqual(summary.codeSeverities, [ 0, 1, 1, 2 ], 'code entries include the repeated-update escalation')
+  t.assert.deepEqual(summary.codeStates, [ 1, 1, 2 ], 'counts each code entry by its last state')
+  t.assert.equal(summary.severityScore, 153, 'combines weighted severity counts')
+  t.assert.equal(summary.hasCriticalSeverities, true, 'flags critical severities')
+  t.assert.equal(data.codes.get('code-optimized').severity, 1, 'short update list retains its lowest severity')
+  t.assert.equal(data.codes.get('code-many-updates').severity, 3, 'long update list escalates to severity three')
 })
 
 test('summarizeFile checks each category when deciding whether severity is critical', (t) => {
+  t.plan(8)
   const cases = [
     [ 'ic', 2 ], [ 'ic', 3 ],
     [ 'deopt', 2 ], [ 'deopt', 3 ],
@@ -81,11 +82,10 @@ test('summarizeFile checks each category when deciding whether severity is criti
 
   for (const [ category, severity ] of cases) {
     const summary = summarizeFile(criticalInput(category, severity))
-    t.equal(summary.hasCriticalSeverities, true, `${category} severity ${severity} is critical`)
+    t.assert.equal(summary.hasCriticalSeverities, true, `${category} severity ${severity} is critical`)
   }
 
   const empty = summarizeFile({ ics: new Map(), deopts: new Map(), codes: new Map() })
-  t.equal(empty.hasCriticalSeverities, false, 'no data is not critical')
-  t.equal(empty.severityScore, 0, 'empty data has a zero score')
-  t.end()
+  t.assert.equal(empty.hasCriticalSeverities, false, 'no data is not critical')
+  t.assert.equal(empty.severityScore, 0, 'empty data has a zero score')
 })

@@ -3,7 +3,7 @@ const path = require('path')
 const { tmpdir } = require('os')
 const { spawnSync } = require('child_process')
 const Module = require('module')
-const test = require('tape')
+const test = require('node:test')
 const JAVASCRIPT_SUFFIX_RX = /\.js$/
 
 const repoRoot = (...args) => path.join(__dirname, '..', ...args)
@@ -55,38 +55,36 @@ async function runDeoptigate(srcPath) {
 
 test('deoptigate simple/adders.js', async (t) => {
   if (!supportsDeoptLog) {
-    t.skip('current Node/V8 does not support --log-deopt')
-    t.end()
-    return
+    return t.skip('current Node/V8 does not support --log-deopt')
   }
+  t.plan(10)
 
   const srcPath = repoRoot('examples/simple/adders.js')
 
   const renderData = await runDeoptigate(srcPath)
-  t.equal(renderData.length, 1, 'number of files')
+  t.assert.equal(renderData.length, 1, 'number of files')
 
   const fileName = renderData[0][0]
-  t.equal(fileName, srcPath, 'filename in render data')
+  t.assert.equal(fileName, srcPath, 'filename in render data')
 
   const fileData = renderData[0][1]
-  t.equal(fileData.fullPath, srcPath, 'fullPath')
-  t.assert(Array.isArray(fileData.ics), 'ics key is an Array')
-  t.assert(Array.isArray(fileData.deopts), 'deopts key is an Array')
-  t.assert(Array.isArray(fileData.codes), 'codes key is an Array')
-  t.ok(fileData.ics.length > 0, 'example produces inline-cache records')
-  t.ok(fileData.deopts.length > 0, 'example produces deoptimization records')
-  t.ok(fileData.codes.length > 0, 'example produces code-state records')
+  t.assert.equal(fileData.fullPath, srcPath, 'fullPath')
+  t.assert.ok(Array.isArray(fileData.ics), 'ics key is an Array')
+  t.assert.ok(Array.isArray(fileData.deopts), 'deopts key is an Array')
+  t.assert.ok(Array.isArray(fileData.codes), 'codes key is an Array')
+  t.assert.ok(fileData.ics.length > 0, 'example produces inline-cache records')
+  t.assert.ok(fileData.deopts.length > 0, 'example produces deoptimization records')
+  t.assert.ok(fileData.codes.length > 0, 'example produces code-state records')
 
   const fileSrc = await readFile(srcPath, 'utf8')
-  t.equal(fileData.src, fileSrc, 'file source')
+  t.assert.equal(fileData.src, fileSrc, 'file source')
 })
 
 test('deoptigate two-modules/adders.js', async (t) => {
   if (!supportsDeoptLog) {
-    t.skip('current Node/V8 does not support --log-deopt')
-    t.end()
-    return
+    return t.skip('current Node/V8 does not support --log-deopt')
   }
+  t.plan(15)
 
   const srcPaths = [
     repoRoot('examples/two-modules/adders.js'),
@@ -94,34 +92,36 @@ test('deoptigate two-modules/adders.js', async (t) => {
   ]
 
   const renderData = await runDeoptigate(srcPaths[0])
-  t.equal(renderData.length, 2, 'number of files')
+  t.assert.equal(renderData.length, 2, 'number of files')
 
   const filesByName = new Map(renderData)
   let icCount = 0
   let codeCount = 0
   for (const srcPath of srcPaths) {
     const fileData = filesByName.get(srcPath)
-    t.ok(fileData, `render data contains ${srcPath}`)
+    t.assert.ok(fileData, `render data contains ${srcPath}`)
     if (fileData == null) continue
 
-    t.equal(fileData.fullPath, srcPath, `fullPath for ${srcPath}`)
-    t.assert(Array.isArray(fileData.ics), `ics key is an Array for ${srcPath}`)
-    t.assert(Array.isArray(fileData.deopts), `deopts key is an Array for ${srcPath}`)
-    t.assert(Array.isArray(fileData.codes), `codes key is an Array for ${srcPath}`)
+    t.assert.equal(fileData.fullPath, srcPath, `fullPath for ${srcPath}`)
+    t.assert.ok(Array.isArray(fileData.ics), `ics key is an Array for ${srcPath}`)
+    t.assert.ok(Array.isArray(fileData.deopts), `deopts key is an Array for ${srcPath}`)
+    t.assert.ok(Array.isArray(fileData.codes), `codes key is an Array for ${srcPath}`)
     icCount += fileData.ics.length
     codeCount += fileData.codes.length
 
     const fileSrc = await readFile(srcPath, 'utf8')
-    t.equal(fileData.src, fileSrc, `file source for ${srcPath}`)
+    t.assert.equal(fileData.src, fileSrc, `file source for ${srcPath}`)
   }
-  t.ok(icCount > 0, 'examples produce inline-cache records')
-  t.ok(codeCount > 0, 'examples produce code-state records')
+  t.assert.ok(icCount > 0, 'examples produce inline-cache records')
+  t.assert.ok(codeCount > 0, 'examples produce code-state records')
 })
 
 test('CLI sets a nonzero exit status when a command fails', async (t) => {
+  t.plan(2)
   const originalLoad = Module._load
   const originalError = console.error
   const originalExitCode = process.exitCode
+  const originalArgv = process.argv
   const errors = []
   Module._load = function (request, parent, isMain) {
     if (parent && parent.filename === binPath) {
@@ -132,18 +132,19 @@ test('CLI sets a nonzero exit status when a command fails', async (t) => {
     return originalLoad.call(this, request, parent, isMain)
   }
   console.error = message => { errors.push(message) }
+  process.argv = [ process.execPath, binPath, 'script.js' ]
   delete require.cache[binPath]
 
   try {
     require(binPath)
     await new Promise(resolve => setImmediate(resolve))
-    t.equal(process.exitCode, 1, 'caught CLI errors set a nonzero exit status')
-    t.match(errors[0], /synthetic CLI failure/, 'caught CLI errors are written to stderr')
+    t.assert.equal(process.exitCode, 1, 'caught CLI errors set a nonzero exit status')
+    t.assert.match(errors[0], /synthetic CLI failure/, 'caught CLI errors are written to stderr')
   } finally {
     Module._load = originalLoad
     console.error = originalError
     process.exitCode = originalExitCode
+    process.argv = originalArgv
     delete require.cache[binPath]
   }
-  t.end()
 })
