@@ -21,6 +21,69 @@ test('code and IC entries preserve path colons and spaces', (/** @type {import('
   t.assert.equal(ic.hashmap.file, windowsPath, 'IC entry keeps drive colon and spaces')
 })
 
+test('code and IC entries preserve function names containing spaces', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  t.plan(20)
+  const code = new CodeEntry({
+    fnFile: 'with space [eval]',
+    line: 1,
+    column: 28,
+    isScript: false
+  })
+  const ic = new IcEntry('with space [eval]', 1, 28)
+  const codeWithPath = new CodeEntry({
+    fnFile: 'with space /tmp/dir with spaces/example.js:1:26',
+    line: 1,
+    column: 26,
+    isScript: false
+  })
+  const icWithPath = new IcEntry('with space /tmp/dir with spaces/example.js:1:26', 1, 26)
+  const codeWithRelativePath = new CodeEntry({
+    fnFile: 'with space relative/path with spaces/example.js:4:5',
+    line: 4,
+    column: 5,
+    isScript: false
+  })
+  const icWithRelativePath = new IcEntry('with space relative/path with spaces/example.js:4:5', 4, 5)
+  const windowsPath = 'C:\\work dir\\example.js'
+  const codeWithWindowsPath = new CodeEntry({
+    fnFile: `with space ${windowsPath}:1:26`,
+    line: 1,
+    column: 26,
+    isScript: false
+  })
+  const icWithWindowsPath = new IcEntry(`with space ${windowsPath}:1:26`, 1, 26)
+  const codeWithBareRelativePath = new CodeEntry({
+    fnFile: 'with space relative.js:1:28',
+    line: 1,
+    column: 28,
+    isScript: false
+  })
+  const icWithBareRelativePath = new IcEntry('with space relative.js:1:28', 1, 28)
+
+  t.assert.equal(code.hashmap.functionName, 'with space', 'code entry keeps the complete function name')
+  t.assert.equal(code.hashmap.file, '[eval]', 'code entry recognizes V8 eval source names')
+  t.assert.equal(ic.hashmap.functionName, 'with space', 'IC entry keeps the complete function name')
+  t.assert.equal(ic.hashmap.file, '[eval]', 'IC entry recognizes V8 eval source names')
+  t.assert.equal(codeWithPath.hashmap.functionName, 'with space', 'code entry keeps the name before an absolute path')
+  t.assert.equal(codeWithPath.hashmap.file, '/tmp/dir with spaces/example.js', 'code entry preserves spaces in the absolute path')
+  t.assert.equal(icWithPath.hashmap.functionName, 'with space', 'IC entry keeps the name before an absolute path')
+  t.assert.equal(icWithPath.hashmap.file, '/tmp/dir with spaces/example.js', 'IC entry preserves spaces in the absolute path')
+  t.assert.equal(codeWithRelativePath.hashmap.functionName, 'with space', 'code entry keeps the name before a relative path')
+  t.assert.equal(codeWithRelativePath.hashmap.file, 'relative/path with spaces/example.js', 'code entry preserves spaces in a relative path')
+  t.assert.equal(icWithRelativePath.hashmap.functionName, 'with space', 'IC entry keeps the name before a relative path')
+  t.assert.equal(icWithRelativePath.hashmap.file, 'relative/path with spaces/example.js', 'IC entry preserves spaces in a relative path')
+  t.assert.equal(codeWithWindowsPath.hashmap.functionName, 'with space', 'code entry keeps the name before a Windows path')
+  t.assert.equal(codeWithWindowsPath.hashmap.file, windowsPath, 'code entry preserves a Windows path with spaces')
+  t.assert.equal(icWithWindowsPath.hashmap.functionName, 'with space', 'IC entry keeps the name before a Windows path')
+  t.assert.equal(icWithWindowsPath.hashmap.file, windowsPath, 'IC entry preserves a Windows path with spaces')
+  t.assert.equal(codeWithBareRelativePath.hashmap.functionName, 'with space', 'code entry recognizes a bare relative JavaScript filename')
+  t.assert.equal(codeWithBareRelativePath.hashmap.file, 'relative.js', 'code entry retains the relative filename')
+  t.assert.equal(icWithBareRelativePath.hashmap.functionName, 'with space', 'IC entry recognizes a bare relative JavaScript filename')
+  t.assert.equal(icWithBareRelativePath.hashmap.file, 'relative.js', 'IC entry retains the relative filename')
+})
+
 test('code and IC entries accept missing or empty file paths', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(6)
   const codeWithoutFile = new CodeEntry({

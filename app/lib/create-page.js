@@ -1,6 +1,7 @@
 'use strict'
 
 const fs = require('fs')
+const escapeHtml = require('../../lib/rendering/escape-html')
 const mainCss = fs.readFileSync(require.resolve('../build/deoptigate.css'), 'utf8')
 const mainJs = fs.readFileSync(require.resolve('../build/deoptigate.js'), 'utf8')
 /** @type {Record<string, string>} */
@@ -26,7 +27,7 @@ return `
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <title>${title}</title>
+    <title>${escapeHtml(title)}</title>
     <style async type="text/css" media="screen">
       ${mainCss}
     </style>

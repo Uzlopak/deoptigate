@@ -5,7 +5,12 @@
 const Preact = require('preact')
 const { Component, render } = Preact
 const { deoptigate } = require('../deoptigate')
-const { urlFromState, stateFromUrl } = require('./lib/query-state')
+const {
+    urlFromState
+  , stateFromUrl
+  , normalizeIndex
+  , mergeInitialState
+} = require('./lib/query-state')
 
 const { ToolbarView } = require('./components/toolbar')
 const { FilesView } = require('./components/files')
@@ -48,7 +53,7 @@ class MainView extends Component {
     const { groups } = props
     this._indexedGroups = Array.from(groups)
 
-    this._initialState = Object.assign(initialState, this._stateFromUrl())
+    this._initialState = mergeInitialState(initialState, this._stateFromUrl())
     this.state = Object.assign({}, this._initialState)
 
     this._bind()
@@ -241,7 +246,11 @@ class MainView extends Component {
    * @returns {null | void}
    */
   _restoreStateFromHistory(e) {
-    if (history.state == null) return null
+    if (history.state == null) {
+      const urlState = this._stateFromUrl()
+      this.setState(mergeInitialState(this._initialState, urlState))
+      return
+    }
 
     let {
         selectedFileIdx
@@ -261,7 +270,7 @@ class MainView extends Component {
       , selectedSummaryTabIdx
     }
 
-    this.setState(Object.assign(this.state, override))
+    this.setState(override)
   }
 
   /** @returns {Partial<MainViewState> | null} */
@@ -280,8 +289,12 @@ class MainView extends Component {
         selectedFile
       , selectedLocation
       , includeAllSeverities
-      , selectedTabIdx: selectedTabIdx ?? FILES_TAB_IDX
-      , selectedSummaryTabIdx: selectedSummaryTabIdx ?? SummaryView.OPT_TAB_IDX
+      , selectedTabIdx: normalizeIndex(selectedTabIdx, [ FILES_TAB_IDX, DETAILS_TAB_IDX ], FILES_TAB_IDX)
+      , selectedSummaryTabIdx: normalizeIndex(selectedSummaryTabIdx, [
+          SummaryView.OPT_TAB_IDX
+        , SummaryView.DEOPT_TAB_IDX
+        , SummaryView.ICS_TAB_IDX
+        ], SummaryView.OPT_TAB_IDX)
     }
   }
 
@@ -293,7 +306,7 @@ class MainView extends Component {
    * @returns {void}
    */
   _ontabHeaderClicked(idx) {
-    this.setState(Object.assign(this.state, { selectedTabIdx: idx }), this._updateUrl)
+    this.setState({ selectedTabIdx: idx }, this._updateUrl)
   }
 
   /**
@@ -301,7 +314,7 @@ class MainView extends Component {
    * @returns {void}
    */
   _onlocationSelected(id) {
-    this.setState(Object.assign(this.state, { selectedLocation: id }), this._updateUrl)
+    this.setState({ selectedLocation: id }, this._updateUrl)
   }
 
   /**
@@ -309,7 +322,7 @@ class MainView extends Component {
    * @returns {void}
    */
   _onsummaryTabIdxChanged(idx) {
-    this.setState(Object.assign(this.state, { selectedSummaryTabIdx: idx }), this._updateUrl)
+    this.setState({ selectedSummaryTabIdx: idx }, this._updateUrl)
   }
 
   /**
@@ -317,7 +330,7 @@ class MainView extends Component {
    * @returns {void}
    */
   _onincludeAllSeveritiesChanged(includeAllSeverities) {
-    this.setState(Object.assign(this.state, { includeAllSeverities, selectedLocation: null }), this._updateUrl)
+    this.setState({ includeAllSeverities, selectedLocation: null }, this._updateUrl)
   }
 
   /**
@@ -325,12 +338,12 @@ class MainView extends Component {
    * @returns {void}
    */
   _onfileClicked(file) {
-    this.setState(Object.assign(this.state, {
+    this.setState({
         selectedFile: file
       , selectedLocation: null
       // auto open details view when file is selected
       , selectedTabIdx: DETAILS_TAB_IDX
-    }), this._updateUrl)
+    }, this._updateUrl)
   }
 }
 

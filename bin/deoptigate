@@ -15,6 +15,7 @@ const createLog = require('./deoptigate.create-log')
       ? await selectLog(happyHead)
       : await createLog(process.argv.slice(2), happyHead, simpleHead)
     )
+    if (log == null) return
     await generateReport(log, happyHead)
   } catch (err) {
     console.error(`${errorHead}: ${err}`)

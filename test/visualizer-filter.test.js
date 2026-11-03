@@ -380,6 +380,66 @@ test('severity filter keeps file list, tabs and event rows in sync', (/** @type 
   t.assert.equal(nodes.get('deoptigate-search').focused, true, 'moves focus to the source filter after clearing filters')
 })
 
+test('code event severity follows the summary rules across updates', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const nodes = createVisualizer([
+    ['/app/optimization-history.js', {
+      relativePath: 'optimization-history.js',
+      deopts: [],
+      ics: [],
+      codes: [
+        {
+          line: 1,
+          column: 1,
+          functionName: 'optimized',
+          updates: [
+            { severity: 2, state: 1 },
+            { severity: 1, state: 2 }
+          ]
+        },
+        {
+          line: 2,
+          column: 1,
+          functionName: 'repeated',
+          updates: [
+            { severity: 1, state: 2 },
+            { severity: 1, state: 2 },
+            { severity: 1, state: 2 },
+            { severity: 1, state: 2 }
+          ]
+        }
+      ],
+      src: 'function optimized () {}\nfunction repeated () {}'
+    }]
+  ])
+  const details = nodes.get('deoptigate-details')
+  const severityButtons = nodes.get('deoptigate-severity').children
+  const eventSeverities = () => findByClass(details, 'deoptigate-event').map(event => event.dataset.severity)
+  /**
+   * @param {string} severity
+   * @returns {void}
+   */
+  const selectOnlySeverity = severity => {
+    for (const button of severityButtons) {
+      const shouldBeActive = button.dataset.severity === severity
+      if ((button.attributes['aria-pressed'] === 'true') !== shouldBeActive) button.dispatch('click')
+    }
+  }
+
+  t.assert.deepEqual(eventSeverities(), ['1', '3'], 'uses the lowest code severity and escalates repeated updates')
+  selectOnlySeverity('1')
+  t.assert.deepEqual(eventSeverities(), ['1'], 'keeps optimized code when filtering for its final severity')
+  t.assert.deepEqual(
+    findByClass(details, 'deoptigate-source-marker').map(marker => marker.dataset.severity),
+    ['1'],
+    'applies the same severity to source markers'
+  )
+
+  selectOnlySeverity('3')
+  t.assert.deepEqual(eventSeverities(), ['3'], 'filters repeated updates using their escalated severity')
+})
+
 test('selecting a file opens its most populated event category', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/inline-cache-heavy.js', {
@@ -500,6 +560,11 @@ test('source code shows clickable markers at optimization event locations', (/**
   t.assert.equal(sourceLines[0].style.height || '19px', '19px', 'keeps lines without markers at the normal line height')
   t.assert.equal(line.style.height || '19px', '19px', 'keeps marker lines on the same source row')
   t.assert.deepEqual(markers.map(marker => marker.textContent), ['▼', '▲'], 'shows deoptimization before optimization at their shared column')
+  t.assert.deepEqual(
+    markers.map(marker => marker.attributes['aria-label']),
+    [ 'Deoptimization at line 2, column 3', 'Optimization at line 2, column 3' ],
+    'gives each source marker an accessible event and location name'
+  )
   t.assert.deepEqual(markers.map(marker => marker.dataset.severity), ['3', '2'], 'retains severity on each source marker')
   t.assert.equal(markers.every(marker => findByClass(code, 'deoptigate-source-marker-group')[0].children.includes(marker)), true, 'keeps markers grouped as inline source characters')
   const markerGroup = findByClass(code, 'deoptigate-source-marker-group')[0]
@@ -571,6 +636,27 @@ test('source markers follow the full token at a one-based V8 column', (/** @type
   t.assert.equal(sourceText.children.length, 2, 'does not add an empty text node after the marker')
   t.assert.equal(markerGroup.dataset.column, '5', 'retains the original one-based V8 column')
   t.assert.equal(markerGroup.dataset.characterOffset, '8', 'positions the marker after the complete identifier token')
+})
+
+test('source markers follow Unicode identifiers to the end of the token', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const nodes = createVisualizer([
+    ['/app/unicode-property.js', {
+      relativePath: 'unicode-property.js',
+      deopts: [],
+      ics: [{ line: 1, column: 5, key: 'π名', updates: [{ severity: 1, oldState: 1, newState: 2 }] }],
+      codes: [],
+      src: 'obj.π名'
+    }]
+  ])
+  const code = findByClass(nodes.get('deoptigate-details'), 'deoptigate-line-text')[0]
+  const sourceText = findByClass(code, 'deoptigate-source-text')[0]
+  const markerGroup = findByClass(code, 'deoptigate-source-marker-group')[0]
+
+  t.assert.equal(sourceText.children[0].textContent, 'obj.π名', 'keeps the complete Unicode identifier before the marker')
+  t.assert.equal(sourceText.children[1], markerGroup, 'places the marker after the complete Unicode identifier')
+  t.assert.equal(markerGroup.dataset.characterOffset, '6', 'uses the JavaScript source offset after both Unicode characters')
 })
 
 test('source markers stay at the parameter boundary after its opening parenthesis', (/** @type {import('node:test').TestContext} */ t) => {

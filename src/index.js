@@ -12,6 +12,7 @@ const createClinicPage = require('./clinic-page')
 const lookupDeoptimizationReason = require('./deoptimization-lookup')
 const getMcpTools = require('./mcp-tools')
 const softExitPreload = require.resolve('./injects/soft-exit')
+const activeCollectionPaths = new Set()
 
 /**
  * @param {string} filename
@@ -76,6 +77,11 @@ class ClinicDeoptigate extends EventEmitter {
     const [nodeExecutable, ...scriptArgs] = args
     const outputDir = path.join(this.path, `${this.name || process.pid}.clinic-deoptigate`)
     const absoluteOutputDir = path.resolve(outputDir)
+    if (activeCollectionPaths.has(absoluteOutputDir)) {
+      callback(new Error(`A collection is already active for ${absoluteOutputDir}.`))
+      return
+    }
+    activeCollectionPaths.add(absoluteOutputDir)
     const logFile = path.join(absoluteOutputDir, 'v8.log')
     const metadataFile = path.join(absoluteOutputDir, 'deoptigate.json')
 
@@ -97,6 +103,7 @@ class ClinicDeoptigate extends EventEmitter {
         const finish = (err, result) => {
           if (completed) return
           completed = true
+          activeCollectionPaths.delete(absoluteOutputDir)
           if (portServer && portServer.listening) portServer.close()
           callback(err, result)
         }
@@ -165,7 +172,10 @@ class ClinicDeoptigate extends EventEmitter {
           if (address && typeof address !== 'string') startChild(address.port)
         })
       })
-      .catch(callback)
+      .catch(err => {
+        activeCollectionPaths.delete(absoluteOutputDir)
+        callback(err)
+      })
   }
 
   /**

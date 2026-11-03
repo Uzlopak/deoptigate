@@ -2,6 +2,7 @@
 
 const Module = require('module')
 const path = require('path')
+const { EventEmitter } = require('events')
 const { test } = require('node:test')
 
 const selectLogPath = path.join(__dirname, '../bin/deoptigate.select-log.js')
@@ -67,19 +68,25 @@ function loadSelectLog(files, answers = [ '1' ]) {
     if (request === 'readline') {
       return {
         createInterface() {
-          return {
-            /**
-             * @param {string} prompt
-             * @param {(answer: string | undefined) => void} callback
-             */
-            question(prompt, callback) {
-              state.questions.push(prompt)
-              process.nextTick(() => callback(state.answers.shift()))
-            },
-            close() {
-              state.closeCount++
-            }
+          const prompt = /**
+           * @type {EventEmitter & {
+           *   question(prompt: string, callback: (answer: string) => void): void,
+           *   close(): void
+           * }}
+           */ (new EventEmitter())
+          prompt.question = function (question, callback) {
+            state.questions.push(question)
+            process.nextTick(() => {
+              const answer = state.answers.shift()
+              if (answer == null) prompt.emit('close')
+              else callback(answer)
+            })
           }
+          prompt.close = function () {
+            state.closeCount++
+            prompt.emit('close')
+          }
+          return prompt
         }
       }
     }
@@ -205,6 +212,25 @@ test('select-log prompts when multiple logs are present', async (/** @type {impo
   }
 })
 
+test('select-log rejects when input closes before a choice is entered', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const state = loadSelectLog([
+    { fullPath: path.join(process.cwd(), 'v8.log') },
+    { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
+  ], [])
+
+  try {
+    await t.assert.rejects(
+      state.selectLog('deoptigate'),
+      /log selection closed before a choice was entered/,
+      'does not treat stdin EOF as a successful selection'
+    )
+  } finally {
+    state.restoreConsole()
+  }
+})
+
 test('select-log skips unreadable files, directories, and unrelated names', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadSelectLog([
@@ -227,13 +253,13 @@ test('select-log reports invalid choices and accepts a later valid choice', asyn
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
-  ], [ 'not a number', '3', '2' ])
+  ], [ '', 'not a number', '3', '2' ])
   try {
     const result = await state.selectLog('deoptigate')
     t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected second path')
-    t.assert.equal(state.questions.length, 3, 'repeats the prompt until a valid selection is entered')
-    t.assert.equal(state.errors.length, 2, 'reports each invalid choice')
-    t.assert.equal(state.closeCount, 3, 'closes each prompt after receiving an answer')
+    t.assert.equal(state.questions.length, 4, 'repeats the prompt until a valid selection is entered')
+    t.assert.equal(state.errors.length, 3, 'reports each invalid choice')
+    t.assert.equal(state.closeCount, 4, 'closes each prompt after receiving an answer')
   } finally {
     state.restoreConsole()
   }

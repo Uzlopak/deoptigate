@@ -13,9 +13,11 @@ const deoptigateDir = path.join(tmpdir, 'deoptigate')
  * @returns {string} Path to the saved page.
  */
 function savePage(html) {
-  fs.mkdirSync(deoptigateDir, { recursive: true })
+  fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
+  fs.chmodSync(deoptigateDir, 0o700)
   const dest = path.join(deoptigateDir, 'index.html')
-  fs.writeFileSync(dest, html, 'utf8')
+  fs.writeFileSync(dest, html, { encoding: 'utf8', mode: 0o600 })
+  fs.chmodSync(dest, 0o600)
   return dest
 }
 
@@ -25,7 +27,8 @@ function savePage(html) {
  * @returns {void}
  */
 function saveEntry(json) {
-  fs.mkdirSync(deoptigateDir, { recursive: true })
+  fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
+  fs.chmodSync(deoptigateDir, 0o700)
   const entryDest = path.join(deoptigateDir, 'deoptigate.render-data.js')
   const entryJS = `
   (function () {
@@ -34,7 +37,8 @@ function saveEntry(json) {
   })()
   `
 
-  fs.writeFileSync(entryDest, entryJS, 'utf8')
+  fs.writeFileSync(entryDest, entryJS, { encoding: 'utf8', mode: 0o600 })
+  fs.chmodSync(entryDest, 0o600)
 }
 
 module.exports = { savePage, saveEntry }

@@ -36,7 +36,7 @@ test('DeoptEntry normalizes bailout types and records severity', (/** @type {imp
 })
 
 test('DeoptEntry parses or rejects V8 source positions', (/** @type {import('node:test').TestContext} */ t) => {
-  t.plan(3)
+  t.plan(4)
   t.assert.deepEqual(
     DeoptEntry.disassembleSourcePosition('</src/app.js:12:4>'),
     { file: '/src/app.js', line: 12, column: 4 },
@@ -52,4 +52,16 @@ test('DeoptEntry parses or rejects V8 source positions', (/** @type {import('nod
     { file: null, line: 0, column: 0 },
     'malformed source position returns fallback coordinates'
   )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('garbage </src/app.js:12:4> trailing'),
+    { file: null, line: 0, column: 0 },
+    'rejects a valid-looking substring inside malformed input'
+  )
+})
+
+test('DeoptEntry preserves function names containing spaces', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const entry = new DeoptEntry('with space [eval]', '[eval]', 1, 28)
+  t.assert.equal(entry.hashmap.functionName, 'with space', 'keeps the complete V8 function name')
 })

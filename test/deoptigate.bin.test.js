@@ -170,3 +170,61 @@ test('CLI sets a nonzero exit status when a command fails', async (/** @type {im
     delete require.cache[binPath]
   }
 })
+
+test('CLI stops after reporting that no V8 log is available', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const originalRequire = Module.prototype.require
+  const originalError = console.error
+  const originalExitCode = process.exitCode
+  const originalArgv = process.argv
+  let reportCalls = 0
+
+  Module.prototype.require = function (request) {
+    if (this.filename === binPath) {
+      if (request === './deoptigate.generate-report') {
+        return async () => { reportCalls++ }
+      }
+      if (request === './deoptigate.select-log') return async () => undefined
+      if (request === './deoptigate.create-log') return async () => 'unused.log'
+    }
+    return originalRequire.call(this, request)
+  }
+  console.error = () => {}
+  process.argv = [ process.execPath, binPath ]
+  delete require.cache[binPath]
+
+  try {
+    require(binPath)
+    await new Promise(resolve => setImmediate(resolve))
+    t.assert.equal(reportCalls, 0, 'does not generate a report without a selected log')
+    t.assert.equal(process.exitCode, originalExitCode, 'treats the no-log message as a clean exit')
+  } finally {
+    Module.prototype.require = originalRequire
+    console.error = originalError
+    process.exitCode = originalExitCode
+    process.argv = originalArgv
+    delete require.cache[binPath]
+  }
+})
+
+test('CLI preserves the profiled process exit code after generating its report', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  if (!supportsDeoptLog) return t.skip('current Node/V8 does not support --log-deopt')
+  t.plan(1)
+  const isolatedTmpDir = await mkdtemp(path.join(tmpdir(), 'deoptigate-bin-exit-code-'))
+  const srcPath = path.join(isolatedTmpDir, 'fails.js')
+
+  try {
+    await writeFile(srcPath, 'process.exitCode = 7\n', 'utf8')
+    const result = spawnSync(process.execPath, [binPath, srcPath], {
+      encoding: 'utf8',
+      env: Object.assign({}, process.env, { TMPDIR: isolatedTmpDir })
+    })
+
+    t.assert.equal(result.status, 7, 'returns the profiled process exit code')
+  } finally {
+    await removeDirectory(isolatedTmpDir)
+  }
+})

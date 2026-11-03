@@ -58,9 +58,23 @@ test('markOnly renders unmarked full lines', (/** @type {import('node:test').Tes
   const html = markOnly('alpha\nbeta', resolverFor([]))
   t.assert.equal(
     html,
-    `<div class="pre"'><span>1: </span><span>alpha</span><br><span>2: </span><span>beta</span><br></div>`,
+    `<div class="pre"><span>1: </span><span>alpha</span><br><span>2: </span><span>beta</span><br></div>`,
     'preserves full source lines when there are no markers'
   )
+})
+
+test('markOnly renders markers on empty source lines without inserting undefined', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const html = markOnly('alpha\n\nomega', resolverFor([
+    { id: 'empty-line', line: 2, column: 1 }
+  ]))
+
+  t.assert.ok(
+    html.includes('<span>2: </span><span><a data-marker="empty-line"></a></span><br>'),
+    'renders the marker without inventing a source character'
+  )
+  t.assert.ok(!html.includes('undefined'), 'does not render an undefined source character')
 })
 
 test('markOnly inserts a marker at the final source column', (/** @type {import('node:test').TestContext} */ t) => {

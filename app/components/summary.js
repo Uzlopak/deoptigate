@@ -7,6 +7,8 @@ const scrollIntoView = /** @type {typeof import('scroll-into-view-if-needed').de
 )
 
 const assert = require('../../lib/assert')
+const summaryEmptyMessage = require('../lib/summary-empty-state')
+const summaryNavigationAttributes = require('../lib/summary-navigation')
 const { nameIcState, severityIcState } = require('../../lib/log-processing/ic-state')
 const {
     nameOptimizationState
@@ -123,7 +125,7 @@ class SummaryView extends Component {
     const renderedCodes = this._renderCodes(codes, codeLocations, selectedTabIdx === OPT_TAB_IDX)
     return (
       <div className={className}>
-        <div className='flex flex-row summary-tabs'>
+        <div className='flex flex-row summary-tabs' role='group' aria-label='Summary categories'>
           {this._renderTabHeader('Optimizations', OPT_TAB_IDX)}
           {this._renderTabHeader('Deoptimizations', DEOPT_TAB_IDX)}
           {this._renderTabHeader('Inline Caches', ICS_TAB_IDX)}
@@ -153,12 +155,18 @@ class SummaryView extends Component {
     const selectedClass = 'tab-active'
     const unselectedClass = 'tab-inactive'
     const className = selected ? `${baseClass} ${selectedClass}` : `${baseClass} ${unselectedClass}`
+    const tabAttributes = summaryNavigationAttributes(selected)
 
     return (
-      <a className={className} href='#' onClick={e => {
-        e.preventDefault()
-        this._ontabHeaderClicked(idx)
-      }}>{label}</a>
+      <a
+        className={className}
+        href='#'
+        {...tabAttributes}
+        onClick={e => {
+          e.preventDefault()
+          this._ontabHeaderClicked(idx)
+        }}
+      >{label}</a>
     )
   }
 
@@ -171,7 +179,6 @@ class SummaryView extends Component {
    */
   _renderDataPoint(data, locations, renderDetails) {
     const { selectedLocation, includeAllSeverities, relativePath } = this.props
-    if (locations.length === 0) return <h4 className='ml4'>None</h4>
     const rendered = []
     for (const loc of locations) {
       const info = data.get(loc)
@@ -187,6 +194,8 @@ class SummaryView extends Component {
         </div>
       )
     }
+    const emptyMessage = summaryEmptyMessage(locations.length, rendered.length)
+    if (emptyMessage != null) return <h4 className='ml4'>{emptyMessage}</h4>
     return rendered
   }
 

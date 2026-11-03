@@ -102,6 +102,23 @@ test('ClinicDeoptigate collects a Node process and creates a Clinic report', asy
   t.assert.ok(html.includes('Performance overview'), 'renders the deoptigate visualizer')
 })
 
+test('ClinicDeoptigate prevents concurrent collections from overwriting the same output', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(3)
+  const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-concurrent-'))
+  t.after(() => removeDirectory(tempDir))
+
+  const profiler = new ClinicDeoptigate({ dest: tempDir, name: 'shared' })
+  const first = collect(profiler, [process.execPath, '-e', 'setTimeout(() => {}, 100)'])
+  await rejects(
+    t,
+    collect(profiler, [process.execPath, '-e', 'process.exit(0)']),
+    /collection is already active/,
+    'rejects a second collection targeting the same profile path'
+  )
+  const dataPath = await first
+  t.assert.ok(fs.statSync(path.join(dataPath, 'v8.log')).isFile(), 'retains the first collection log')
+})
+
 test('ClinicDeoptigate rejects invalid commands and failed child processes', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-errors-'))

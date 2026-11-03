@@ -23,3 +23,16 @@ test('createPage uses the external render-data script when data is absent', (/**
   t.assert.ok(html.includes('src="deoptigate.render-data.js"'), 'loads a separate render-data file')
   t.assert.ok(html.includes('<title>deoptigate</title>'), 'uses the default title')
 })
+
+test('createPage escapes caller-supplied titles', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const title = '</title><script>globalThis.pwned = true</script>'
+  const html = createPage(undefined, title)
+
+  t.assert.ok(
+    html.includes('<title>&lt;/title&gt;&lt;script&gt;globalThis.pwned = true&lt;/script&gt;</title>'),
+    'keeps title markup as text'
+  )
+  t.assert.ok(!html.includes(`<title>${title}</title>`), 'does not inject markup into the document head')
+})

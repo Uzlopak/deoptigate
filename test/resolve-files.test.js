@@ -43,3 +43,4 @@ test('resolveFiles returns an empty map when there are no data points', async (/
   const files = await resolveFiles({ root: os.tmpdir(), ics: [], deopts: [], codes: [] })
   t.assert.equal(files.size, 0, 'empty input resolves to no files')
 })
+

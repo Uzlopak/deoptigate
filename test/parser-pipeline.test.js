@@ -87,6 +87,17 @@ test('V8 CSV decoding preserves escaped backslashes in source paths', async (/**
   t.assert.equal(code.file, 'C:\\work\\x5c.js', 'decoded path retains each literal backslash')
 })
 
+test('parser accepts CRLF-terminated V8 records', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const line = `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~\r`
+  const processor = await processLogContent(asAsyncIterable([ line ]), repoRoot)
+  const code = processor.toObject().codes[0]
+
+  t.assert.ok(code, 'retains code records with a carriage return at line end')
+  t.assert.equal(code && code.updates[0].state, 1, 'parses the optimization marker after removing CRLF')
+})
+
 test('processLog honors icStateChangesOnly for unchanged IC updates', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const temp = writeTempLog([

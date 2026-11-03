@@ -35,7 +35,7 @@ const createLogPath = path.join(__dirname, '../bin/deoptigate.create-log.js')
  * @property {string[]} mkdirCalls
  * @property {[string, number][]} accessCalls
  * @property {string[]} statCalls
- * @property {EventEmitter & {versions: {node: string}, execPath: string}} processInfo
+ * @property {EventEmitter & {versions: {node: string}, execPath: string, exitCode?: number | null}} processInfo
  * @property {(args: string[], head: string, simpleHead: string) => Promise<string>} createLog
  */
 
@@ -175,6 +175,17 @@ test('create-log creates missing log directory and spawns the requested script',
   t.assert.deepEqual(state.spawnCalls[0].spawnOptions.stdio, [ 'ignore', 'inherit', 'inherit' ], 'inherits child output')
 })
 
+test('create-log preserves a nonzero profiled process exit code', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  t.plan(2)
+  const state = loadCreateLog({ exitCode: 7 })
+  const logPath = await state.createLog([ 'script.js' ], 'head', 'simple')
+
+  t.assert.equal(logPath, `${state.logDir}/deoptigate/v8.log`, 'still returns the generated V8 log path')
+  t.assert.equal(state.processInfo.exitCode, 7, 'lets the CLI report the profiled process failure to its caller')
+})
+
 test('create-log parses node flags, app args, and a custom Node executable', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const state = loadCreateLog({ exists: true, exitCode: null })
@@ -200,6 +211,39 @@ test('create-log supports the node executable and legacy IC flag', async (/** @t
   t.assert.deepEqual(state.spawnCalls[0].args.slice(-1), [ 'app.js' ], 'passes app arguments after Node flags')
   t.assert.equal(state.spawnCalls[0].args[0], '--trace-ic', 'uses the legacy inline-cache flag')
   t.assert.ok(state.spawnCalls[0].args.includes('--trace-warnings'), 'passes Node flags through')
+})
+
+test('create-log keeps separate Node flag values before the application script', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const state = loadCreateLog()
+  await state.createLog([
+    '--', 'node', '--require', './preload.js', 'app.js', '--app-flag'
+  ], 'head', 'simple')
+
+  const args = state.spawnCalls[0].args
+  const requireIndex = args.indexOf('--require')
+  t.assert.deepEqual(args.slice(requireIndex, requireIndex + 2), [ '--require', './preload.js' ], 'keeps the preload value with its Node flag')
+  t.assert.deepEqual(args.slice(-2), [ 'app.js', '--app-flag' ], 'keeps the application and its arguments after Node flags')
+})
+
+test('create-log rejects Node flags that are missing their value', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  const state = loadCreateLog()
+  /** @type {Error | undefined} */
+  let error
+
+  try {
+    await state.createLog([ '--', 'node', '--require' ], 'head', 'simple')
+  } catch (caught) {
+    if (caught instanceof Error) error = caught
+    else throw caught
+  }
+
+  if (error == null) throw new Error('expected a missing Node flag value to be rejected')
+  t.assert.match(error.message, /Node flag --require requires a value/, 'reports the missing Node flag value')
+  t.assert.equal(state.spawnCalls.length, 0, 'does not spawn Node with a shifted preload argument')
 })
 
 test('create-log rejects flags where a Node executable is required', async (/** @type {import('node:test').TestContext} */ t) => {

@@ -39,10 +39,15 @@ async function findLogFiles(root) {
  */
 function ask(question) {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
+    let answered = false
+    prompt.once('close', () => {
+      if (!answered) reject(new Error('log selection closed before a choice was entered'))
+    })
     prompt.question(question, answer => {
+      answered = true
       prompt.close()
-      resolve(answer)
+      resolve(answer || '')
     })
   })
 }

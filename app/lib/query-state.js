@@ -15,7 +15,9 @@
  * @returns {number | null}
  */
 function parseNum(s) {
-  return s === '' ? null : parseInt(String(s))
+  if (s == null || s.trim() === '') return null
+  const value = Number(s)
+  return Number.isSafeInteger(value) ? value : null
 }
 
 /**
@@ -28,7 +30,7 @@ function parseBool(s) {
 
 /** @returns {QueryState | null} */
 function stateFromUrl() {
-  if (location.search == null || location.search.length < 2) return null
+  if (location.search.length < 2) return null
   const query = location.search.slice(1)
   const queryState = new URLSearchParams(query)
   const state = {
@@ -42,7 +44,31 @@ function stateFromUrl() {
 }
 
 /**
- * @param {Partial<QueryState>} state
+ * Replace a missing or invalid selected index with its default.
+ *
+ * @param {number | null} value
+ * @param {number[]} validValues
+ * @param {number} defaultValue
+ * @returns {number}
+ */
+function normalizeIndex(value, validValues, defaultValue) {
+  return value != null && validValues.includes(value) ? value : defaultValue
+}
+
+/**
+ * Merge URL state onto a fresh copy of the view defaults.
+ *
+ * @template {object} T
+ * @param {T} defaults
+ * @param {Partial<T> | null} urlState
+ * @returns {T}
+ */
+function mergeInitialState(defaults, urlState) {
+  return Object.assign({}, defaults, urlState)
+}
+
+/**
+ * @param {{[K in keyof QueryState]?: QueryState[K] | undefined}} state
  * @returns {string}
  */
 function urlFromState(state) {
@@ -59,5 +85,7 @@ function urlFromState(state) {
 
 module.exports = {
     stateFromUrl
+  , normalizeIndex
+  , mergeInitialState
   , urlFromState
 }

@@ -11,6 +11,33 @@ const softExitPreload = require.resolve('./soft-exit')
 
 const { brightBlack } = require('./ansi')
 
+const NODE_OPTIONS_WITH_VALUES = new Set([
+    '-r'
+  , '--require'
+  , '--import'
+  , '--loader'
+  , '--experimental-loader'
+  , '-C'
+  , '--conditions'
+  , '--env-file'
+  , '--env-file-if-exists'
+  , '--icu-data-dir'
+  , '--inspect-port'
+  , '--max-http-header-size'
+  , '--redirect-warnings'
+  , '--diagnostic-dir'
+  , '--title'
+  , '--cpu-prof-dir'
+  , '--cpu-prof-interval'
+  , '--heap-prof-dir'
+  , '--heap-prof-interval'
+  , '--test-name-pattern'
+  , '--test-reporter'
+  , '--test-reporter-destination'
+  , '--test-shard'
+  , '--test-timeout'
+])
+
 /**
  * Split Deoptigate arguments from the Node executable and its arguments.
  * @param {string[]} args Command-line arguments after the CLI name.
@@ -42,9 +69,17 @@ function determineArgs(args) {
   const argv = []
   let sawApp = false
 
-  for (const arg of afterDashesArgs) {
+  for (let index = 0; index < afterDashesArgs.length; index++) {
+    const arg = afterDashesArgs[index]
     if (sawApp) {
       argv.push(arg)
+      continue
+    }
+    if (NODE_OPTIONS_WITH_VALUES.has(arg)) {
+      const value = afterDashesArgs[index + 1]
+      if (value == null) throw Error(`Node flag ${arg} requires a value.`)
+      extraExecArgv.push(arg, value)
+      index++
       continue
     }
     if (!arg.startsWith('-')) {
@@ -128,6 +163,7 @@ async function createLog(args, head, simpleHead) {
     ? 'process was interrupted'
     : 'process completed with code ' + code
   )
+  if (code !== 0) processInfo.exitCode = code ?? 1
   console.log(`\n${head} ${brightBlack(terminationMsg)}`)
   console.log(`${simpleHead} ${brightBlack('logfile written to ' + logFile)}`)
   return logFile

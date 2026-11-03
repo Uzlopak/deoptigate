@@ -8,7 +8,14 @@ const { Profile } = require('../lib/v8-tools-core/profile')
 const { OPTIMIZATION_STATE_OPTIMIZED } = require('../lib/log-processing/optimization-state')
 
 /** @typedef {{parsers: Array<((field: string) => unknown) | null>, processor: (...args: never[]) => void}} TestDispatch */
-/** @typedef {{dispatchTable_: Record<string, TestDispatch | null>, csvParser_: {parseLine(line: string): string[]}, processLogChunk(chunk: string): void}} TestLogReader */
+/**
+ * @typedef {object} TestLogReader
+ * @property {Record<string, TestDispatch | null>} dispatchTable_
+ * @property {{parseLine(line: string): string[]}} csvParser_
+ * @property {(chunk: string) => void} processLogChunk
+ * @property {() => void} processLogEnd
+ * @property {(line: string) => void} processLogLine
+ */
 /** @typedef {new () => TestLogReader} TestLogReaderConstructor */
 /** @typedef {{key: number, value: unknown}} TestSplayNode */
 /** @typedef {{insert(key: number, value: unknown): void, find(key: number): TestSplayNode | null, findGreatestLessThan(key: number): TestSplayNode | null, exportKeysAndValues(): Array<[number, unknown]>, remove(key: number): TestSplayNode}} TestSplayTree */
@@ -81,9 +88,55 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
     return parseLine.call(this, line)
   }
   reader.processLogChunk('record,12,hello\\nworld\nunknown,ignored\nrecord,13,throws\nrecord,14,still-runs')
+  reader.processLogEnd()
   t.assert.deepEqual(calls, [ [ 12, 'hello\nworld' ], [ 14, 'still-runs' ] ], 'known records are parsed and processing continues after an error')
   t.assert.deepEqual(errors, [ 'line 3: synthetic dispatch error' ], 'reports errors with the source line number')
   t.assert.equal(parsedRows, 3, 'skips CSV parsing for unsupported record types')
+})
+
+test('LogReader joins records split across input chunks', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  /** @type {string[]} */
+  const values = []
+  class Reader extends TestLogReaderBase {
+    constructor() {
+      super()
+      this.dispatchTable_ = {
+        record: {
+          parsers: [ null ],
+          processor: (/** @type {string} */ value) => values.push(value)
+        }
+      }
+    }
+  }
+
+  const reader = new Reader()
+  reader.processLogChunk('record,par')
+  t.assert.deepEqual(values, [], 'waits until a complete record is available')
+  reader.processLogChunk('tial\n')
+  t.assert.deepEqual(values, [ 'partial' ], 'dispatches the reconstructed record')
+  reader.processLogEnd()
+})
+
+test('LogReader ignores unknown commands that match Object prototype properties', (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  /** @type {string[]} */
+  const errors = []
+  class Reader extends TestLogReaderBase {
+    constructor() {
+      super()
+      this.dispatchTable_ = {}
+    }
+
+    printError(/** @type {string} */ message) {
+      errors.push(message)
+    }
+  }
+
+  const reader = new Reader()
+  reader.processLogLine('toString,ignored')
+  t.assert.deepEqual(errors, [], 'skips inherited names as unsupported commands')
 })
 
 test('CodeMap indexes, moves, deletes and replaces overlapping entries', (/** @type {import('node:test').TestContext} */ t) => {
