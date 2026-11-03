@@ -64,6 +64,20 @@ deoptigate app.js
 Or run `deoptigate` in a directory containing V8 log files to open an existing
 log. If several logs match, it prompts you to select one.
 
+## Run the demo
+
+Run a small built-in workload through the profiler's public API and create a
+standalone HTML report in a temporary directory:
+
+```sh
+npm run demo
+```
+
+The command prints the report path under the operating system's temporary
+directory. Capture data is stored separately and removed after report
+generation, or if the command fails. The HTML report is left in place. The
+command does not need a server, external service, or prepared profile data.
+
 ## Programmatic API
 
 ```js

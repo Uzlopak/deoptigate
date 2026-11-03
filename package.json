@@ -18,6 +18,7 @@
     "visualizer/"
   ],
   "scripts": {
+    "demo": "node bin/demo.js",
     "test": "node --test test/*.test.js",
     "bench": "node benchmark/parse-v8-log.js",
     "bench:csv-escape-field": "node benchmark/csv-escape-field.bench.js",
