@@ -3,6 +3,10 @@
 /* global print */
 
 class Object1 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y
@@ -10,6 +14,10 @@ class Object1 {
 }
 
 class Object2 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.y = y
     this.x = x
@@ -17,6 +25,10 @@ class Object2 {
 }
 
 class Object3 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.hello = 'world'
     this.x = x
@@ -25,6 +37,10 @@ class Object3 {
 }
 
 class Object4 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.hello = 'world'
@@ -33,6 +49,10 @@ class Object4 {
 }
 
 class Object5 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y
@@ -41,6 +61,10 @@ class Object5 {
 }
 
 class Object6 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.hola = 'mundo'
     this.x = x
@@ -50,6 +74,10 @@ class Object6 {
 }
 
 class Object7 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.hola = 'mundo'
@@ -59,6 +87,10 @@ class Object7 {
 }
 
 class Object8 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y
@@ -72,32 +104,60 @@ const preventInlining = {
   flag: false
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 function addSmis(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   return a + b
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 function addNumbers(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   return a + b
 }
 
+/**
+ * @param {string} a
+ * @param {string} b
+ * @returns {number | string}
+ */
 function addStrings(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   return a + b
 }
 
+/** @typedef {{x: number, y: number}} CoordinateObject */
+/**
+ * Exercise addition with primitive values and objects exposing x and y.
+ * @param {number | string | CoordinateObject} a
+ * @param {number | string} [b]
+ * @returns {number | string}
+ */
 function addAny(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   // passed one object?
-  if (b == null) return a.x + a.y
-  return a + b
+  if (b == null) return typeof a === 'object' ? a.x + a.y : Number.NaN
+  if (typeof a === 'string' || typeof b === 'string') return String(a) + String(b)
+  return Number(a) + Number(b)
 }
 
 const ITER = 1E3
 
+/** @type {Array<number | string>} */
 var results = []
 
+/**
+ * @param {number | string} r
+ * @returns {void}
+ */
 function processResult(r) {
   // will never happen
   if (r === -1) preventInlining.flag = true
@@ -131,6 +191,11 @@ for (let i = 0; i < ITER; i++) {
   }
 }
 
+/**
+ * Run the workload for a constructor producing a point-like object.
+ * @param {new (x: number, y: number) => CoordinateObject} SomeObject
+ * @returns {void}
+ */
 function addObjects(SomeObject) {
   for (let i = 0; i < ITER; i++) {
     for (let j = ITER; j > 0; j--) {
@@ -148,11 +213,16 @@ addObjects(Object7)
 addObjects(Object8)
 
 // make this work with d8 and Node.js
-function log() {
+/**
+ * Print all supplied values using the available runtime output function.
+ * @this {unknown}
+ * @param {...(string | number)} args
+ */
+function log(...args) {
   if (typeof print === 'function') {
-    print.apply(this, arguments)
+    Reflect.apply(print, this, args)
   } else {
-    console.log.apply(console, arguments)
+    console.log.apply(console, args)
   }
 }
 

@@ -8,8 +8,37 @@ const {
   , severityIcState
 } = require('../lib/log-processing/ic-state')
 
-test('parseIcState supports V8 inline-cache state codes', (t) => {
+/** @typedef {import('../lib/log-processing/ic-state').IcState} TestIcState */
+
+// These adapters keep invalid-input tests explicit while preserving the
+// narrower public input types of the production functions.
+/**
+ * @param {string} code
+ * @returns {number}
+ */
+function parseUncheckedState(code) {
+  return /** @type {(value: string) => number} */ (parseIcState)(code)
+}
+
+/**
+ * @param {number} state
+ * @returns {string}
+ */
+function nameUncheckedState(state) {
+  return /** @type {(value: number) => string} */ (nameIcState)(state)
+}
+
+/**
+ * @param {number} state
+ * @returns {number}
+ */
+function severityUncheckedState(state) {
+  return /** @type {(value: number) => number} */ (severityIcState)(state)
+}
+
+test('parseIcState supports V8 inline-cache state codes', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(9)
+  /** @type {Array<['0' | 'X' | '.' | '1' | '^' | 'P' | 'N' | 'G', TestIcState]>} */
   const states = [
       [ '0', 0 ]
     , [ 'X', 0 ]
@@ -24,11 +53,12 @@ test('parseIcState supports V8 inline-cache state codes', (t) => {
   for (const [ code, state ] of states) {
     t.assert.equal(parseIcState(code), state, `${JSON.stringify(code)} maps to state ${state}`)
   }
-  t.assert.throws(() => parseIcState('?'), /unknown ic code state/, 'unknown state codes throw')
+  t.assert.throws(() => parseUncheckedState('?'), /unknown ic code state/, 'unknown state codes throw')
 })
 
-test('nameIcState names every inline-cache state', (t) => {
+test('nameIcState names every inline-cache state', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
+  /** @type {Array<[TestIcState, string]>} */
   const names = [
       [ 0, 'unintialized' ]
     , [ 1, 'premonomorphic' ]
@@ -42,11 +72,12 @@ test('nameIcState names every inline-cache state', (t) => {
   for (const [ state, name ] of names) {
     t.assert.equal(nameIcState(state), name, `state ${state} is named ${name}`)
   }
-  t.assert.throws(() => nameIcState(-1), /unknown ic code state/, 'unknown states throw')
+  t.assert.throws(() => nameUncheckedState(-1), /unknown ic code state/, 'unknown states throw')
 })
 
-test('severityIcState groups inline-cache states by severity', (t) => {
+test('severityIcState groups inline-cache states by severity', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
+  /** @type {Array<[TestIcState, number]>} */
   const severities = [
       [ 0, MIN_SEVERITY ]
     , [ 1, MIN_SEVERITY ]
@@ -60,5 +91,5 @@ test('severityIcState groups inline-cache states by severity', (t) => {
   for (const [ state, severity ] of severities) {
     t.assert.equal(severityIcState(state), severity, `state ${state} has severity ${severity}`)
   }
-  t.assert.throws(() => severityIcState(-1), /unknown ic code state/, 'unknown states throw')
+  t.assert.throws(() => severityUncheckedState(-1), /unknown ic code state/, 'unknown states throw')
 })

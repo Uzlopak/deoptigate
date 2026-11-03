@@ -11,6 +11,28 @@ const { processLog } = require('../deoptigate.log')
 const repoRoot = path.join(__dirname, '..')
 const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
 
+/**
+ * @param {string[]} lines
+ * @returns {AsyncIterable<string>}
+ */
+async function * asAsyncIterable(lines) {
+  yield * lines
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is {ics: {updates: unknown[]}[]}}
+ */
+function hasInlineCacheUpdates(value) {
+  if (typeof value !== 'object' || value === null || !('ics' in value) || !Array.isArray(value.ics)) return false
+  const firstEntry = value.ics[0]
+  return typeof firstEntry === 'object' && firstEntry !== null && 'updates' in firstEntry && Array.isArray(firstEntry.updates)
+}
+
+/**
+ * @param {string} contents
+ * @returns {{ dir: string, logPath: string }}
+ */
 function writeTempLog(contents) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-parser-test-'))
   const logPath = path.join(dir, 'v8.log')
@@ -18,12 +40,13 @@ function writeTempLog(contents) {
   return { dir, logPath }
 }
 
+/** @param {{ dir: string, logPath: string }} temp */
 function cleanupTempLog({ dir, logPath }) {
   fs.unlinkSync(logPath)
   fs.rmdirSync(dir)
 }
 
-test('legacy and timestamped IC records use their respective field offsets', async (t) => {
+test('legacy and timestamped IC records use their respective field offsets', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(15)
   const lines = [
     `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
@@ -31,7 +54,7 @@ test('legacy and timestamped IC records use their respective field offsets', asy
     'StoreIC,0x1000,123456,12,8,1,P,0x000def,modernKey,,'
   ]
 
-  const processor = await processLogContent(lines, repoRoot)
+  const processor = await processLogContent(asAsyncIterable(lines), repoRoot)
   const ics = processor.toObject().ics
   t.assert.equal(ics.length, 2, 'both IC records are retained')
 
@@ -54,17 +77,17 @@ test('legacy and timestamped IC records use their respective field offsets', asy
   t.assert.equal(modern.updates[0].key, 'modernKey', 'modern property key is retained')
 })
 
-test('V8 CSV decoding preserves escaped backslashes in source paths', async (t) => {
+test('V8 CSV decoding preserves escaped backslashes in source paths', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const line = 'code-creation,JS,9,1,0x1000,100,run C:\\\\work\\\\x5c.js:1:1,0x2000,~'
-  const processor = await processLogContent([ line ], repoRoot)
+  const processor = await processLogContent(asAsyncIterable([ line ]), repoRoot)
   const code = processor.toObject().codes[0]
 
   t.assert.equal(code.functionName, 'run', 'function name is preserved')
   t.assert.equal(code.file, 'C:\\work\\x5c.js', 'decoded path retains each literal backslash')
 })
 
-test('processLog honors icStateChangesOnly for unchanged IC updates', async (t) => {
+test('processLog honors icStateChangesOnly for unchanged IC updates', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const temp = writeTempLog([
     `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
@@ -84,6 +107,7 @@ test('processLog honors icStateChangesOnly for unchanged IC updates', async (t) 
     const fullFile = allUpdates.get(sourceFile)
     const filteredFile = changesOnly.get(sourceFile)
     t.assert.ok(fullFile, 'source file resolves when unchanged IC data is retained')
+    if (!hasInlineCacheUpdates(fullFile)) throw new Error('Expected inline-cache update data')
     t.assert.equal(fullFile.ics[0].updates.length, 1, 'false retains the unchanged update')
     t.assert.ok(filteredFile, 'code data keeps the file group after filtering')
     t.assert.equal(filteredFile.ics.length, 0, 'true filters the unchanged update')
@@ -92,7 +116,7 @@ test('processLog honors icStateChangesOnly for unchanged IC updates', async (t) 
   }
 })
 
-test('malformed deopt source positions do not abort log processing', async (t) => {
+test('malformed deopt source positions do not abort log processing', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const temp = writeTempLog([
     `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
@@ -109,9 +133,10 @@ test('malformed deopt source positions do not abort log processing', async (t) =
   }
 })
 
-test('parser reports a malformed IC row and continues with following records', async (t) => {
+test('parser reports a malformed IC row and continues with following records', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
-  const processor = await processLogContent([], repoRoot)
+  const processor = await processLogContent(asAsyncIterable([]), repoRoot)
+  /** @type {string[]} */
   const errors = []
   const originalTrace = console.trace
   const originalError = console.error

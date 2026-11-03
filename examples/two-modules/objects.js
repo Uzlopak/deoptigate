@@ -1,4 +1,8 @@
 class Object1 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y
@@ -6,6 +10,10 @@ class Object1 {
 }
 
 class Object2 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.y = y
     this.x = x
@@ -13,6 +21,10 @@ class Object2 {
 }
 
 class Object3 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.hello = 'world'
     this.x = x
@@ -21,6 +33,10 @@ class Object3 {
 }
 
 class Object4 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.hello = 'world'
@@ -29,6 +45,10 @@ class Object4 {
 }
 
 class Object5 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y
@@ -37,6 +57,10 @@ class Object5 {
 }
 
 class Object6 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.hola = 'mundo'
     this.x = x
@@ -46,6 +70,10 @@ class Object6 {
 }
 
 class Object7 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.hola = 'mundo'
@@ -55,6 +83,10 @@ class Object7 {
 }
 
 class Object8 {
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   constructor(x, y) {
     this.x = x
     this.y = y

@@ -20,6 +20,7 @@
   "scripts": {
     "demo": "node bin/demo.js",
     "test": "node --test test/*.test.js",
+    "typecheck": "tsc --project tsconfig.json",
     "bench": "node benchmark/parse-v8-log.js",
     "bench:csv-escape-field": "node benchmark/csv-escape-field.bench.js",
     "bench:csv-parse-line": "node benchmark/csv-parse-line.bench.js",
@@ -53,7 +54,9 @@
     "@clinic/clinic-common": "^8.0.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "escape-string-regexp": "^4.0.0",
-    "tinybench": "^2.9.0"
+    "tinybench": "^2.9.0",
+    "typescript": "^7.0.2"
   }
 }

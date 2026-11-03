@@ -5,14 +5,42 @@ const { Component } = Preact
 const summarizeFile = require('../../lib/grouping/summarize-file')
 const assert = require('../../lib/assert')
 
-const severityClassNames = [
+const severityClassNames = /** @type {const} */ ([
     'green i tc'
   , 'blue tc'
   , 'red b tc'
-]
+])
 
 const underlineTdClass = ' pl2 pr2 underlined '
 
+/**
+ * @typedef {import('../../lib/log-processing/optimization-state').ParsedOptimizationState} ParsedOptimizationState
+ * @typedef {import('../../lib/severities').Severity} Severity
+ * @typedef {{severity: Severity, state?: ParsedOptimizationState}} FileUpdate
+ * @typedef {{severity: Severity, state: ParsedOptimizationState}} FileCodeUpdate
+ * @typedef {{functionName: string, line: number, column: number, id?: number, updates: FileUpdate[], severity?: Severity}} FileDataPoint
+ * @typedef {{functionName: string, line: number, column: number, id?: number, updates: FileCodeUpdate[], severity?: Severity}} CodeFileDataPoint
+ * @typedef {Object} FileGroup
+ * @property {Map<string, FileDataPoint>} ics
+ * @property {Map<string, FileDataPoint>} deopts
+ * @property {Map<string, CodeFileDataPoint>} codes
+ * @property {string} relativePath
+ */
+
+/**
+ * @typedef {Object} FilesViewProps
+ * @property {Map<string, FileGroup>} groups
+ * @property {boolean} includeAllSeverities
+ * @property {string=} className
+ * @property {string|null} selectedFile
+ * @property {(file: string) => void} onfileClicked
+ */
+
+/**
+ * Render severity counts as table cells.
+ * @param {number[]} arr
+ * @returns {import('preact').ComponentChildren[]}
+ */
 function coloredTds(arr) {
   return arr.map((x, idx) => {
     const className = x > 0
@@ -22,17 +50,26 @@ function coloredTds(arr) {
   })
 }
 
+/**
+ * Sort file summaries from highest to lowest severity score.
+ * @param {{file: string, summary: {severityScore: number}}} a
+ * @param {{file: string, summary: {severityScore: number}}} b
+ * @returns {number}
+ */
 function bySeverityScoreDesc({ summary: s1 }, { summary: s2 }) {
   return s1.severityScore < s2.severityScore ? 1 : -1
 }
 
+/** @extends {Component<FilesViewProps>} */
 class FilesView extends Component {
+  /** @param {FilesViewProps} props */
   constructor(props) {
     super(props)
     const { onfileClicked } = props
     assert.equal(typeof onfileClicked, 'function', 'need to pass onfileClicked function')
   }
 
+  /** @returns {import('preact').JSX.Element} */
   render() {
     const { groups, includeAllSeverities, className = '' } = this.props
     const tableHeader = this._renderTableHeader()
@@ -48,7 +85,9 @@ class FilesView extends Component {
 
     for (const { file, summary } of filesSeverities) {
       const { icSeverities, deoptSeverities, codeStates } = summary
-      const { relativePath } = groups.get(file)
+      const fileGroup = groups.get(file)
+      if (fileGroup == null) continue
+      const { relativePath } = fileGroup
       const rendered = this._renderFile({
           file
         , relativePath
@@ -65,7 +104,7 @@ class FilesView extends Component {
         : 'No files with critical events. Enable “Include low severities” to show all files.'
       rows.push(
         <tr key='empty-state'>
-          <td className='empty-table-state' colSpan='10'>{message}</td>
+          <td className='empty-table-state' colSpan={10}>{message}</td>
         </tr>
       )
     }
@@ -75,7 +114,7 @@ class FilesView extends Component {
         <table className='files-table' cellSpacing='0'>
           <colgroup>
             <col className='file-column' />
-            <col span='9' className='metric-column' />
+            <col span={9} className='metric-column' />
           </colgroup>
           {tableHeader}
           <tbody>{rows}</tbody>
@@ -84,16 +123,17 @@ class FilesView extends Component {
     )
   }
 
+  /** @returns {import('preact').JSX.Element} */
   _renderTableHeader() {
     const topHeaderClass = 'tc header-row pt2 pb1 '
     const subHeaderClass = 'pa1 pl2 pr2 subhead'
     return (
       <thead>
         <tr>
-          <th scope='col' rowSpan='2' className={topHeaderClass + ' file-header'}>File</th>
-          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Optimizations</th>
-          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Deoptimizations</th>
-          <th scope='colgroup' colSpan='3' className={topHeaderClass}>Inline Caches</th>
+          <th scope='col' rowSpan={2} className={topHeaderClass + ' file-header'}>File</th>
+          <th scope='colgroup' colSpan={3} className={topHeaderClass}>Optimizations</th>
+          <th scope='colgroup' colSpan={3} className={topHeaderClass}>Deoptimizations</th>
+          <th scope='colgroup' colSpan={3} className={topHeaderClass}>Inline Caches</th>
         </tr>
         <tr>
           <th scope='col' className={subHeaderClass}>Optimized</th>
@@ -110,6 +150,11 @@ class FilesView extends Component {
     )
   }
 
+  /**
+   * Render one file row and its optimization, deoptimization, and IC counts.
+   * @param {{file: string, relativePath: string, deoptSeverities: number[], icSeverities: number[], codeStates: number[]}} data
+   * @returns {import('preact').ComponentChildren}
+   */
   _renderFile({ file, relativePath, deoptSeverities, icSeverities, codeStates }) {
     const { selectedFile } = this.props
 
@@ -126,7 +171,7 @@ class FilesView extends Component {
           <a className={'items pl2 pr2'}
             href='#'
             title={relativePath}
-            onClick={e => {
+            onClick={/** @param {import('preact').TargetedMouseEvent<HTMLAnchorElement>} e */ e => {
               e.preventDefault()
               onfileClicked()
             }}>
@@ -140,6 +185,10 @@ class FilesView extends Component {
     )
   }
 
+  /**
+   * @param {string} file
+   * @returns {void}
+   */
   _onfileClicked(file) {
     const { onfileClicked } = this.props
     onfileClicked(file)

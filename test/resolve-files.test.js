@@ -7,7 +7,7 @@ const { test } = require('node:test')
 
 const resolveFiles = require('../lib/grouping/resolve-files')
 
-test('resolveFiles reads unique readable source files and skips missing paths and directories', async (t) => {
+test('resolveFiles reads unique readable source files and skips missing paths and directories', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-resolve-files-'))
   const source = path.join(root, 'source.js')
@@ -38,7 +38,7 @@ test('resolveFiles reads unique readable source files and skips missing paths an
   }
 })
 
-test('resolveFiles returns an empty map when there are no data points', async (t) => {
+test('resolveFiles returns an empty map when there are no data points', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const files = await resolveFiles({ root: os.tmpdir(), ics: [], deopts: [], codes: [] })
   t.assert.equal(files.size, 0, 'empty input resolves to no files')

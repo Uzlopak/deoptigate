@@ -1,11 +1,22 @@
 'use strict'
 
-const data = JSON.parse(document.getElementById('clinic-data').textContent)
+/**
+ * @typedef {{severity?: import('../lib/severities').Severity, timestamp?: number, state?: number, oldState?: number, newState?: number, type?: string, key?: string, map?: string, bailoutType?: string, deoptReason?: string, inlined?: boolean}} EventUpdate
+ * @typedef {{line?: number, column?: number, functionName?: string, isScript?: boolean, updates?: EventUpdate[]}} EventPoint
+ * @typedef {'deopts' | 'ics' | 'codes'} EventCategory
+ * @typedef {{relativePath: string, src?: string, deopts: EventPoint[], ics: EventPoint[], codes: EventPoint[]}} FileInfo
+ * @typedef {{deopts: EventPoint[], ics: EventPoint[], codes: EventPoint[], score: number}} FileSummary
+ * @typedef {{file: string, info: FileInfo, summary: FileSummary}} FileItem
+ * @typedef {{category: EventCategory, type: string, symbol: string, label: string, point: EventPoint}} SourceMarker
+ */
+
+/** @type {Array<[string, FileInfo]>} */
+const data = JSON.parse(/** @type {HTMLElement} */ (document.getElementById('clinic-data')).textContent)
 const files = data
   .filter(([, info]) => !/(?:^|[/\\])src[/\\]injects[/\\](?:soft-exit|detect-port)\.js$/.test(info.relativePath))
   .map(([file, info]) => ({ file, info, summary: summarize(info) }))
-const optimizationStateNames = ['compiled', 'optimizable', 'optimized']
-const icStateNames = [
+const optimizationStateNames = /** @type {const} */ (['compiled', 'optimizable', 'optimized'])
+const icStateNames = /** @type {const} */ ([
   'uninitialized',
   'premonomorphic',
   'monomorphic',
@@ -13,29 +24,44 @@ const icStateNames = [
   'polymorphic',
   'megamorphic',
   'generic'
-]
+])
+/** @type {WeakMap<FileInfo, string[]>} */
 const sourceLinesByInfo = new WeakMap()
 const SOURCE_LINE_HEIGHT = 19
 const SOURCE_OVERSCAN = 40
 const EVENT_PAGE_SIZE = 30
-const ALL_SEVERITIES = ['1', '2', '3']
+const ALL_SEVERITIES = /** @type {const} */ (['1', '2', '3'])
+/** @type {WeakMap<FileInfo, Map<number, SourceMarker[]>>} */
 const sourceMarkersByInfo = new WeakMap()
 const SOURCE_IDENTIFIER_CHAR_RX = /[A-Za-z0-9_$]/
-const SOURCE_PUNCTUATORS = ['>>>=', '===', '!==', '**=', '>>>', '<<=', '>>=', '...', '=>', '++', '--', '==', '!=', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '&&', '||', '??', '?.', '<<', '>>', '**', '&=', '|=', '^=']
-const SOURCE_MARKER_TYPES = [
+const SOURCE_PUNCTUATORS = /** @type {const} */ (['>>>=', '===', '!==', '**=', '>>>', '<<=', '>>=', '...', '=>', '++', '--', '==', '!=', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '&&', '||', '??', '?.', '<<', '>>', '**', '&=', '|=', '^='])
+const SOURCE_MARKER_TYPES = /** @type {const} */ ([
   { category: 'deopts', type: 'deoptimization', symbol: '▼', label: 'Deoptimization' },
   { category: 'ics', type: 'inline-cache', symbol: '◆', label: 'Inline cache' },
   { category: 'codes', type: 'optimization', symbol: '▲', label: 'Optimization' }
-]
+])
 
+/**
+ * @param {readonly string[]} names
+ * @param {number | undefined} state
+ * @returns {string}
+ */
 function stateName (names, state) {
-  return names[state] || 'unknown'
+  return state == null ? 'unknown' : names[state] || 'unknown'
 }
 
+/**
+ * @param {number | null | undefined} timestamp
+ * @returns {string}
+ */
 function formatTimestamp (timestamp) {
   return timestamp == null ? '' : `${(timestamp / 1000).toFixed()}ms`
 }
 
+/**
+ * @param {FileInfo} info
+ * @returns {FileSummary}
+ */
 function summarize (info) {
   const deopts = info.deopts || []
   const ics = info.ics || []
@@ -47,6 +73,14 @@ function summarize (info) {
   return { deopts, ics, codes, score }
 }
 
+/**
+ * Create a typed HTML element and optionally set its class and text.
+ * @template {keyof HTMLElementTagNameMap} K
+ * @param {K} tag
+ * @param {string} className
+ * @param {string | null} [text]
+ * @returns {HTMLElementTagNameMap[K]}
+ */
 function element (tag, className, text) {
   const node = document.createElement(tag)
   if (className) node.className = className
@@ -54,14 +88,26 @@ function element (tag, className, text) {
   return node
 }
 
+/**
+ * @param {EventPoint} point
+ * @returns {string}
+ */
 function locationText (point) {
   return `${point.line || 0}:${point.column || 0}`
 }
 
+/**
+ * @param {EventPoint} point
+ * @returns {number}
+ */
 function severityOf (point) {
   return (point.updates || []).reduce((max, update) => Math.max(max, update.severity || 0), 0)
 }
 
+/**
+ * @param {FileInfo} info
+ * @returns {Map<number, SourceMarker[]>}
+ */
 function sourceMarkersByLine (info) {
   let markersByLine = sourceMarkersByInfo.get(info)
   if (markersByLine == null) {
@@ -71,7 +117,10 @@ function sourceMarkersByLine (info) {
         const markerLine = Number(point.line)
         if (!Number.isInteger(markerLine) || markerLine < 1) continue
         if (!markersByLine.has(markerLine)) markersByLine.set(markerLine, [])
-        markersByLine.get(markerLine).push({ ...markerType, point })
+        /** @type {SourceMarker} */
+        const marker = { ...markerType, point }
+        const lineMarkers = markersByLine.get(markerLine)
+        if (lineMarkers) lineMarkers.push(marker)
       }
     }
     for (const markers of markersByLine.values()) {
@@ -83,11 +132,22 @@ function sourceMarkersByLine (info) {
   return markersByLine
 }
 
+/**
+ * @param {FileInfo} info
+ * @param {number} line
+ * @returns {SourceMarker[]}
+ */
 function sourceMarkersForLine (info, line) {
   const markersByLine = sourceMarkersByLine(info)
   return (markersByLine.get(line) || []).filter(marker => matchesSeverity(marker.point))
 }
 
+/**
+ * @param {string} line
+ * @param {number} column
+ * @param {number} fallback
+ * @returns {number}
+ */
 function sourceTokenEnd (line, column, fallback) {
   // Match MarkerResolver's behavior: resolve a V8 location at the end of its source token.
   if (!Number.isInteger(column) || column < 1) return fallback
@@ -106,23 +166,44 @@ function sourceTokenEnd (line, column, fallback) {
   return offset + 1
 }
 
+/**
+ * @param {string} line
+ * @param {EventPoint} point
+ * @param {number} fallback
+ * @returns {number}
+ */
 function markerPositionForPoint (line, point, fallback) {
   if (point.isScript && Number(point.line) === 1 && Number(point.column) === 1) return 0
   return sourceTokenEnd(line, Number(point.column), fallback)
 }
 
+/**
+ * @param {EventPoint} point
+ * @returns {boolean}
+ */
 function matchesSeverity (point) {
   return selectedSeverities.has(String(severityOf(point)))
 }
 
+/**
+ * @param {EventPoint[]} points
+ * @returns {EventPoint[]}
+ */
 function matchingPoints (points) {
   return points.filter(matchesSeverity)
 }
 
+/**
+ * @param {FileInfo} info
+ * @returns {EventCategory}
+ */
 function mostPopulatedTab (info) {
+  /** @type {EventCategory} */
   let selected = 'deopts'
   let maximum = 0
-  for (const category of ['deopts', 'codes', 'ics']) {
+  /** @type {EventCategory[]} */
+  const categories = ['deopts', 'codes', 'ics']
+  for (const category of categories) {
     const count = (info[category] || []).length
     if (count > maximum) {
       selected = category
@@ -132,17 +213,29 @@ function mostPopulatedTab (info) {
   return selected
 }
 
+/**
+ * @param {FileItem} item
+ * @returns {boolean}
+ */
 function itemMatchesSeverity (item) {
-  return ['deopts', 'ics', 'codes'].some(category =>
+  /** @type {EventCategory[]} */
+  const categories = ['deopts', 'ics', 'codes']
+  return categories.some(category =>
     item.summary[category].some(matchesSeverity)
   )
 }
 
+/**
+ * @param {FileItem} item
+ * @returns {number}
+ */
 function visibleScore (item) {
   if (selectedSeverities.size === ALL_SEVERITIES.length) return item.summary.score
 
   let score = 0
-  for (const category of ['deopts', 'ics', 'codes']) {
+  /** @type {EventCategory[]} */
+  const categories = ['deopts', 'ics', 'codes']
+  for (const category of categories) {
     for (const point of item.summary[category]) {
       if (matchesSeverity(point)) score += severityOf(point) * severityOf(point)
     }
@@ -150,6 +243,7 @@ function visibleScore (item) {
   return score
 }
 
+/** @returns {FileItem[]} */
 function visibleFiles () {
   const query = search.value.trim().toLowerCase()
   return files
@@ -173,29 +267,50 @@ function clearFiltersButton () {
   return button
 }
 
-const fileList = document.getElementById('deoptigate-files')
-const details = document.getElementById('deoptigate-details')
-const search = document.getElementById('deoptigate-search')
-const severityFilter = document.getElementById('deoptigate-severity')
+const fileList = /** @type {HTMLElement} */ (document.getElementById('deoptigate-files'))
+const details = /** @type {HTMLElement} */ (document.getElementById('deoptigate-details'))
+const search = /** @type {HTMLInputElement} */ (document.getElementById('deoptigate-search'))
+const severityFilter = /** @type {HTMLElement} */ (document.getElementById('deoptigate-severity'))
+/** @type {Set<string>} */
 let selectedSeverities = new Set(ALL_SEVERITIES)
+/** @type {string | null} */
 let selectedFile = null
+/** @type {HTMLButtonElement | null} */
 let selectedFileButton = null
+/** @type {EventCategory} */
 let selectedTab = 'deopts'
+/** @type {number | null} */
 let selectedLine = null
+/** @type {EventPoint | null} */
 let selectedSourceMarker = null
 let eventPageStart = 0
-let eventCardToScroll = null
+/** @type {{ current: HTMLElement | null }} */
+const eventCardToScroll = { current: null }
+/** @returns {HTMLElement | null} */
+function getEventCardToScroll () {
+  return eventCardToScroll.current
+}
+/** @type {HTMLButtonElement | null} */
 let previousEventsButton = null
+/** @type {HTMLButtonElement | null} */
 let nextEventsButton = null
+/** @type {HTMLElement | null} */
 let sourceElement = null
+/** @type {HTMLElement | null} */
 let sourceRows = null
+/** @type {HTMLElement | null} */
 let sourceBefore = null
+/** @type {HTMLElement | null} */
 let sourceAfter = null
+/** @type {string[]} */
 let sourceLines = []
+/** @type {FileInfo | null} */
 let sourceInfo = null
+/** @type {HTMLButtonElement | null} */
 let selectedMarkerElement = null
 let sourceRenderPending = false
 
+/** Render the current filtered source-file list. @returns {void} */
 function renderFiles () {
   fileList.replaceChildren()
   selectedFileButton = null
@@ -235,6 +350,11 @@ function renderFiles () {
   }
 }
 
+/**
+ * @param {EventCategory} tab
+ * @param {EventUpdate} update
+ * @returns {Array<string | undefined | null | false>}
+ */
 function eventDescription (tab, update) {
   if (tab === 'deopts') {
     return [update.bailoutType, update.deoptReason, update.inlined ? 'inlined' : 'not inlined']
@@ -247,6 +367,11 @@ function eventDescription (tab, update) {
   return [stateName(optimizationStateNames, update.state)]
 }
 
+/**
+ * @param {EventCategory} tab
+ * @param {EventUpdate} update
+ * @returns {HTMLElement}
+ */
 function eventMeta (tab, update) {
   const meta = element('div', 'deoptigate-event-meta')
   const timestamp = formatTimestamp(update.timestamp)
@@ -257,11 +382,21 @@ function eventMeta (tab, update) {
   return meta
 }
 
+/**
+ * @param {FileInfo} info
+ * @returns {EventPoint[]}
+ */
 function pointsForTab (info) {
   return info[selectedTab] || []
 }
 
+/**
+ * @param {FileInfo} info
+ * @param {HTMLElement} events
+ * @returns {void}
+ */
 function renderTabs (info, events) {
+  /** @type {Array<[EventCategory, string]>} */
   const tabs = [
     ['codes', 'Optimizations'],
     ['deopts', 'Deoptimizations'],
@@ -292,6 +427,7 @@ function renderTabs (info, events) {
     button.addEventListener('click', selectTab)
     button.addEventListener('keydown', event => {
       const currentIndex = tabs.findIndex(([tabKey]) => tabKey === key)
+      /** @type {number} */
       let nextIndex
       if (event.key === 'ArrowRight' || event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % tabs.length
       else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') nextIndex = (currentIndex + tabs.length - 1) % tabs.length
@@ -311,8 +447,13 @@ function renderTabs (info, events) {
   events.appendChild(nav)
 }
 
+/**
+ * @param {FileInfo} info
+ * @param {HTMLElement} events
+ * @returns {void}
+ */
 function renderEvents (info, events) {
-  eventCardToScroll = null
+  eventCardToScroll.current = null
   previousEventsButton = null
   nextEventsButton = null
   const list = element('div', 'deoptigate-events-list')
@@ -329,6 +470,10 @@ function renderEvents (info, events) {
     list.appendChild(element('div', 'deoptigate-empty', message))
   }
 
+  /**
+   * @param {EventPoint} point
+   * @returns {HTMLElement}
+   */
   const renderEvent = point => {
     const card = element('article', 'deoptigate-event')
     card.dataset.severity = String(severityOf(point))
@@ -362,11 +507,11 @@ function renderEvents (info, events) {
       })
       card.appendChild(history)
     }
-    if (point === selectedSourceMarker) eventCardToScroll = card
+    if (point === selectedSourceMarker) eventCardToScroll.current = card
     return card
   }
 
-  const selectedIndex = points.indexOf(selectedSourceMarker)
+  const selectedIndex = selectedSourceMarker == null ? -1 : points.indexOf(selectedSourceMarker)
   if (selectedIndex !== -1) {
     eventPageStart = Math.floor(selectedIndex / EVENT_PAGE_SIZE) * EVENT_PAGE_SIZE
   } else {
@@ -420,8 +565,9 @@ function renderEvents (info, events) {
   events.appendChild(list)
 }
 
+/** Render the currently visible source lines and their markers. @returns {void} */
 function renderVisibleSourceLines () {
-  if (sourceElement == null || sourceRows == null) return
+  if (sourceElement == null || sourceRows == null || sourceBefore == null || sourceAfter == null || sourceInfo == null) return
   selectedMarkerElement = null
   const firstVisible = Math.floor(sourceElement.scrollTop / SOURCE_LINE_HEIGHT)
   const start = Math.max(0, firstVisible - SOURCE_OVERSCAN)
@@ -453,6 +599,7 @@ function renderVisibleSourceLines () {
       const group = element('span', 'deoptigate-source-marker-group')
       group.dataset.column = String(Number.isInteger(column) && column > 0 ? column : position + 1)
       group.dataset.characterOffset = String(position)
+      /** @type {HTMLButtonElement[]} */
       const groupButtons = []
       while (markerIndex < markers.length) {
         const currentMarker = markers[markerIndex]
@@ -492,8 +639,9 @@ function renderVisibleSourceLines () {
   sourceRows.replaceChildren(rows)
 }
 
+/** Scroll the selected marker into view when it is horizontally clipped. @returns {void} */
 function revealSelectedSourceMarker () {
-  if (selectedMarkerElement == null || typeof selectedMarkerElement.getBoundingClientRect !== 'function') return
+  if (selectedMarkerElement == null || sourceElement == null) return
 
   const sourceRect = sourceElement.getBoundingClientRect()
   const markerRect = selectedMarkerElement.getBoundingClientRect()
@@ -508,6 +656,7 @@ function revealSelectedSourceMarker () {
   }
 }
 
+/** Schedule a source viewport render on the next animation frame. @returns {void} */
 function scheduleSourceRender () {
   if (sourceRenderPending) return
   sourceRenderPending = true
@@ -517,16 +666,19 @@ function scheduleSourceRender () {
   })
 }
 
+/**
+ * @param {FileInfo} info
+ * @param {number | null} lineToScroll
+ * @returns {void}
+ */
 function renderSource (info, lineToScroll) {
-  const source = document.getElementById('deoptigate-source')
+  const source = /** @type {HTMLElement} */ (document.getElementById('deoptigate-source'))
   if (sourceElement !== source || sourceInfo !== info) {
     sourceElement = source
     sourceInfo = info
-    sourceLines = sourceLinesByInfo.get(info)
-    if (sourceLines == null) {
-      sourceLines = (info.src || '').split('\n')
-      sourceLinesByInfo.set(info, sourceLines)
-    }
+    const cachedSourceLines = sourceLinesByInfo.get(info)
+    sourceLines = cachedSourceLines || (info.src || '').split('\n')
+    if (cachedSourceLines == null) sourceLinesByInfo.set(info, sourceLines)
     sourceBefore = element('div', 'deoptigate-source-spacer')
     sourceRows = element('div', 'deoptigate-source-lines')
     sourceAfter = element('div', 'deoptigate-source-spacer')
@@ -544,8 +696,9 @@ function renderSource (info, lineToScroll) {
   revealSelectedSourceMarker()
 }
 
+/** Render the file list, events, and selected source. @returns {void} */
 function render () {
-  eventCardToScroll = null
+  eventCardToScroll.current = null
   renderFiles()
   details.replaceChildren()
   const item = files.find(({ file }) => file === selectedFile)
@@ -578,10 +731,11 @@ function render () {
   source.setAttribute('aria-label', `Source code for ${info.relativePath}`)
   details.append(events, source)
   renderSource(info, selectedLine)
-  if (eventCardToScroll && typeof eventCardToScroll.scrollIntoView === 'function') {
-    eventCardToScroll.scrollIntoView({ block: 'center' })
+  const cardToScroll = getEventCardToScroll()
+  if (cardToScroll) {
+    cardToScroll.scrollIntoView({ block: 'center' })
   }
-  eventCardToScroll = null
+  eventCardToScroll.current = null
 }
 
 search.addEventListener('input', () => {
@@ -590,14 +744,16 @@ search.addEventListener('input', () => {
   render()
 })
 function updateSeverityButtons () {
-  for (const button of severityFilter.children) {
-    button.setAttribute('aria-pressed', String(selectedSeverities.has(button.dataset.severity)))
+  for (const child of severityFilter.children) {
+    const button = /** @type {HTMLElement} */ (child)
+    button.setAttribute('aria-pressed', String(selectedSeverities.has(button.dataset.severity || '')))
   }
 }
 
-for (const button of severityFilter.children) {
+for (const child of severityFilter.children) {
+  const button = /** @type {HTMLElement} */ (child)
   button.addEventListener('click', () => {
-    const severity = button.dataset.severity
+    const severity = button.dataset.severity || ''
     if (selectedSeverities.has(severity)) selectedSeverities.delete(severity)
     else selectedSeverities.add(severity)
     selectedSourceMarker = null

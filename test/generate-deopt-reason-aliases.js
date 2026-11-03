@@ -11,6 +11,13 @@ const cachedHeadersDir = process.argv[2]
 const outputPath = process.argv[3] || path.join(__dirname, '..', 'lib', 'fixtures', 'v8-deopt-reason-aliases.json')
 const DEOPT_REASON_MACRO_RX = /V\(\s*([A-Za-z0-9_]+)\s*,\s*"((?:\\.|[^"\\])*)"/
 
+/** @typedef {Record<string, string | string[]>} ReasonAliases */
+
+/**
+ * Parse V8 deoptimization reason macros into a mapping from message to code aliases.
+ * @param {string} header
+ * @returns {ReasonAliases}
+ */
 function parseReasonAliases(header) {
   const aliases = Object.create(null)
   const expression = new RegExp(DEOPT_REASON_MACRO_RX.source, 'g')
@@ -32,6 +39,10 @@ function parseReasonAliases(header) {
   return aliases
 }
 
+/**
+ * @param {string} tag
+ * @returns {Promise<string>}
+ */
 function fetchHeader(tag) {
   const url = `https://raw.githubusercontent.com/v8/v8/refs/tags/${tag}/${headerPath}`
   return new Promise((resolve, reject) => {
@@ -41,6 +52,7 @@ function fetchHeader(tag) {
         reject(new Error(`Failed to fetch ${url}: HTTP ${response.statusCode}`))
         return
       }
+      /** @type {Buffer[]} */
       const chunks = []
       response.on('data', chunk => chunks.push(chunk))
       response.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
@@ -48,6 +60,7 @@ function fetchHeader(tag) {
   })
 }
 
+/** @returns {Promise<void>} */
 async function main() {
   const result = Object.create(null)
 

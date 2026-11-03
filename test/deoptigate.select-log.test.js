@@ -7,11 +7,40 @@ const { test } = require('node:test')
 const selectLogPath = path.join(__dirname, '../bin/deoptigate.select-log.js')
 const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-report.js')
 
+/** @typedef {{ fullPath: string, readable?: boolean, isFile?: boolean }} LogFileFixture */
+/** @typedef {{ root: string | null, answers: string[], questions: string[], closeCount: number, selectLog: (head: string) => Promise<string | undefined>, logs: string[], errors: string[], restoreConsole: () => void }} SelectLogState */
+/** @typedef {{ pages: string[], entries: string[], errors: string[], logCalls: [string, { root: string }][], generateReport: (file: string, head: string) => Promise<void>, restore: () => void }} GenerateReportState */
+/**
+ * `Module._load` is an undocumented CommonJS hook, so describe the narrow
+ * signature used by these dependency mocks locally.
+ * @typedef {(request: string, parent: NodeJS.Module | undefined, isMain: boolean) => unknown} LoadModule
+ * @typedef {typeof Module & {_load: LoadModule}} ModuleWithLoad
+ * @typedef {{constants: {R_OK: number}, promises: {readdir(root: string): Promise<string[]>, access(filePath: string): Promise<void>, stat(filePath: string): Promise<{isFile(): boolean}>}}} FakeFileSystem
+ */
+
+/**
+ * Load the log selector with mocked filesystem and readline dependencies.
+ * @param {LogFileFixture[]} files
+ * @param {string[]} [answers]
+ * @returns {SelectLogState}
+ */
 function loadSelectLog(files, answers = [ '1' ]) {
-  const state = { root: null, answers, questions: [], closeCount: 0 }
-  const originalLoad = Module._load
+  /** @type {SelectLogState} */
+  const state = {
+    root: null,
+    answers,
+    questions: [],
+    closeCount: 0,
+    selectLog: async () => undefined,
+    logs: [],
+    errors: [],
+    restoreConsole: () => {}
+  }
+  const moduleLoader = /** @type {ModuleWithLoad} */ (/** @type {unknown} */ (Module))
+  const originalLoad = moduleLoader._load
   const originalLog = console.log
   const originalError = console.error
+  /** @type {FakeFileSystem} */
   const fakeFs = {
     constants: { R_OK: 4 },
     promises: {
@@ -22,23 +51,27 @@ function loadSelectLog(files, answers = [ '1' ]) {
       async access(filePath) {
         const file = files.find(candidate => candidate.fullPath === filePath)
         if (file == null || file.readable === false) {
-          const err = new Error('not readable')
-          err.code = 'EACCES'
+          const err = Object.assign(new Error('not readable'), { code: 'EACCES' })
           throw err
         }
       },
       async stat(filePath) {
         const file = files.find(candidate => candidate.fullPath === filePath)
+        if (file == null) throw new Error(`missing fixture for ${filePath}`)
         return { isFile: () => file.isFile !== false }
       }
     }
   }
-  Module._load = function (request, parent, isMain) {
+  moduleLoader._load = function (request, parent, isMain) {
     if (request === 'fs') return fakeFs
     if (request === 'readline') {
       return {
         createInterface() {
           return {
+            /**
+             * @param {string} prompt
+             * @param {(answer: string | undefined) => void} callback
+             */
             question(prompt, callback) {
               state.questions.push(prompt)
               process.nextTick(() => callback(state.answers.shift()))
@@ -56,10 +89,8 @@ function loadSelectLog(files, answers = [ '1' ]) {
   try {
     state.selectLog = require(selectLogPath)
   } finally {
-    Module._load = originalLoad
+  moduleLoader._load = originalLoad
   }
-  state.logs = []
-  state.errors = []
   console.log = (...args) => state.logs.push(args.join(' '))
   console.error = (...args) => state.errors.push(args.join(' '))
   state.restoreConsole = () => {
@@ -69,14 +100,29 @@ function loadSelectLog(files, answers = [ '1' ]) {
   return state
 }
 
+/** @returns {GenerateReportState} */
 function loadGenerateReport() {
-  const state = { pages: [], entries: [], errors: [], logCalls: [] }
-  const originalLoad = Module._load
+  /** @type {GenerateReportState} */
+  const state = {
+    pages: [],
+    entries: [],
+    errors: [],
+    logCalls: [],
+    generateReport: async () => {},
+    restore: () => {}
+  }
+  const moduleLoader = /** @type {ModuleWithLoad} */ (/** @type {unknown} */ (Module))
+  const originalLoad = moduleLoader._load
   const originalLog = console.log
   const originalError = console.error
-  Module._load = function (request, parent, isMain) {
+  moduleLoader._load = function (request, parent, isMain) {
     if (request === '../deoptigate.log') {
       return {
+        /**
+         * @param {string} file
+         * @param {{root: string}} options
+         * @returns {Promise<string>}
+         */
         async logToJSON(file, options) {
           state.logCalls.push([ file, options ])
           return '{"files":[]}'
@@ -88,10 +134,18 @@ function loadGenerateReport() {
     }
     if (request === '../app/lib/save-parts') {
       return {
+        /**
+         * @param {string} html
+         * @returns {string}
+         */
         savePage(html) {
           state.pages.push(html)
           return '/tmp/fake-deoptigate/index.html'
         },
+        /**
+         * @param {string} json
+         * @returns {void}
+         */
         saveEntry(json) {
           state.entries.push(json)
         }
@@ -103,7 +157,7 @@ function loadGenerateReport() {
   try {
     state.generateReport = require(generateReportPath)
   } finally {
-    Module._load = originalLoad
+  moduleLoader._load = originalLoad
   }
   console.log = () => {}
   console.error = (...args) => state.errors.push(args.join(' '))
@@ -114,7 +168,7 @@ function loadGenerateReport() {
   return state
 }
 
-test('select-log reports when no V8 logs are present', async (t) => {
+test('select-log reports when no V8 logs are present', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const state = loadSelectLog([])
   try {
@@ -128,7 +182,7 @@ test('select-log reports when no V8 logs are present', async (t) => {
   }
 })
 
-test('select-log prompts when multiple logs are present', async (t) => {
+test('select-log prompts when multiple logs are present', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
@@ -151,7 +205,7 @@ test('select-log prompts when multiple logs are present', async (t) => {
   }
 })
 
-test('select-log skips unreadable files, directories, and unrelated names', async (t) => {
+test('select-log skips unreadable files, directories, and unrelated names', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log'), readable: false },
@@ -168,7 +222,7 @@ test('select-log skips unreadable files, directories, and unrelated names', asyn
   }
 })
 
-test('select-log reports invalid choices and accepts a later valid choice', async (t) => {
+test('select-log reports invalid choices and accepts a later valid choice', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
@@ -185,7 +239,7 @@ test('select-log reports invalid choices and accepts a later valid choice', asyn
   }
 })
 
-test('generate-report saves output and reports the generated page path', async (t) => {
+test('generate-report saves output and reports the generated page path', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(6)
   const state = loadGenerateReport()
   try {

@@ -4,7 +4,7 @@ const { test } = require('node:test')
 const CodeEntry = require('../lib/log-processing/code-entry')
 const IcEntry = require('../lib/log-processing/ic-entry')
 
-test('code and IC entries preserve path colons and spaces', (t) => {
+test('code and IC entries preserve path colons and spaces', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const windowsPath = 'C:\\work dir\\app.js'
   const code = new CodeEntry({
@@ -21,7 +21,7 @@ test('code and IC entries preserve path colons and spaces', (t) => {
   t.assert.equal(ic.hashmap.file, windowsPath, 'IC entry keeps drive colon and spaces')
 })
 
-test('code and IC entries accept missing or empty file paths', (t) => {
+test('code and IC entries accept missing or empty file paths', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(6)
   const codeWithoutFile = new CodeEntry({
     fnFile: 'anonymous',
@@ -46,7 +46,7 @@ test('code and IC entries accept missing or empty file paths', (t) => {
   t.assert.equal(icWithEmptyFile.hashmap.file, '', 'IC accepts an empty path')
 })
 
-test('IC entry removes wrapping quotes before parsing its path', (t) => {
+test('IC entry removes wrapping quotes before parsing its path', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const entry = new IcEntry('"run C:\\work dir\\app.js:12:4"', 12, 4)
   t.assert.equal(entry.hashmap.functionName, 'run', 'keeps the function name')

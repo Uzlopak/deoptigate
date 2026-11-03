@@ -3,8 +3,9 @@
 const { test } = require('node:test')
 const { keyLocation, unkeyLocation, byLocationKey } = require('../lib/grouping/location')
 
-test('location keys preserve colons in function names', (t) => {
+test('location keys preserve colons in function names', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
+  /** @type {import('../lib/grouping/location').Location} */
   const location = { functionName: 'module:run', line: 12, column: 4 }
   const key = keyLocation(location)
 

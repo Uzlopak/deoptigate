@@ -18,6 +18,7 @@ const BACKTICK_EDGE_RX = /^`(.*)`$/
 const REASON_NAME_CAPITAL_RX = /[A-Z]/g
 const OPTIMIZATION_INTRINSIC_CALL_RX = /(?:%+)(?:OptimizeFunctionOnNextCall|OptimizeMaglevOnNextCall|OptimizeOsr)\s*\(\s*([\w$]+)\s*\)/g
 const LINE_ENDINGS_RX = /\r?\n/
+/** @type {Record<string, number>} */
 const severityByBailoutType = {
   soft: 1,
   lazy: 2,
@@ -25,6 +26,7 @@ const severityByBailoutType = {
   eager: 3
 }
 
+/** @returns {{ name: string, message: string }[]} */
 function readCatalogReasons() {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
@@ -35,6 +37,10 @@ function readCatalogReasons() {
   return reasons
 }
 
+/**
+ * @param {string} reason
+ * @returns {string}
+ */
 function casePathFor(reason) {
   const filename = reason
     .replace(REASON_NAME_CAPITAL_RX, (letter, index) => `${index ? '-' : ''}${letter.toLowerCase()}`)
@@ -44,6 +50,10 @@ function casePathFor(reason) {
   return path.join(casesDir, `${filename}.js`)
 }
 
+/**
+ * @param {string[]} args
+ * @returns {Promise<number | null>}
+ */
 function runNode(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { stdio: 'ignore' })
@@ -52,6 +62,7 @@ function runNode(args) {
   })
 }
 
+/** @returns {boolean} */
 function runtimeRequiresPrepareBeforeOptimize() {
   return spawnSync(
     process.execPath,
@@ -60,6 +71,10 @@ function runtimeRequiresPrepareBeforeOptimize() {
   ).status !== 0
 }
 
+/**
+ * @param {string} source
+ * @returns {string}
+ */
 function prepareOptimizationTargets(source) {
   return source.replace(OPTIMIZATION_INTRINSIC_CALL_RX,
     (...matches) => {
@@ -72,6 +87,7 @@ function prepareOptimizationTargets(source) {
     })
 }
 
+/** @type {Record<string, string[]>} */
 const requiredFlagsByReason = {
   ContextCellChange: ['--script-context-cells'],
   LoopSpeculationFailed: ['--turboshaft-loop-optimization'],
@@ -83,6 +99,7 @@ const requiredFlagsByReason = {
   StringTooLarge: ['--max-old-space-size=96']
 }
 
+/** @type {Record<string, string[]>} */
 const specialFlagsByReason = {
   ContextCellChange: ['--script-context-cells', '--maglev', '--maglev-function-context-specialization'],
   LoopSpeculationFailed: ['--turbofan', '--turboshaft-loop-optimization', '--no-turbolev'],
@@ -112,12 +129,14 @@ const canUseTurboFanForMaglevCase = new Set([
   'NotANumberOrOddball'
 ])
 
+/** @returns {boolean | null} */
 function runtimeHasMaglev() {
-  const buildSetting = process.config.variables.v8_enable_maglev
+  const buildSetting = /** @type {typeof process.config.variables & {v8_enable_maglev?: number | string}} */ (process.config.variables).v8_enable_maglev
   if (buildSetting === undefined) return null
   return buildSetting === 1 || buildSetting === '1'
 }
 
+/** @returns {boolean} */
 function runtimeSupportsMaglev() {
   const buildSetting = runtimeHasMaglev()
   if (buildSetting !== null) return buildSetting
@@ -126,6 +145,10 @@ function runtimeSupportsMaglev() {
   return missingV8Flags(['--maglev']).length === 0
 }
 
+/**
+ * @param {string[]} flags
+ * @returns {string[]}
+ */
 function missingV8Flags(flags) {
   return flags.filter(flag => spawnSync(
     process.execPath,
@@ -134,9 +157,10 @@ function missingV8Flags(flags) {
   ).status !== 0)
 }
 
-test('live JavaScript cases produce the named deopts in V8 logs deoptigate can parse', async (t) => {
+test('live JavaScript cases produce the named deopts in V8 logs deoptigate can parse', async (/** @type {import('node:test').TestContext} */ t) => {
   const reasons = readCatalogReasons()
   const v8Major = Number(process.versions.v8.split('.')[0])
+  /** @type {Record<string, string | string[]>} */
   const reasonIdByMessage = createReasonLookup(reasons, v8Major)
   const availableReasonIds = reasonIdsForMajor(v8Major)
   const needsPrepare = runtimeRequiresPrepareBeforeOptimize()
@@ -182,6 +206,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       continue
     }
     const logPath = path.join(tempDir, `${reason.name}.v8.log`)
+    /** @type {string[]} */
     let extraFlags = []
     if (
       reason.name === 'PropertyCellChange' ||
@@ -286,12 +311,26 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       ...caseArgs
     ])
 
+    /**
+     * @param {string} filePath
+     * @returns {Promise<Array<{
+     *   timestamp: number, bailoutType: string, deoptReason: string,
+     *   optimizationState: number, inlined: boolean,
+     *   severity: import('../lib/severities').Severity,
+     *   deoptReasonIds: string[]
+     * }>>}
+     */
     const readUpdates = async (filePath) => {
       const lines = fs.existsSync(filePath)
         ? fs.readFileSync(filePath, 'utf8').split(LINE_ENDINGS_RX)
         : []
-      const parsed = await processLogContent(lines, repoRoot)
-      const updates = parsed.toObject().deopts.reduce((all, deopt) => all.concat(deopt.updates), [])
+      async function * lineStream () {
+        yield * lines
+      }
+      const parsed = await processLogContent(lineStream(), repoRoot)
+      /** @type {import('../lib/log-processing/deopt-entry').DeoptUpdate[]} */
+      const updates = []
+      for (const deopt of parsed.toObject().deopts) updates.push(...deopt.updates)
       return updates.map(update => {
         const ids = reasonIdByMessage[update.deoptReason]
         return {

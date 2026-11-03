@@ -7,6 +7,13 @@ const readline = require('readline')
 
 const logFilePattern = /^(?:isolate-.+-)?v8\.log$/
 
+/** @typedef {{fullPath: string, entry: string}} LogFile */
+
+/**
+ * Find readable V8 log files directly inside a directory.
+ * @param {string} root
+ * @returns {Promise<LogFile[]>}
+ */
 async function findLogFiles(root) {
   const entries = await fs.promises.readdir(root)
   const files = []
@@ -26,6 +33,10 @@ async function findLogFiles(root) {
   return files
 }
 
+/**
+ * @param {string} question
+ * @returns {Promise<string>}
+ */
 function ask(question) {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   return new Promise(resolve => {
@@ -36,6 +47,12 @@ function ask(question) {
   })
 }
 
+/**
+ * Ask the user to choose a log file when more than one is available.
+ * @param {LogFile[]} files
+ * @param {string} head Command name used in the prompt.
+ * @returns {Promise<LogFile>}
+ */
 async function selectLogFile(files, head) {
   if (files.length === 1) return files[0]
 
@@ -52,6 +69,11 @@ async function selectLogFile(files, head) {
   }
 }
 
+/**
+ * Select a V8 log file from the current working directory.
+ * @param {string} head Command name used in messages.
+ * @returns {Promise<string | undefined>} Selected path, or undefined if none exists.
+ */
 async function selectLog(head) {
   const root = process.cwd()
   const v8logFiles = await findLogFiles(root)

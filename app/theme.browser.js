@@ -1,19 +1,47 @@
 'use strict'
 
-const peacock = require('peacock')
+const peacockModuleName = 'peacock'
+/** @type {{classes: Record<string, string>}} */
+const peacock = require(peacockModuleName)
 const { classes } = peacock
 
+/** @typedef {{ line: number, column: number }} TokenLocation */
+/** @typedef {{ loc: { end: TokenLocation | null } }} HighlightToken */
+/** @typedef {{ tokens: HighlightToken[], tokenIndex: number }} TokenInfo */
+/** @typedef {{ resolve(location: TokenLocation): { insertBefore: string, insertAfter: string } }} MarkerResolver */
+/** @typedef {(text: string, info: TokenInfo) => string} ThemeRenderer */
+/** @typedef {Record<string, ThemeRenderer | undefined> & {_default: ThemeRenderer | undefined}} ThemeRule */
+/** @typedef {Record<string, ThemeRule | ThemeRenderer | undefined> & {_default: ThemeRenderer}} BrowserTheme */
+
+/**
+ * @param {string} s
+ * @returns {string}
+ */
 function identity(s) { return s }
 
 class ThemeBrowser {
+  /** @param {MarkerResolver} markerResolver */
   constructor(markerResolver) {
+    /** @type {MarkerResolver} */
     this._markerResolver = markerResolver
   }
 
-  _processToken(className) {
-    className = className == null ? '' : className
+  /**
+   * @param {string | ((text: string) => string) | null | undefined} rendererOrClassName
+   * @returns {ThemeRenderer}
+   */
+  _processToken(rendererOrClassName) {
+    const className = typeof rendererOrClassName === 'string' ? rendererOrClassName : ''
+    /**
+     * @this {ThemeBrowser}
+     * @param {string} s
+     * @param {TokenInfo} info
+     * @returns {string}
+     */
     function mark(s, info) {
-      const element = `<span class=${className}>${s}</span>`
+      const element = typeof rendererOrClassName === 'function'
+        ? rendererOrClassName(s)
+        : `<span class=${className}>${s}</span>`
       const { tokens, tokenIndex } = info
       const token = tokens[tokenIndex]
       const loc = token.loc.end
@@ -25,6 +53,7 @@ class ThemeBrowser {
     return mark.bind(this)
   }
 
+  /** @returns {BrowserTheme} */
   get theme() {
     const x = this._processToken.bind(this)
     return {
@@ -37,7 +66,7 @@ class ThemeBrowser {
     , 'Identifier': {
         'Date': x(classes['Literal.Date'])
       , 'Error': x(classes['Generic.Error'])
-      , _default: x(classes.Name.Other)
+      , _default: x(classes['Name.Other'])
       }
 
     , 'Null': {

@@ -6,15 +6,28 @@ const path = require('path')
 
 const ClinicDeoptigate = require('../src')
 
+/**
+ * Collect a profile using the provided ClinicDeoptigate instance.
+ * @param {InstanceType<typeof ClinicDeoptigate>} profiler
+ * @param {string[]} args Node executable followed by the script and its arguments.
+ * @returns {Promise<string>} Path to the captured profile directory.
+ */
 function collect (profiler, args) {
   return new Promise((resolve, reject) => {
     profiler.collect(args, (err, dataPath) => {
       if (err) reject(err)
-      else resolve(dataPath)
+      else resolve(/** @type {string} */ (dataPath))
     })
   })
 }
 
+/**
+ * Generate a report for a captured profile.
+ * @param {InstanceType<typeof ClinicDeoptigate>} profiler
+ * @param {string} dataPath Profile directory.
+ * @param {string} outputPath Destination HTML path.
+ * @returns {Promise<void>}
+ */
 function visualize (profiler, dataPath, outputPath) {
   return new Promise((resolve, reject) => {
     profiler.visualize(dataPath, outputPath, err => {
@@ -24,6 +37,7 @@ function visualize (profiler, dataPath, outputPath) {
   })
 }
 
+/** @returns {Promise<void>} */
 async function main () {
   const reportDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'deoptigate-demo-'))
   const captureDir = path.join(reportDir, 'capture')

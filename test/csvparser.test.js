@@ -6,6 +6,7 @@ const CsvParser = require('../lib/v8-tools-core/csvparser')
 test('CsvParser splits V8 records and decodes escaped fields', (t) => {
   t.plan(1)
   const parser = new CsvParser()
+  /** @type {string[]} */
   const fields = parser.parseLine('record,a\\\\b,tab\\nline,hex\\x2f,unicode\\u263a,comma\\x2Cinside')
 
   t.assert.deepEqual(fields, [
@@ -21,6 +22,7 @@ test('CsvParser splits V8 records and decodes escaped fields', (t) => {
 test('CsvParser decodes escape boundary values', (t) => {
   t.plan(1)
   const parser = new CsvParser()
+  /** @type {string[]} */
   const fields = parser.parseLine(String.raw`\x00,\xFF,\u0000,\uFFFF,\xAf,\uABcd`)
 
   t.assert.deepEqual(fields, [ '\x00', '\xFF', '\u0000', '\uFFFF', '\xAF', '\uABCD' ], 'decodes full byte and UTF-16 ranges with either hex case')

@@ -11,6 +11,7 @@ const logPath = path.resolve(
   process.argv[2] || path.join(__dirname, '../test/logs/adders.prepared.v8.log')
 )
 
+/** Benchmark parsing the V8 CSV rows from the selected log file. @returns {Promise<void>} */
 async function main() {
   const lines = fs.readFileSync(logPath, 'utf8').split(LINE_ENDINGS_RX).filter(Boolean)
   const parser = new CsvParser()

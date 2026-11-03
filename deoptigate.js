@@ -14,10 +14,18 @@ const groupByFileAndLocation = require('./lib/grouping/group-by-file-and-locatio
 
 const FUNCTION_LOCATION_RX = /(.*):([0-9]+):([0-9]+)$/
 
+/**
+ * @param {string} s
+ * @returns {number}
+ */
 function maybeNumber(s) {
   return parseInt(s)
 }
 
+/**
+ * @param {{ func: { getName(): string } }} entry
+ * @returns {{ fnFile: string, line: number, column: number }}
+ */
 function formatName(entry) {
   const name = entry.func.getName()
   const array = FUNCTION_LOCATION_RX.exec(name)
@@ -29,15 +37,157 @@ function formatName(entry) {
   }
 }
 
+/**
+ * @param {string | null} file
+ * @param {number} line
+ * @param {number} column
+ * @returns {string}
+ */
 function locationKey(file, line, column) {
   return `${file}:${line}:${column}`
 }
 
 // IC records gained a timestamp field after the PC in newer V8 releases.
 // Parse them as raw fields and normalize both layouts in the processor.
-const propertyICParser = [ 'var-args' ]
+const propertyICParser = /** @type {const} */ ([ 'var-args' ])
 
-class DeoptProcessor extends LogReader {
+/**
+ * @typedef {object} DeoptProcessorOptions
+ * @property {boolean} [silentErrors]
+ */
+
+/** @typedef {import('./lib/log-processing/optimization-state').OptimizationState} OptimizationState */
+
+/**
+ * @typedef {object} FunctionInfo
+ * @property {string} fnFile
+ * @property {number} line
+ * @property {number} column
+ * @property {OptimizationState} state
+ */
+
+/** @typedef {import('./lib/log-processing/ic-entry').IcUpdate} IcUpdate */
+
+/** @typedef {import('./lib/log-processing/deopt-entry').DeoptUpdate} DeoptUpdate */
+
+/** @typedef {import('./lib/log-processing/code-entry').CodeUpdate} CodeUpdate */
+
+/**
+ * @typedef {object} IcRecord
+ * @property {string} functionName
+ * @property {string | null} file
+ * @property {number} line
+ * @property {number} column
+ * @property {IcUpdate[]} updates
+ */
+
+/**
+ * @typedef {object} DeoptRecord
+ * @property {string} functionName
+ * @property {string | null} file
+ * @property {number} line
+ * @property {number} column
+ * @property {DeoptUpdate[]} updates
+ */
+
+/**
+ * @typedef {object} CodeRecord
+ * @property {string} functionName
+ * @property {string | null} file
+ * @property {number} line
+ * @property {number} column
+ * @property {boolean} isScript
+ * @property {CodeUpdate[]} updates
+ */
+
+/**
+ * @typedef {object} DeoptProcessorResult
+ * @property {IcRecord[]} ics
+ * @property {DeoptRecord[]} deopts
+ * @property {CodeRecord[]} codes
+ * @property {string} root
+ */
+
+/**
+ * @typedef {object} LogReaderInstance
+ * @property {ProcessLogLine} processLogLine
+ * @property {Record<string, unknown>} dispatchTable_
+ */
+
+/**
+ * @callback ProcessLogLine
+ * @param {string} line
+ * @returns {void}
+ */
+
+/**
+ * @callback FindProfileEntry
+ * @param {number} pc
+ * @returns {{func: {getName(): string}, state: OptimizationState} | null}
+ */
+
+/**
+ * @callback AddCode
+ * @param {string} type
+ * @param {string} name
+ * @param {number} timestamp
+ * @param {number} start
+ * @param {number} size
+ * @returns {unknown}
+ */
+
+/**
+ * @callback AddFunctionCode
+ * @param {string} type
+ * @param {string} name
+ * @param {number} timestamp
+ * @param {number} start
+ * @param {number} size
+ * @param {number} functionAddress
+ * @param {OptimizationState} state
+ * @returns {unknown}
+ */
+
+/**
+ * @callback MoveCode
+ * @param {number} from
+ * @param {number} to
+ * @returns {void}
+ */
+
+/**
+ * @callback DeleteCode
+ * @param {number} start
+ * @returns {void}
+ */
+
+/**
+ * @callback MoveFunction
+ * @param {number} from
+ * @param {number} to
+ * @returns {void}
+ */
+
+/**
+ * @typedef {object} ProfileInstance
+ * @property {FindProfileEntry} findEntry
+ * @property {AddCode} addCode
+ * @property {AddFunctionCode} addFuncCode
+ * @property {MoveCode} moveCode
+ * @property {DeleteCode} deleteCode
+ * @property {MoveFunction} moveFunc
+ */
+
+/** @type {new () => LogReaderInstance} */
+const LogReaderBase = /** @type {new () => LogReaderInstance} */ (/** @type {unknown} */ (LogReader))
+/** @type {new () => ProfileInstance} */
+const ProfileConstructor = /** @type {new () => ProfileInstance} */ (/** @type {unknown} */ (Profile))
+
+class DeoptProcessor extends LogReaderBase {
+  /**
+   * @param {string} root
+   * @param {DeoptProcessorOptions=} options
+   */
   constructor(root, { silentErrors = true } = {}) {
     super()
     this._root = root
@@ -98,20 +248,32 @@ class DeoptProcessor extends LogReader {
         }
     }
 
-    this._profile = new Profile()
+    this._profile = new ProfileConstructor()
 
+    /** @type {Map<string, IcEntry>} */
     this.entriesIC = new Map()
+    /** @type {Map<string, DeoptEntry>} */
     this.entriesDeopt = new Map()
+    /** @type {Map<string, CodeEntry>} */
     this.entriesCode = new Map()
   }
 
+  /**
+   * @param {number} pc
+   * @returns {FunctionInfo}
+   */
   functionInfo(pc) {
     const entry = this._profile.findEntry(pc)
-    if (entry == null) return { fnFile: '', state: -1 }
+    if (entry == null) return { fnFile: '', line: -1, column: -1, state: -1 }
     const { fnFile, line, column } = formatName(entry)
     return { fnFile, line, column, state: entry.state }
   }
 
+  /**
+   * @param {string} type
+   * @param {string[]} fields
+   * @returns {void}
+   */
   _processPropertyIC(
       type
     , fields
@@ -127,16 +289,27 @@ class DeoptProcessor extends LogReader {
 
     const { fnFile, state } = this.functionInfo(pc)
     const key = locationKey(fnFile, line, column)
-    if (!this.entriesIC.has(key)) {
-      const entry = new IcEntry(fnFile, line, column)
-      this.entriesIC.set(key, entry)
+    let icEntry = this.entriesIC.get(key)
+    if (icEntry == null) {
+      icEntry = new IcEntry(fnFile, line, column)
+      this.entriesIC.set(key, icEntry)
     }
-    const icEntry = this.entriesIC.get(key)
     icEntry.addUpdate(type, old_state, new_state, propertyKey, map, state)
   }
 
   // timestamp is in micro seconds
   // https://cs.chromium.org/chromium/src/v8/src/log.cc?l=892&rcl=8fecf0eff7357c1bee222f76c4e2f6fdd8759797
+  /**
+   * @param {number} timestamp
+   * @param {number} size
+   * @param {number} code
+   * @param {number} inliningId
+   * @param {number} scriptOffset
+   * @param {string} bailoutType
+   * @param {string} sourcePositionText
+   * @param {string} deoptReasonText
+   * @returns {void}
+   */
   _processCodeDeopt(
       timestamp
     , size
@@ -151,20 +324,32 @@ class DeoptProcessor extends LogReader {
     const { file, line, column } = DeoptEntry.disassembleSourcePosition(sourcePositionText)
 
     const key = locationKey(file, line, column)
-    if (!this.entriesDeopt.has(key)) {
-      const entry = new DeoptEntry(fnFile, file, line, column)
-      this.entriesDeopt.set(key, entry)
+    let deoptEntry = this.entriesDeopt.get(key)
+    if (deoptEntry == null) {
+      // The parser's missing-position sentinel is null, and DeoptEntry keeps
+      // that value at runtime even though its constructor docs currently say string.
+      deoptEntry = new DeoptEntry(fnFile, /** @type {string} */ (file), line, column)
+      this.entriesDeopt.set(key, deoptEntry)
     }
-    const deoptEntry = this.entriesDeopt.get(key)
     deoptEntry.addUpdate(timestamp, bailoutType, deoptReasonText, state, inliningId)
   }
 
+  /**
+   * @param {string} type
+   * @param {number} kind
+   * @param {number} timestamp
+   * @param {number} start
+   * @param {number} size
+   * @param {string} name
+   * @param {string[]} maybe_func
+   * @returns {void}
+   */
   _processCodeCreation(
     type, kind, timestamp, start, size, name, maybe_func
   ) {
     if (maybe_func.length) {
       const funcAddr = parseInt(maybe_func[0])
-      const state = parseOptimizationState(maybe_func[1])
+      const state = parseOptimizationState(/** @type {import('./lib/log-processing/optimization-state').OptimizationStateMarker} */ (maybe_func[1]))
       this._profile.addFuncCode(
         type, name, timestamp, start, size, funcAddr, state
       )
@@ -181,10 +366,11 @@ class DeoptProcessor extends LogReader {
         if (isScript && !isNodeWrapperFunction) return
 
         const key = locationKey(fnFile, line, column)
-        if (!this.entriesCode.has(key)) {
-          this.entriesCode.set(key, new CodeEntry({ fnFile, line, column, isScript }))
+        let code = this.entriesCode.get(key)
+        if (code == null) {
+          code = new CodeEntry({ fnFile, line, column, isScript })
+          this.entriesCode.set(key, code)
         }
-        const code = this.entriesCode.get(key)
         code.addUpdate(timestamp, state)
       }
     } else {
@@ -192,25 +378,47 @@ class DeoptProcessor extends LogReader {
     }
   }
 
+  /**
+   * @param {number} from
+   * @param {number} to
+   * @returns {void}
+   */
   _processCodeMove(from, to) {
     this._profile.moveCode(from, to)
   }
 
+  /**
+   * @param {number} start
+   * @returns {void}
+   */
   _processCodeDelete(start) {
     this._profile.deleteCode(start)
   }
 
+  /**
+   * @param {number} from
+   * @param {number} to
+   * @returns {void}
+   */
   _processFunctionMove(from, to) {
     this._profile.moveFunc(from, to)
   }
 
   // @override
+  /**
+   * @param {string} msg
+   * @returns {void}
+   */
   printError(msg) {
     if (this._silentErrors) return
     console.trace()
     console.error(msg)
   }
 
+  /**
+   * @param {string} string
+   * @returns {void}
+   */
   processString(string) {
     var end = string.length
     var current = 0
@@ -225,6 +433,7 @@ class DeoptProcessor extends LogReader {
     }
   }
 
+  /** @returns {void} */
   filterIcStateChanges() {
     const emptyEntries = new Set()
     for (const [ key, entry ] of this.entriesIC) {
@@ -234,6 +443,7 @@ class DeoptProcessor extends LogReader {
     for (const key of emptyEntries) this.entriesIC.delete(key)
   }
 
+  /** @returns {DeoptProcessorResult} */
   toObject() {
     const ics = []
     for (const entry of this.entriesIC.values()) {
@@ -250,11 +460,20 @@ class DeoptProcessor extends LogReader {
     return { ics, deopts, codes, root: this._root }
   }
 
+  /**
+   * @param {number=} indent
+   * @returns {string}
+   */
   toJSON(indent = 2) {
     return JSON.stringify(this.toObject(), null, indent)
   }
 }
 
+/**
+ * @param {AsyncIterable<string>} lines
+ * @param {string} root
+ * @returns {Promise<DeoptProcessor>}
+ */
 async function processLogContent(lines, root) {
   const deoptProcessor = new DeoptProcessor(root)
   for await (const line of lines) {
@@ -264,6 +483,16 @@ async function processLogContent(lines, root) {
   return deoptProcessor
 }
 
+/**
+ * @typedef {{ functionName: string, line: number, column: number }} GroupedDataPoint
+ * @typedef {{ ics: GroupedDataPoint[], deopts: GroupedDataPoint[], codes: GroupedDataPoint[] }} RawFileGroup
+ * @typedef {{ ics: Map<string, GroupedDataPoint>, deopts: Map<string, GroupedDataPoint>, codes: Map<string, GroupedDataPoint>, icLocations: string[], deoptLocations: string[], codeLocations: string[] }} LocatedFileGroup
+ */
+
+/**
+ * @param {Map<string, RawFileGroup>} groupedByFile
+ * @returns {Map<string, LocatedFileGroup>}
+ */
 function deoptigate(groupedByFile) {
   const groupedByFileAndLocation = groupByFileAndLocation(groupedByFile)
   return groupedByFileAndLocation

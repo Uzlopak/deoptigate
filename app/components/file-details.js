@@ -8,7 +8,34 @@ const { SummaryView } = require('./summary')
 
 const assert = require('../../lib/assert')
 
+/**
+ * @typedef {import('../../lib/log-processing/ic-state').IcState} IcState
+ * @typedef {import('../../lib/log-processing/optimization-state').OptimizationState} OptimizationState
+ * @typedef {import('../../lib/log-processing/optimization-state').ParsedOptimizationState} ParsedOptimizationState
+ * @typedef {import('../../lib/severities').Severity} Severity
+ * @typedef {{type: string, oldState: IcState, newState: IcState, key: string, map: string, optimizationState: OptimizationState, severity: Severity}} InlineCacheUpdate
+ * @typedef {{timestamp: number, bailoutType: string, deoptReason: string, optimizationState: OptimizationState, inlined: boolean, severity: Severity}} DeoptimizationUpdate
+ * @typedef {{timestamp: number, state: ParsedOptimizationState, severity: Severity}} CodeUpdate
+ * @typedef {{functionName: string, file: string | null, line: number, column: number, id: number, severity: Severity, updates: InlineCacheUpdate[]}} InlineCacheEntry
+ * @typedef {{functionName: string, file: string | null, line: number, column: number, id: number, severity: Severity, updates: DeoptimizationUpdate[]}} DeoptimizationEntry
+ * @typedef {{functionName: string, file: string | null, line: number, column: number, id: number, severity: Severity, isScript: boolean, updates: CodeUpdate[]}} CodeEntry
+ * @typedef {{ics: Map<string, InlineCacheEntry>, icLocations: string[], deopts: Map<string, DeoptimizationEntry>, deoptLocations: string[], codes: Map<string, CodeEntry>, codeLocations: string[], src: string, relativePath: string}} FileDetailsData
+ *
+ * @typedef {object} FileDetailsViewProps
+ * @property {Map<string, FileDetailsData>} groups
+ * @property {string} selectedFile
+ * @property {number | null} selectedLocation
+ * @property {boolean} includeAllSeverities
+ * @property {string=} className
+ * @property {number} selectedSummaryTabIdx
+ * @property {(id: number) => void} onsummaryClicked
+ * @property {(id: number, type?: string) => void} onmarkerClicked
+ * @property {(idx: number) => void} onsummaryTabIdxChanged
+ */
+
+/** @extends {Component<FileDetailsViewProps>} */
 class FileDetailsView extends Component {
+  /** @param {FileDetailsViewProps} props */
   constructor(props) {
     super(props)
 
@@ -18,11 +45,13 @@ class FileDetailsView extends Component {
     this._bind()
   }
 
+  /** @returns {void} */
   _bind() {
     this._onmarkerClicked = this._onmarkerClicked.bind(this)
     this._onsummaryTabHeaderClicked = this._onsummaryTabHeaderClicked.bind(this)
   }
 
+  /** @returns {import('preact').JSX.Element} */
   render() {
     const {
         groups
@@ -34,6 +63,8 @@ class FileDetailsView extends Component {
       , onsummaryClicked
     } = this.props
 
+    const fileData = groups.get(selectedFile)
+    assert(fileData != null, `missing grouped data for ${selectedFile}`)
     const {
         ics
       , icLocations
@@ -43,7 +74,7 @@ class FileDetailsView extends Component {
       , codeLocations
       , src
       , relativePath
-    } = groups.get(selectedFile)
+    } = fileData
 
     return (
       <div className={className}>
@@ -62,7 +93,6 @@ class FileDetailsView extends Component {
           onmarkerClicked={this._onmarkerClicked} />
         <SummaryView
           className='flex-column summary-view'
-          file={selectedFile}
           relativePath={relativePath}
           selectedLocation={selectedLocation}
           ics={ics}
@@ -79,6 +109,11 @@ class FileDetailsView extends Component {
     )
   }
 
+  /**
+   * @param {number} id
+   * @param {string | undefined} type
+   * @returns {void}
+   */
   _onmarkerClicked(id, type) {
     const {
         onmarkerClicked
@@ -96,6 +131,10 @@ class FileDetailsView extends Component {
     }
   }
 
+  /**
+   * @param {number} idx
+   * @returns {void}
+   */
   _onsummaryTabHeaderClicked(idx) {
     const { onsummaryTabIdxChanged } = this.props
     onsummaryTabIdxChanged(idx)

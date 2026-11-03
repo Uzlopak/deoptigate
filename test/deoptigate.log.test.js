@@ -13,6 +13,41 @@ const V8_LOG_SUFFIX_RX = /\.v8\.log$/
 
 const { deoptigateLog } = require('../deoptigate.log')
 
+/**
+ * @typedef {{file: string, updates: {bailoutType?: string, map?: string}[]}} TestLogEntry
+ * @typedef {{fullPath: string, relativePath: string, src: string, ics: Map<string, TestLogEntry>, deopts: Map<string, TestLogEntry>, codes: Map<string, TestLogEntry>, icLocations: string[], deoptLocations: string[]}} TestFileData
+ */
+
+/**
+ * @param {unknown} value
+ * @returns {value is TestLogEntry}
+ */
+function isTestLogEntry(value) {
+  return value != null && typeof value === 'object' &&
+    'file' in value && typeof value.file === 'string' &&
+    'updates' in value && Array.isArray(value.updates)
+}
+
+/**
+ * @param {unknown} value
+ * @returns {value is TestFileData}
+ */
+function isTestFileData(value) {
+  return value != null && typeof value === 'object' &&
+    'fullPath' in value && typeof value.fullPath === 'string' &&
+    'relativePath' in value && typeof value.relativePath === 'string' &&
+    'src' in value && typeof value.src === 'string' &&
+    'ics' in value && value.ics instanceof Map && Array.from(value.ics.values()).every(isTestLogEntry) &&
+    'deopts' in value && value.deopts instanceof Map && Array.from(value.deopts.values()).every(isTestLogEntry) &&
+    'codes' in value && value.codes instanceof Map && Array.from(value.codes.values()).every(isTestLogEntry) &&
+    'icLocations' in value && Array.isArray(value.icLocations) &&
+    'deoptLocations' in value && Array.isArray(value.deoptLocations)
+}
+
+/**
+ * @param {...string} args
+ * @returns {string}
+ */
 function repoRoot(...args) {
   return path.join(__dirname, '..', ...args)
 }
@@ -21,7 +56,9 @@ function repoRoot(...args) {
  * Replace the temporary paths to source files with the real path
  * to the source files
  * @param {string} srcLog The path to the log file to prepare
- * @param {string[][]} replacements An array of [template, realPath]
+ * @param {Array<[string, string]>} replacements An array of [template, realPath]
+ * @param {string} destDir
+ * @returns {Promise<string>}
  */
 async function prepareLogFile(srcLog, replacements, destDir) {
   let contents = await readFile(srcLog, 'utf8')
@@ -40,6 +77,13 @@ async function prepareLogFile(srcLog, replacements, destDir) {
   return destLog
 }
 
+/**
+ * @template T
+ * @param {string} srcLog
+ * @param {Array<[string, string]>} replacements
+ * @param {(preparedLogPath: string) => Promise<T>} run
+ * @returns {Promise<T>}
+ */
 async function withPreparedLog(srcLog, replacements, run) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-prepared-log-'))
   const destLog = path.join(tempDir, path.basename(srcLog).replace(V8_LOG_SUFFIX_RX, '.prepared.v8.log'))
@@ -55,6 +99,7 @@ async function withPreparedLog(srcLog, replacements, run) {
 test('adders.v8.log', async (t) => {
   t.plan(9)
 
+  /** @type {Array<[string, string]>} */
   const replacements = [
     [
       '/tmp/deoptigate/examples/simple/adders.js',
@@ -68,6 +113,7 @@ test('adders.v8.log', async (t) => {
     t.assert.equal(result.size, 1, 'number of files')
 
     const fileData = result.get(addersSrcFile)
+    if (!isTestFileData(fileData)) throw new Error(`Expected complete file data for ${addersSrcFile}`)
     const fileSrc = await readFile(addersSrcFile, 'utf8')
     t.assert.equal(fileData.fullPath, addersSrcFile, 'fullPath')
     t.assert.equal(fileData.ics.size, 33, 'number of ics')
@@ -79,6 +125,7 @@ test('adders.v8.log', async (t) => {
     t.assert.equal(deoptLocation, 'addAny:93:27', 'first deoptLocation')
 
     const deoptData = fileData.deopts.get(deoptLocation)
+    if (!isTestLogEntry(deoptData)) throw new Error(`Expected deoptimization data for ${deoptLocation}`)
     t.assert.equal(deoptData.file, addersSrcFile, 'deopt file path')
 
     const updateData = deoptData.updates[2]
@@ -89,6 +136,7 @@ test('adders.v8.log', async (t) => {
 test('two-modules.v8.log', async (t) => {
   t.plan(9)
 
+  /** @type {Array<[string, string]>} */
   const replacements = [
     [
       '/tmp/deoptigate/examples/two-modules/adders.js',
@@ -107,6 +155,7 @@ test('two-modules.v8.log', async (t) => {
     t.assert.equal(result.size, 2, 'number of files')
 
     const fileData = result.get(srcFile)
+    if (!isTestFileData(fileData)) throw new Error(`Expected complete file data for ${srcFile}`)
     const fileSrc = await readFile(srcFile, 'utf8')
     t.assert.equal(fileData.fullPath, srcFile, 'fullPath')
     t.assert.equal(fileData.ics.size, 25, 'number of ics')
@@ -118,6 +167,7 @@ test('two-modules.v8.log', async (t) => {
     t.assert.equal(icLocation, 'Object1:3:12', 'first icLocation')
 
     const icData = fileData.ics.get(icLocation)
+    if (!isTestLogEntry(icData)) throw new Error(`Expected inline-cache data for ${icLocation}`)
     t.assert.equal(icData.file, srcFile, 'ics file path')
 
     const updateData = icData.updates[0]

@@ -11,6 +11,11 @@ const softExitPreload = require.resolve('./soft-exit')
 
 const { brightBlack } = require('./ansi')
 
+/**
+ * Split Deoptigate arguments from the Node executable and its arguments.
+ * @param {string[]} args Command-line arguments after the CLI name.
+ * @returns {{argv: string[], extraExecArgv: string[], nodeExecutable?: string}}
+ */
 function determineArgs(args) {
   const __index = args.indexOf('--')
   if (__index < 0) {
@@ -20,7 +25,7 @@ function determineArgs(args) {
   const afterDashes = args.slice(__index + 1)
 
   const first = afterDashes[0]
-  if (first == null) return { execArgv: [] }
+  if (first == null) return { argv: [], extraExecArgv: [] }
 
   if (first[0] === '-') {
     throw Error(
@@ -57,6 +62,13 @@ function determineArgs(args) {
   )
 }
 
+/**
+ * Run the requested Node.js program with V8 logging enabled.
+ * @param {string[]} args Command-line arguments after the CLI name.
+ * @param {string} head Message prefix for the process status.
+ * @param {string} simpleHead Message prefix for the log file path.
+ * @returns {Promise<string>} Path to the generated V8 log.
+ */
 async function createLog(args, head, simpleHead) {
   const { extraExecArgv, argv,  nodeExecutable } = determineArgs(args)
 
@@ -67,7 +79,7 @@ async function createLog(args, head, simpleHead) {
       throw new Error(`Found ${logDir}, but it wasn't a directory, please remove it.`)
     }
   } catch (err) {
-    if (err.code !== 'ENOENT') throw err
+    if (!(err instanceof Error) || !('code' in err) || err.code !== 'ENOENT') throw err
     await mkdir(logDir, { recursive: true })
   }
 
@@ -80,14 +92,15 @@ async function createLog(args, head, simpleHead) {
     , '--log-deopt'
     , `--logfile=${logFile}`
     , '--no-logfile-per-isolate'
-  ].concat(extraExecArgv || [])
+  ].concat(extraExecArgv)
 
   const child = spawn(
     nodeExecutable || processInfo.execPath,
-    execArgv.concat([ '-r', softExitPreload ], argv || []),
+    execArgv.concat([ '-r', softExitPreload ], argv),
     { stdio: [ 'ignore', 'inherit', 'inherit' ] }
   )
   const code = await new Promise((resolve, reject) => {
+    /** @type {NodeJS.Timeout | undefined} */
     let killTimer
     const cleanup = () => {
       processInfo.removeListener('SIGINT', handleInterrupt)

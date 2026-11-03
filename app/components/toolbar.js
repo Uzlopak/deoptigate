@@ -5,7 +5,16 @@ const { Component } = Preact
 
 const assert = require('../../lib/assert')
 
+/**
+ * @typedef {object} ToolbarViewProps
+ * @property {string=} className
+ * @property {boolean} includeAllSeverities
+ * @property {(includeAllSeverities: boolean) => void} onincludeAllSeveritiesChanged
+ */
+
+/** @extends {Component<ToolbarViewProps>} */
 class ToolbarView extends Component {
+  /** @param {ToolbarViewProps} props */
   constructor(props) {
     super(props)
     const { onincludeAllSeveritiesChanged } = props
@@ -13,10 +22,12 @@ class ToolbarView extends Component {
     this._bind()
   }
 
+  /** @returns {void} */
   _bind() {
     this._onincludeAllSeveritiesToggled = this._onincludeAllSeveritiesToggled.bind(this)
   }
 
+  /** @returns {import('preact').JSX.Element} */
   render() {
     const { className = '' } = this.props
     return (
@@ -26,6 +37,7 @@ class ToolbarView extends Component {
     )
   }
 
+  /** @returns {import('preact').JSX.Element} */
   _renderSeverityOption() {
     const { includeAllSeverities } = this.props
     return (
@@ -40,9 +52,13 @@ class ToolbarView extends Component {
     )
   }
 
+  /**
+   * @param {import('preact').TargetedEvent<HTMLInputElement>} e
+   * @returns {void}
+   */
   _onincludeAllSeveritiesToggled(e) {
     const { onincludeAllSeveritiesChanged } = this.props
-    onincludeAllSeveritiesChanged(e.target.checked)
+    onincludeAllSeveritiesChanged(e.currentTarget.checked)
   }
 
 }

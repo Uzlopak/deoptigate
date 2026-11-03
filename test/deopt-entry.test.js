@@ -3,9 +3,10 @@
 const { test } = require('node:test')
 const DeoptEntry = require('../lib/log-processing/deopt-entry')
 
-test('DeoptEntry normalizes bailout types and records severity', (t) => {
+test('DeoptEntry normalizes bailout types and records severity', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(22)
   const entry = new DeoptEntry('compute /src/app.js', '/src/app.js', 12, 4)
+  /** @type {Array<[string, number, string]>} */
   const cases = [
     ['"soft"', 1, 'soft'],
     ['lazy', 2, 'lazy'],
@@ -15,7 +16,7 @@ test('DeoptEntry normalizes bailout types and records severity', (t) => {
   ]
 
   for (const [type, severity, expectedType] of cases) {
-    entry.addUpdate(10, type, '"reason"', 7, -1)
+    entry.addUpdate(10, type, '"reason"', 1, -1)
     const update = entry.updates[entry.updates.length - 1]
     t.assert.equal(update.bailoutType, expectedType, `${type}: normalized type`)
     t.assert.equal(update.severity, severity, `${type}: severity`)
@@ -23,7 +24,7 @@ test('DeoptEntry normalizes bailout types and records severity', (t) => {
     t.assert.equal(update.inlined, false, `${type}: -1 inlining id means not inlined`)
   }
 
-  entry.addUpdate(11, 'eager', 'reason', 8, 0)
+  entry.addUpdate(11, 'eager', 'reason', 2, 0)
   t.assert.equal(entry.updates[5].inlined, true, 'non-negative inlining id means inlined')
   t.assert.deepEqual(entry.hashmap, {
     functionName: 'compute',
@@ -34,7 +35,7 @@ test('DeoptEntry normalizes bailout types and records severity', (t) => {
   }, 'hashmap exposes entry fields and updates')
 })
 
-test('DeoptEntry parses or rejects V8 source positions', (t) => {
+test('DeoptEntry parses or rejects V8 source positions', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   t.assert.deepEqual(
     DeoptEntry.disassembleSourcePosition('</src/app.js:12:4>'),

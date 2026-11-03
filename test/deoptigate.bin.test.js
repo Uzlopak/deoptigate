@@ -6,6 +6,10 @@ const Module = require('module')
 const test = require('node:test')
 const JAVASCRIPT_SUFFIX_RX = /\.js$/
 
+/**
+ * @param {...string} args
+ * @returns {string}
+ */
 const repoRoot = (...args) => path.join(__dirname, '..', ...args)
 const binPath = repoRoot('bin/deoptigate')
 const supportsDeoptLog = spawnSync(
@@ -14,6 +18,16 @@ const supportsDeoptLog = spawnSync(
   { stdio: 'ignore' }
 ).status === 0
 
+/**
+ * @typedef {{severity: number, timestamp?: number, state?: number, oldState?: number, newState?: number, bailoutType?: string, deoptReason?: string, type?: string}} RenderUpdate
+ * @typedef {{line?: number, column?: number, functionName?: string, isScript?: boolean, updates: RenderUpdate[]}} RenderPoint
+ * @typedef {{fullPath: string, src: string, ics: RenderPoint[], deopts: RenderPoint[], codes: RenderPoint[]}} FileRenderData
+ */
+
+/**
+ * @param {string} dir
+ * @returns {Promise<void>}
+ */
 async function removeDirectory(dir) {
   const entries = await readdir(dir).catch(err => {
     if (err.code === 'ENOENT') return []
@@ -30,6 +44,11 @@ async function removeDirectory(dir) {
   })
 }
 
+/**
+ * Run the CLI against a source file and load its generated render data.
+ * @param {string} srcPath
+ * @returns {Promise<Array<[string, FileRenderData]>>}
+ */
 async function runDeoptigate(srcPath) {
   const isolatedTmpDir = await mkdtemp(path.join(tmpdir(), 'deoptigate-bin-test-'))
 
@@ -47,13 +66,15 @@ async function runDeoptigate(srcPath) {
     const outPath = path.join(isolatedTmpDir, 'render-data.js')
     await writeFile(outPath, newContents, 'utf8')
 
-    return require(outPath.replace(JAVASCRIPT_SUFFIX_RX, ''))
+    /** @type {Array<[string, FileRenderData]>} */
+    const renderData = require(outPath.replace(JAVASCRIPT_SUFFIX_RX, ''))
+    return renderData
   } finally {
     await removeDirectory(isolatedTmpDir)
   }
 }
 
-test('deoptigate simple/adders.js', async (t) => {
+test('deoptigate simple/adders.js', async (/** @type {import('node:test').TestContext} */ t) => {
   if (!supportsDeoptLog) {
     return t.skip('current Node/V8 does not support --log-deopt')
   }
@@ -80,7 +101,7 @@ test('deoptigate simple/adders.js', async (t) => {
   t.assert.equal(fileData.src, fileSrc, 'file source')
 })
 
-test('deoptigate two-modules/adders.js', async (t) => {
+test('deoptigate two-modules/adders.js', async (/** @type {import('node:test').TestContext} */ t) => {
   if (!supportsDeoptLog) {
     return t.skip('current Node/V8 does not support --log-deopt')
   }
@@ -116,20 +137,21 @@ test('deoptigate two-modules/adders.js', async (t) => {
   t.assert.ok(codeCount > 0, 'examples produce code-state records')
 })
 
-test('CLI sets a nonzero exit status when a command fails', async (t) => {
+test('CLI sets a nonzero exit status when a command fails', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
-  const originalLoad = Module._load
+  const originalRequire = Module.prototype.require
   const originalError = console.error
   const originalExitCode = process.exitCode
   const originalArgv = process.argv
+  /** @type {string[]} */
   const errors = []
-  Module._load = function (request, parent, isMain) {
-    if (parent && parent.filename === binPath) {
+  Module.prototype.require = function (request) {
+    if (this.filename === binPath) {
       if (request === './deoptigate.generate-report') return async () => {}
       if (request === './deoptigate.select-log') return async () => 'unused.log'
       if (request === './deoptigate.create-log') return async () => { throw new Error('synthetic CLI failure') }
     }
-    return originalLoad.call(this, request, parent, isMain)
+    return originalRequire.call(this, request)
   }
   console.error = message => { errors.push(message) }
   process.argv = [ process.execPath, binPath, 'script.js' ]
@@ -141,7 +163,7 @@ test('CLI sets a nonzero exit status when a command fails', async (t) => {
     t.assert.equal(process.exitCode, 1, 'caught CLI errors set a nonzero exit status')
     t.assert.match(errors[0], /synthetic CLI failure/, 'caught CLI errors are written to stderr')
   } finally {
-    Module._load = originalLoad
+    Module.prototype.require = originalRequire
     console.error = originalError
     process.exitCode = originalExitCode
     process.argv = originalArgv

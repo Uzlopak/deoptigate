@@ -3,6 +3,7 @@
 const { test } = require('node:test')
 const assert = require('../lib/assert')
 
+/** @param {import('node:test').TestContext} t */
 test('app assert accepts true conditions and rejects false ones', (t) => {
   t.plan(5)
   t.assert.doesNotThrow(() => assert(true), 'accepts a true condition')

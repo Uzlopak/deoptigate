@@ -6,9 +6,12 @@ const { processLogContent } = require('../deoptigate')
 
 const repoRoot = path.join(__dirname, '..')
 
-test('processor handles code deletion and reports errors when configured', async (t) => {
+/** @returns {AsyncGenerator<string>} */
+async function* emptyLogLines() {}
+
+test('processor handles code deletion and reports errors when configured', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
-  const processor = await processLogContent([], repoRoot)
+  const processor = await processLogContent(emptyLogLines(), repoRoot)
   const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
 
   processor.processString([
@@ -20,7 +23,9 @@ test('processor handles code deletion and reports errors when configured', async
   t.assert.equal(deopts.length, 1, 'deopt record is retained after code deletion')
   t.assert.equal(deopts[0].functionName, '', 'deleted code no longer resolves to its former function')
 
+  /** @type {number} */
   let traceCalls = 0
+  /** @type {string[]} */
   const errors = []
   const originalTrace = console.trace
   const originalError = console.error
@@ -38,9 +43,9 @@ test('processor handles code deletion and reports errors when configured', async
   t.assert.deepEqual(errors, [ 'synthetic parser error' ], 'the error message is printed')
 })
 
-test('processor handles names without positions, missing code, and non-wrapper scripts', async (t) => {
+test('processor handles names without positions, missing code, and non-wrapper scripts', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
-  const processor = await processLogContent([], repoRoot)
+  const processor = await processLogContent(emptyLogLines(), repoRoot)
   const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
   const lines = [
     `code-creation,JS,9,1,0x1000,100,plain ${sourceFile},0x2000,~`,

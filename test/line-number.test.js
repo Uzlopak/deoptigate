@@ -3,8 +3,9 @@
 const { test } = require('node:test')
 const { getDigits, pad } = require('../lib/rendering/line-number')
 
-test('line-number digit counts change at every decimal threshold', (t) => {
+test('line-number digit counts change at every decimal threshold', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(19)
+  /** @type {[number, number][]} */
   const thresholds = [
     [ 1, 1 ], [ 9, 1 ], [ 10, 2 ], [ 99, 2 ], [ 100, 3 ],
     [ 999, 3 ], [ 1000, 4 ], [ 9999, 4 ], [ 10000, 5 ],
@@ -17,11 +18,12 @@ test('line-number digit counts change at every decimal threshold', (t) => {
   }
 })
 
-test('line-number padding handles every supported padding width', (t) => {
-  t.plan(13)
+test('line-number padding handles every supported padding width', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(14)
   for (let spaces = 0; spaces <= 10; spaces++) {
     t.assert.equal(pad(1, spaces + 1), ' '.repeat(spaces) + '1', `${spaces} leading spaces`)
   }
   t.assert.equal(pad(1000000, 7), '1000000', 'seven-digit line number is not overpadded')
   t.assert.equal(pad(1000000, 8), ' 1000000', 'seven-digit line number aligns in an eight-digit column')
+  t.assert.equal(pad(1, 0), '1', 'does not pad when the requested width is smaller than the number')
 })

@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "checkJs": true,
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react",
+    "jsxFactory": "Preact.h",
+    "types": ["node"],
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "app/**/*.js",
+    "benchmark/**/*.js",
+    "bin/**/*.js",
+    "deoptigate*.js",
+    "examples/**/*.js",
+    "lib/**/*.js",
+    "src/**/*.js",
+    "test/**/*.js",
+    "visualizer/**/*.js",
+    "types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "examples/cases/**", "app/build/**"]
+}

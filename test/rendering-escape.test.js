@@ -4,6 +4,10 @@ const { test } = require('node:test')
 const markOnly = require('../lib/rendering/mark-only')
 const escapeHtml = require('../lib/rendering/escape-html')
 
+/**
+ * @param {Array<{id: string, line: number, column: number}>} markers
+ * @returns {{nextLocation: () => {line: number, column: number} | null, resolve: () => {insertBefore: string, insertAfter: string}}}
+ */
 function resolverFor(markers) {
   let idx = 0
   return {
@@ -20,7 +24,7 @@ function resolverFor(markers) {
   }
 }
 
-test('markOnly escapes source text and leaves generated markers as HTML', (t) => {
+test('markOnly escapes source text and leaves generated markers as HTML', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   let calls = 0
   const markerResolver = {
@@ -40,7 +44,7 @@ test('markOnly escapes source text and leaves generated markers as HTML', (t) =>
   t.assert.ok(!html.includes('<img'), 'source cannot create an image element')
 })
 
-test('escapeHtml makes raw fallback source safe for HTML', (t) => {
+test('escapeHtml makes raw fallback source safe for HTML', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const source = '<svg onload="alert(1)">'
   const html = `<pre>${escapeHtml(source)}</pre>`
@@ -49,7 +53,7 @@ test('escapeHtml makes raw fallback source safe for HTML', (t) => {
   t.assert.ok(!html.includes('<svg'), 'fallback does not emit a source SVG element')
 })
 
-test('markOnly renders unmarked full lines', (t) => {
+test('markOnly renders unmarked full lines', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const html = markOnly('alpha\nbeta', resolverFor([]))
   t.assert.equal(
@@ -59,7 +63,7 @@ test('markOnly renders unmarked full lines', (t) => {
   )
 })
 
-test('markOnly inserts a marker at the final source column', (t) => {
+test('markOnly inserts a marker at the final source column', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const html = markOnly('end', resolverFor([
     { id: 'last', line: 1, column: 3 }
@@ -67,7 +71,7 @@ test('markOnly inserts a marker at the final source column', (t) => {
   t.assert.ok(html.includes('en<a data-marker="last">d</a>'), 'marks and retains the last character')
 })
 
-test('markOnly does not duplicate a source character for markers at the same column', (t) => {
+test('markOnly does not duplicate a source character for markers at the same column', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const html = markOnly('ab', resolverFor([
     { id: 'first', line: 1, column: 1 },
@@ -79,11 +83,21 @@ test('markOnly does not duplicate a source character for markers at the same col
   )
 })
 
-test('markOnly carries a future-line marker forward', (t) => {
+test('markOnly carries a future-line marker forward', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const html = markOnly('first\nsecond', resolverFor([
     { id: 'future', line: 2, column: 2 }
   ]))
   t.assert.ok(html.includes('<span>1: </span><span>first</span><br>'), 'leaves earlier lines untouched')
   t.assert.ok(html.includes('<span>2: </span><span>s<a data-marker="future">e</a>cond</span><br>'), 'marks the future line')
+})
+
+test('markOnly carries the next adjacent line marker out of the current line', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const html = markOnly('first\nsecond', resolverFor([
+    { id: 'first-line', line: 1, column: 1 },
+    { id: 'second-line', line: 2, column: 1 }
+  ]))
+  t.assert.ok(html.includes('<a data-marker="first-line">f</a>irst'), 'renders the first line marker')
+  t.assert.ok(html.includes('<a data-marker="second-line">s</a>econd'), 'continues with the adjacent line marker')
 })

@@ -15,6 +15,13 @@ const { FileDetailsView } = require('./components/file-details')
 const FILES_TAB_IDX = 0
 const DETAILS_TAB_IDX = 1
 
+/** @typedef {{ selectedFile: string | null, selectedLocation: number | null, selectedSummaryTabIdx: number, includeAllSeverities: boolean, selectedTabIdx: number }} MainViewState */
+/** A location-indexed file group with its resolved source metadata. */
+/** @typedef {import('./components/file-details').FileDetailsData & { fullPath: string }} MainViewFileGroup */
+/** @typedef {import('../deoptigate').RawFileGroup} MainViewRawFileGroup */
+/** @typedef {{ groups: Map<string, MainViewFileGroup> }} MainViewProps */
+
+/** @returns {HTMLDivElement} */
 function app() {
   // makes React happy
   document.body.innerHTML = ''
@@ -32,7 +39,9 @@ const initialState = {
   , selectedTabIdx: FILES_TAB_IDX
 }
 
+/** @extends {Component<MainViewProps, MainViewState>} */
 class MainView extends Component {
+  /** @param {MainViewProps} props */
   constructor(props) {
     super(props)
 
@@ -46,6 +55,7 @@ class MainView extends Component {
     window.onpopstate = this._restoreStateFromHistory
   }
 
+  /** @returns {void} */
   _bind() {
     this._onlocationSelected = this._onlocationSelected.bind(this)
     this._onsummaryTabIdxChanged = this._onsummaryTabIdxChanged.bind(this)
@@ -55,6 +65,7 @@ class MainView extends Component {
     this._restoreStateFromHistory = this._restoreStateFromHistory.bind(this)
   }
 
+  /** @returns {import('preact').JSX.Element} */
   render() {
     const { includeAllSeverities } = this.state
 
@@ -78,6 +89,11 @@ class MainView extends Component {
    * Tabs
    */
 
+  /**
+   * @param {string} label
+   * @param {number} idx
+   * @returns {import('preact').JSX.Element}
+   */
   _renderTabHeader(label, idx) {
     const { selectedTabIdx } = this.state
     const selected = idx === selectedTabIdx
@@ -94,6 +110,7 @@ class MainView extends Component {
     )
   }
 
+  /** @returns {import('preact').JSX.Element} */
   _renderTabs() {
     const { selectedTabIdx } = this.state
     const files = this._renderFiles(selectedTabIdx === FILES_TAB_IDX)
@@ -108,6 +125,10 @@ class MainView extends Component {
 
   /*
    * Contents
+   */
+  /**
+   * @param {boolean} selected
+   * @returns {import('preact').JSX.Element}
    */
   _renderFiles(selected) {
     const { groups } = this.props
@@ -125,6 +146,10 @@ class MainView extends Component {
     )
   }
 
+  /**
+   * @param {boolean} selected
+   * @returns {import('preact').JSX.Element}
+   */
   _renderFileDetails(selected) {
     const { groups } = this.props
     const {
@@ -164,6 +189,10 @@ class MainView extends Component {
   /*
    * URL State
    */
+  /**
+   * @param {string | null} file
+   * @returns {number}
+   */
   _indexFromFile(file) {
     for (var i = 0; i < this._indexedGroups.length; i++) {
       const key = this._indexedGroups[i][0]
@@ -172,12 +201,17 @@ class MainView extends Component {
     return -1
   }
 
+  /**
+   * @param {number | null} idx
+   * @returns {string | null}
+   */
   _fileFromIndex(idx) {
-    if (idx < 0) return null
+    if (idx == null || idx < 0) return null
     if (this._indexedGroups[idx] == null) return null
     return this._indexedGroups[idx][0]
   }
 
+  /** @returns {void} */
   _updateUrl() {
     const {
         selectedFile
@@ -202,6 +236,10 @@ class MainView extends Component {
     }
   }
 
+  /**
+   * @param {PopStateEvent} e
+   * @returns {null | void}
+   */
   _restoreStateFromHistory(e) {
     if (history.state == null) return null
 
@@ -226,6 +264,7 @@ class MainView extends Component {
     this.setState(Object.assign(this.state, override))
   }
 
+  /** @returns {Partial<MainViewState> | null} */
   _stateFromUrl() {
     const state = stateFromUrl()
     if (state == null) return null
@@ -241,30 +280,50 @@ class MainView extends Component {
         selectedFile
       , selectedLocation
       , includeAllSeverities
-      , selectedTabIdx
-      , selectedSummaryTabIdx
+      , selectedTabIdx: selectedTabIdx ?? FILES_TAB_IDX
+      , selectedSummaryTabIdx: selectedSummaryTabIdx ?? SummaryView.OPT_TAB_IDX
     }
   }
 
   /*
    * Events
    */
+  /**
+   * @param {number} idx
+   * @returns {void}
+   */
   _ontabHeaderClicked(idx) {
     this.setState(Object.assign(this.state, { selectedTabIdx: idx }), this._updateUrl)
   }
 
+  /**
+   * @param {number} id
+   * @returns {void}
+   */
   _onlocationSelected(id) {
     this.setState(Object.assign(this.state, { selectedLocation: id }), this._updateUrl)
   }
 
+  /**
+   * @param {number} idx
+   * @returns {void}
+   */
   _onsummaryTabIdxChanged(idx) {
     this.setState(Object.assign(this.state, { selectedSummaryTabIdx: idx }), this._updateUrl)
   }
 
+  /**
+   * @param {boolean} includeAllSeverities
+   * @returns {void}
+   */
   _onincludeAllSeveritiesChanged(includeAllSeverities) {
     this.setState(Object.assign(this.state, { includeAllSeverities, selectedLocation: null }), this._updateUrl)
   }
 
+  /**
+   * @param {string} file
+   * @returns {void}
+   */
   _onfileClicked(file) {
     this.setState(Object.assign(this.state, {
         selectedFile: file
@@ -275,9 +334,14 @@ class MainView extends Component {
   }
 }
 
+/**
+ * @param {Map<string, MainViewRawFileGroup>} groupedByFile
+ * @returns {Promise<void>}
+ */
 async function deoptigateRender(groupedByFile) {
   try {
-    const groupedByFileAndLocation = deoptigate(groupedByFile)
+    /** @type {Map<string, MainViewFileGroup>} */
+    const groupedByFileAndLocation = /** @type {Map<string, MainViewFileGroup>} */ (deoptigate(groupedByFile))
 
     render(
       <MainView groups={groupedByFileAndLocation} />

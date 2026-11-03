@@ -7,9 +7,13 @@ if (Number.isInteger(clinicPort) && clinicPort > 0) {
   const listen = net.Server.prototype.listen
   let reported = false
 
+  /**
+   * @this {import('net').Server}
+   * @returns {import('net').Server}
+   */
   net.Server.prototype.listen = function () {
     const server = this
-    const result = listen.apply(server, arguments)
+    const result = Reflect.apply(listen, server, arguments)
     server.once('listening', () => {
       if (reported) return
       const address = server.address()

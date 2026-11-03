@@ -20,7 +20,16 @@ for (let major = 8; major <= 15; major++) {
 observedAliasesByMajor[11]['weak objects'] = 'WeakObjects'
 observedAliasesByMajor[12]['const tracking let constness invalidated'] = 'ConstTrackingLet'
 
+/**
+ * Convert V8 reason catalog entries to a description-to-ID lookup and merge
+ * aliases for the requested major version.
+ *
+ * @param {{name: string, message: string}[]} reasons
+ * @param {number} v8Major
+ * @returns {Record<string, string>}
+ */
 function createReasonLookup(reasons, v8Major) {
+  /** @type {Record<string, string>} */
   const aliases = Object.create(null)
 
   if (v8Major < 8) return aliases
@@ -38,6 +47,12 @@ function createReasonLookup(reasons, v8Major) {
   )
 }
 
+/**
+ * List the reason IDs represented in the generated aliases for a V8 major.
+ *
+ * @param {number} v8Major
+ * @returns {Set<string>|null} IDs, or null when no generated map exists.
+ */
 function reasonIdsForMajor(v8Major) {
   const aliases = generatedAliasesByMajor[v8Major]
   if (!aliases) return null

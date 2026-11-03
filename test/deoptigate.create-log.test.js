@@ -7,39 +7,94 @@ const { EventEmitter } = require('events')
 
 const createLogPath = path.join(__dirname, '../bin/deoptigate.create-log.js')
 
+/**
+ * @typedef {object} CreateLogTestOptions
+ * @property {boolean=} exists
+ * @property {boolean=} isDirectory
+ * @property {number | null=} exitCode
+ * @property {string=} nodeVersion
+ * @property {string=} logDir
+ * @property {boolean=} ignoreSigterm
+ * @property {boolean=} spawnError
+ * @property {boolean=} interruptChild
+ * @property {Error=} statError
+ */
+/**
+ * @typedef {object} CreateLogTestState
+ * @property {boolean} exists
+ * @property {boolean} isDirectory
+ * @property {number | null} exitCode
+ * @property {string} nodeVersion
+ * @property {string} logDir
+ * @property {boolean=} ignoreSigterm
+ * @property {boolean=} spawnError
+ * @property {boolean=} interruptChild
+ * @property {Error=} statError
+ * @property {{node: string, args: (string | undefined)[], spawnOptions: {stdio: string[]}}[]} spawnCalls
+ * @property {string[]} killSignals
+ * @property {string[]} mkdirCalls
+ * @property {[string, number][]} accessCalls
+ * @property {string[]} statCalls
+ * @property {EventEmitter & {versions: {node: string}, execPath: string}} processInfo
+ * @property {(args: string[], head: string, simpleHead: string) => Promise<string>} createLog
+ */
+
+/**
+ * Load create-log with stubbed process and filesystem dependencies.
+ * @param {CreateLogTestOptions} [options]
+ * @returns {CreateLogTestState}
+ */
 function loadCreateLog(options = {}) {
+  /** @type {CreateLogTestState} */
   const state = Object.assign({
     exists: false,
     isDirectory: true,
     exitCode: 0,
     nodeVersion: '16.0.0',
-    logDir: '/tmp/deoptigate-create-log-test'
+    logDir: '/tmp/deoptigate-create-log-test',
+    spawnCalls: [],
+    killSignals: [],
+    mkdirCalls: [],
+    accessCalls: [],
+    statCalls: [],
+    processInfo: Object.assign(new EventEmitter(), {
+      versions: { node: '16.0.0' },
+      execPath: process.execPath
+    }),
+    createLog: async () => ''
   }, options)
-  state.spawnCalls = []
-  state.killSignals = []
-  state.mkdirCalls = []
-  state.accessCalls = []
-  state.statCalls = []
 
   const fakeFs = {
     constants: { F_OK: 0 },
+    /**
+     * @param {string} file
+     * @param {number} mode
+     * @param {(error: NodeJS.ErrnoException | null) => void} callback
+     */
     access(file, mode, callback) {
       state.accessCalls.push([ file, mode ])
       if (state.exists) return callback(null)
-      const err = new Error('not found')
-      err.code = 'ENOENT'
+      const err = Object.assign(new Error('not found'), { code: 'ENOENT' })
       callback(err)
     },
+    /**
+     * @param {string} file
+     * @param {{recursive?: boolean}} options
+     * @param {(error: NodeJS.ErrnoException | null) => void} callback
+     */
     mkdir(file, options, callback) {
-      if (typeof options === 'function') callback = options
       state.mkdirCalls.push(file)
       callback(null)
     },
+    /**
+     * @param {string} file
+     * @param {(error: NodeJS.ErrnoException | null, stats?: {isDirectory: () => boolean}) => void} callback
+     */
     stat(file, callback) {
       state.statCalls.push(file)
+      if (state.statError) return callback(/** @type {NodeJS.ErrnoException} */ (state.statError))
       if (!state.exists) {
-        const err = new Error('not found')
-        err.code = 'ENOENT'
+        const err = Object.assign(new Error('not found'), { code: 'ENOENT' })
         callback(err)
         return
       }
@@ -51,40 +106,47 @@ function loadCreateLog(options = {}) {
     execPath: process.execPath
   })
 
-  const originalLoad = Module._load
+  const originalRequire = Module.prototype.require
   const originalLog = console.log
-  Module._load = function (request, parent, isMain) {
+  Module.prototype.require = function (request) {
     if (request === 'child_process') {
       return {
+        /**
+         * @param {string} node
+         * @param {(string | undefined)[]} args
+         * @param {{stdio: string[]}} spawnOptions
+         */
         spawn(node, args, spawnOptions) {
           state.spawnCalls.push({ node, args, spawnOptions })
-          const child = new EventEmitter()
-          child.exitCode = null
-          child.kill = signal => {
+          /** @type {EventEmitter & {exitCode: number | null, kill: (signal: string) => boolean}} */
+          const childProcess = Object.assign(new EventEmitter(), {
+            exitCode: null,
+            kill: (/** @type {string} */ signal) => {
             state.killSignals.push(signal)
             if (!(state.ignoreSigterm && signal === 'SIGTERM')) {
-              process.nextTick(() => child.emit('exit', null))
+              process.nextTick(() => childProcess.emit('exit', null))
             }
             return true
-          }
+            }
+          })
           if (state.spawnError) {
-            process.nextTick(() => child.emit('error', new Error('spawn failed')))
+            process.nextTick(() => childProcess.emit('error', new Error('spawn failed')))
           } else if (state.interruptChild) {
             process.nextTick(() => state.processInfo.emit('SIGINT'))
           } else {
             process.nextTick(() => {
-              child.exitCode = state.exitCode
-              child.emit('exit', state.exitCode)
+              childProcess.exitCode = state.exitCode
+              childProcess.emit('exit', state.exitCode)
             })
           }
-          return child
+          return childProcess
         }
       }
     }
     if (request === 'os') return { tmpdir: () => state.logDir }
     if (request === 'fs') return fakeFs
     if (request === 'process') return state.processInfo
-    return originalLoad.call(this, request, parent, isMain)
+    return originalRequire.call(this, request)
   }
   console.log = () => {}
   delete require.cache[createLogPath]
@@ -92,13 +154,13 @@ function loadCreateLog(options = {}) {
   try {
     state.createLog = require(createLogPath)
   } finally {
-    Module._load = originalLoad
+    Module.prototype.require = originalRequire
     console.log = originalLog
   }
   return state
 }
 
-test('create-log creates missing log directory and spawns the requested script', async (t) => {
+test('create-log creates missing log directory and spawns the requested script', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const state = loadCreateLog()
   const logPath = await state.createLog([ 'script.js', '--example' ], 'head', 'simple')
@@ -113,7 +175,7 @@ test('create-log creates missing log directory and spawns the requested script',
   t.assert.deepEqual(state.spawnCalls[0].spawnOptions.stdio, [ 'ignore', 'inherit', 'inherit' ], 'inherits child output')
 })
 
-test('create-log parses node flags, app args, and a custom Node executable', async (t) => {
+test('create-log parses node flags, app args, and a custom Node executable', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const state = loadCreateLog({ exists: true, exitCode: null })
   const logPath = await state.createLog([
@@ -130,7 +192,7 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
   t.assert.ok(state.spawnCalls[0].args.indexOf('app.js') < state.spawnCalls[0].args.indexOf('--app-flag'), 'keeps app flags after the app path')
 })
 
-test('create-log supports the node executable and legacy IC flag', async (t) => {
+test('create-log supports the node executable and legacy IC flag', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const state = loadCreateLog({ nodeVersion: '15.0.0' })
   await state.createLog([ '--', 'node', '--trace-warnings', 'app.js' ], 'head', 'simple')
@@ -140,34 +202,53 @@ test('create-log supports the node executable and legacy IC flag', async (t) => 
   t.assert.ok(state.spawnCalls[0].args.includes('--trace-warnings'), 'passes Node flags through')
 })
 
-test('create-log rejects flags where a Node executable is required', async (t) => {
+test('create-log rejects flags where a Node executable is required', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   const state = loadCreateLog()
+  /** @type {Error | undefined} */
   let err
   try {
     await state.createLog([ '--', '--allow-natives-syntax', 'app.js' ], 'head', 'simple')
   } catch (error) {
-    err = error
+    if (error instanceof Error) err = error
+    else throw error
   }
-  t.assert.match(err && err.message, /node binary must immediately follow/, 'rejects a flag instead of a Node executable')
+  t.assert.match(err?.message ?? '', /node binary must immediately follow/, 'rejects a flag instead of a Node executable')
   t.assert.equal(state.accessCalls.length, 0, 'validates arguments before touching the log directory')
   t.assert.equal(state.spawnCalls.length, 0, 'does not spawn on invalid arguments')
 })
 
-test('create-log rejects an existing path that is not a directory', async (t) => {
+test('create-log rejects an existing path that is not a directory', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadCreateLog({ exists: true, isDirectory: false })
+  /** @type {Error | undefined} */
   let err
   try {
     await state.createLog([ 'app.js' ], 'head', 'simple')
   } catch (error) {
-    err = error
+    if (error instanceof Error) err = error
+    else throw error
   }
-  t.assert.match(err && err.message, /wasn't a directory/, 'rejects a file at the log directory path')
+  t.assert.match(err?.message ?? '', /wasn't a directory/, 'rejects a file at the log directory path')
   t.assert.equal(state.spawnCalls.length, 0, 'does not spawn when the log path is not a directory')
 })
 
-test('create-log handles a missing node executable argument after the separator', async (t) => {
+test('create-log rethrows unexpected log-directory stat errors', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const state = loadCreateLog({ statError: new Error('stat failed') })
+  /** @type {Error | undefined} */
+  let err
+  try {
+    await state.createLog([ 'app.js' ], 'head', 'simple')
+  } catch (error) {
+    if (error instanceof Error) err = error
+    else throw error
+  }
+  t.assert.equal(err?.message, 'stat failed', 'does not treat unexpected stat failures as a missing directory')
+  t.assert.equal(state.mkdirCalls.length, 0, 'does not try to create a directory after a different stat error')
+})
+
+test('create-log handles a missing node executable argument after the separator', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadCreateLog()
   await state.createLog([ '--' ], 'head', 'simple')
@@ -175,14 +256,14 @@ test('create-log handles a missing node executable argument after the separator'
   t.assert.ok(!state.spawnCalls[0].args.includes(undefined), 'does not pass an undefined child argument')
 })
 
-test('create-log terminates the child when interrupted', async (t) => {
+test('create-log terminates the child when interrupted', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog({ interruptChild: true })
   await state.createLog([ 'app.js' ], 'head', 'simple')
   t.assert.deepEqual(state.killSignals, [ 'SIGTERM' ], 'asks the child to exit gracefully on SIGINT')
 })
 
-test('create-log force kills a child that ignores SIGTERM', async (t) => {
+test('create-log force kills a child that ignores SIGTERM', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog({ interruptChild: true, ignoreSigterm: true })
   const keepAlive = setInterval(() => {}, 1000)
@@ -194,15 +275,17 @@ test('create-log force kills a child that ignores SIGTERM', async (t) => {
   t.assert.deepEqual(state.killSignals, [ 'SIGTERM', 'SIGKILL' ], 'forces exit after the grace period')
 })
 
-test('create-log rejects spawn errors and removes its signal handler', async (t) => {
+test('create-log rejects spawn errors and removes its signal handler', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadCreateLog({ spawnError: true })
+  /** @type {Error | undefined} */
   let err
   try {
     await state.createLog([ 'app.js' ], 'head', 'simple')
   } catch (error) {
-    err = error
+    if (error instanceof Error) err = error
+    else throw error
   }
-  t.assert.equal(err && err.message, 'spawn failed', 'propagates the child spawn error')
+  t.assert.equal(err?.message, 'spawn failed', 'propagates the child spawn error')
   t.assert.equal(state.processInfo.listenerCount('SIGINT'), 0, 'cleans up the interrupt listener')
 })

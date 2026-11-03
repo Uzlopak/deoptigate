@@ -5,13 +5,23 @@ const path = require('path')
 const vm = require('vm')
 const test = require('node:test')
 
+/** @typedef {FakeElement} FakeChild */
+/** @typedef {{target?: FakeElement, key?: string, preventDefault?: () => void, stopPropagation?: () => void}} FakeEvent */
+
+/** Minimal DOM element model used to execute the visualizer in a VM. */
 class FakeElement {
+  /** @param {string} tagName */
   constructor (tagName) {
     this.tagName = tagName
+    /** @type {FakeElement[]} */
     this.children = []
+    /** @type {Record<string, string>} */
     this.attributes = {}
+    /** @type {Record<string, string>} */
     this.dataset = {}
+    /** @type {Record<string, string>} */
     this.style = {}
+    /** @type {Record<string, (event: FakeEvent) => void>} */
     this.listeners = {}
     this.value = ''
     this._scrollTop = 0
@@ -23,8 +33,11 @@ class FakeElement {
     this.className = ''
     this.type = ''
     this._textContent = ''
+    /** @type {{block?: string} | undefined} */
+    this.scrollIntoViewOptions = undefined
   }
 
+  /** @returns {string} */
   get textContent () {
     return this._textContent + this.children.map(child => child.textContent || '').join('')
   }
@@ -38,6 +51,7 @@ class FakeElement {
     this._scrollTop = Math.max(0, Math.min(Number(value) || 0, maximum))
   }
 
+  /** @returns {number} */
   get scrollHeight () {
     if (this.className !== 'deoptigate-source') return this.clientHeight
     return 32 + this.children.reduce((height, child) => {
@@ -53,44 +67,76 @@ class FakeElement {
     }, 0)
   }
 
+  /** @returns {{left: number, right: number}} */
+  getBoundingClientRect () {
+    return { left: 0, right: 0 }
+  }
+
   set textContent (text) {
     this._textContent = String(text)
     this.children = []
   }
 
+  /** @param {...FakeElement} nodes */
   append (...nodes) {
     this.children.push(...nodes)
   }
 
+  /**
+   * @param {FakeElement} node
+   * @returns {FakeElement}
+   */
   appendChild (node) {
     this.children.push(node)
     return node
   }
 
+  /**
+   * @param {FakeElement} node
+   * @param {FakeElement} reference
+   * @returns {FakeElement}
+   */
   insertBefore (node, reference) {
     const index = this.children.indexOf(reference)
     this.children.splice(index === -1 ? this.children.length : index, 0, node)
     return node
   }
 
+  /**
+   * @param {FakeElement} node
+   * @returns {FakeElement}
+   */
   removeChild (node) {
     const index = this.children.indexOf(node)
     if (index !== -1) this.children.splice(index, 1)
     return node
   }
 
+  /** @param {...FakeElement} nodes */
   replaceChildren (...nodes) {
     this.children = nodes
   }
 
+  /**
+   * @param {string} name
+   * @param {string} value
+   */
   setAttribute (name, value) {
     this.attributes[name] = value
   }
 
+  /**
+   * @param {string} type
+   * @param {(event: FakeEvent) => void} listener
+   */
   addEventListener (type, listener) {
     this.listeners[type] = listener
   }
 
+  /**
+   * @param {string} type
+   * @param {Partial<FakeEvent>} [event]
+   */
   dispatch (type, event = {}) {
     if (this.listeners[type]) this.listeners[type]({ target: this, ...event })
   }
@@ -99,11 +145,17 @@ class FakeElement {
     this.focused = true
   }
 
+  /** @param {{block?: string}} options */
   scrollIntoView (options) {
     this.scrollIntoViewOptions = options
   }
 }
 
+/**
+ * @param {FakeElement | null | undefined} node
+ * @param {string} id
+ * @returns {FakeElement | null}
+ */
 function findById (node, id) {
   if (!node || !node.children) return null
   if (node.id === id) return node
@@ -114,6 +166,11 @@ function findById (node, id) {
   return null
 }
 
+/**
+ * @param {FakeElement | null | undefined} node
+ * @param {string} className
+ * @returns {FakeElement[]}
+ */
 function findByClass (node, className) {
   if (!node || !node.children) return []
   const matches = String(node.className || '').split(/\s+/).includes(className) ? [node] : []
@@ -121,33 +178,85 @@ function findByClass (node, className) {
   return matches
 }
 
+/** @typedef {{get: (key: string) => FakeElement}} VisualizerNodes */
+/**
+ * @param {Map<string, FakeElement>} nodes
+ * @param {string} id
+ * @returns {FakeElement}
+ */
+function requireNode (nodes, id) {
+  const node = nodes.get(id)
+  if (node == null) throw new Error(`missing test DOM node: ${id}`)
+  return node
+}
+
+/**
+ * @param {FakeElement | null | undefined} node
+ * @returns {FakeElement}
+ */
+function requireElement (node) {
+  if (node == null) throw new Error('expected a test DOM element')
+  return node
+}
+
+/**
+ * @template T
+ * @param {T | undefined} value
+ * @returns {T}
+ */
+function requireDefined (value) {
+  if (value === undefined) throw new Error('expected a defined test value')
+  return value
+}
+
+/**
+ * @param {unknown} data
+ * @returns {VisualizerNodes}
+ */
 function createVisualizer (data) {
+  /** @type {Map<string, FakeElement>} */
   const nodes = new Map()
   for (const id of ['clinic-data', 'deoptigate-files', 'deoptigate-details', 'deoptigate-search', 'deoptigate-severity']) {
     nodes.set(id, new FakeElement('div'))
   }
-  nodes.get('clinic-data').textContent = JSON.stringify(data)
+  requireNode(nodes, 'clinic-data').textContent = JSON.stringify(data)
   for (const value of ['1', '2', '3']) {
     const button = new FakeElement('button')
     button.dataset.severity = value
     button.setAttribute('aria-pressed', 'true')
-    nodes.get('deoptigate-severity').appendChild(button)
+    requireNode(nodes, 'deoptigate-severity').appendChild(button)
   }
 
   const document = {
+    /** @param {string} tagName */
     createElement: tagName => new FakeElement(tagName),
     createDocumentFragment: () => new FakeElement('#document-fragment'),
-    createTextNode: text => ({ textContent: String(text) }),
+    /** @param {string} text */
+    createTextNode: text => {
+      const node = new FakeElement('#text')
+      node.textContent = String(text)
+      return node
+    },
+    /**
+     * @param {string} id
+     * @returns {FakeElement | null}
+     */
     getElementById (id) {
       return nodes.get(id) || findById(nodes.get('deoptigate-details'), id)
     }
   }
-  const window = { requestAnimationFrame: callback => callback() }
+  const window = {
+    requestAnimationFrame: (/** @type {() => void} */ callback) => callback()
+  }
   const script = fs.readFileSync(path.join(__dirname, '../visualizer/main.js'), 'utf8')
   vm.runInNewContext(script, { document, window })
-  return nodes
+  return { get: id => requireNode(nodes, id) }
 }
 
+/** @typedef {{severity: number, bailoutType?: string, deoptReason?: string, type?: string, oldState?: number, newState?: number, key?: string, state?: number}} VisualUpdate */
+/** @typedef {{line: number, column?: number, isScript?: boolean, updates: VisualUpdate[]}} VisualEvent */
+/** @typedef {{relativePath: string, deopts: VisualEvent[], ics: VisualEvent[], codes: VisualEvent[], src: string}} VisualFileData */
+/** @returns {Array<[string, VisualFileData]>} */
 function sampleData () {
   return [
     ['/app/low.js', {
@@ -170,7 +279,7 @@ function sampleData () {
   ]
 }
 
-test('event categories expose accessible tabs and support arrow-key navigation', (t) => {
+test('event categories expose accessible tabs and support arrow-key navigation', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
   const nodes = createVisualizer(sampleData())
   let tabs = findByClass(nodes.get('deoptigate-details'), 'deoptigate-tab')
@@ -178,7 +287,7 @@ test('event categories expose accessible tabs and support arrow-key navigation',
   t.assert.equal(tablist.attributes.role, 'tablist', 'groups categories as a tablist')
   t.assert.equal(tabs[1].attributes.role, 'tab', 'exposes each category as a tab')
   t.assert.equal(tabs[1].tabIndex, 0, 'makes the selected tab the keyboard entry point')
-  const eventPanel = findById(nodes.get('deoptigate-details'), 'deoptigate-event-panel')
+  const eventPanel = requireElement(findById(nodes.get('deoptigate-details'), 'deoptigate-event-panel'))
   t.assert.equal(eventPanel.attributes.role, 'tabpanel', 'labels the event content as the tab panel')
   t.assert.equal(eventPanel.attributes['aria-labelledby'], tabs[1].id, 'associates the panel with the selected tab')
 
@@ -190,7 +299,7 @@ test('event categories expose accessible tabs and support arrow-key navigation',
   t.assert.equal(tabs[2].focused, true, 'keeps keyboard focus on the newly selected tab')
 })
 
-test('repeated event updates collapse and render on demand', (t) => {
+test('repeated event updates collapse and render on demand', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(5)
   const nodes = createVisualizer([
     ['/app/repeats.js', {
@@ -220,11 +329,12 @@ test('repeated event updates collapse and render on demand', (t) => {
   t.assert.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'does not duplicate history when reopened')
 })
 
-test('severity filter keeps file list, tabs and event rows in sync', (t) => {
+test('severity filter keeps file list, tabs and event rows in sync', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer(sampleData())
   const fileList = nodes.get('deoptigate-files')
   const details = nodes.get('deoptigate-details')
   const severityButtons = nodes.get('deoptigate-severity').children
+  /** @param {string} value */
   const selectOnlySeverity = value => {
     for (const button of severityButtons) {
       const shouldBeActive = button.dataset.severity === value
@@ -254,8 +364,8 @@ test('severity filter keeps file list, tabs and event rows in sync', (t) => {
   t.assert.ok(fileList.textContent.includes('low.js'), 'selects the severity 1 file')
   t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows only severity 1 events')
 
-  severityButtons.find(button => button.dataset.severity === '2').dispatch('click')
-  severityButtons.find(button => button.dataset.severity === '3').dispatch('click')
+  requireElement(severityButtons.find(button => button.dataset.severity === '2')).dispatch('click')
+  requireElement(severityButtons.find(button => button.dataset.severity === '3')).dispatch('click')
   t.assert.equal(findByClass(fileList, 'deoptigate-file').length, 2, 'restores all files')
 
   selectOnlySeverity('3')
@@ -270,7 +380,7 @@ test('severity filter keeps file list, tabs and event rows in sync', (t) => {
   t.assert.equal(nodes.get('deoptigate-search').focused, true, 'moves focus to the source filter after clearing filters')
 })
 
-test('selecting a file opens its most populated event category', (t) => {
+test('selecting a file opens its most populated event category', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/inline-cache-heavy.js', {
       relativePath: 'inline-cache-heavy.js',
@@ -291,18 +401,18 @@ test('selecting a file opens its most populated event category', (t) => {
     }]
   ])
   const details = nodes.get('deoptigate-details')
-  let selectedTab = findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true')
+  let selectedTab = requireElement(findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true'))
 
   t.assert.ok(selectedTab.textContent.startsWith('Inline caches'), 'starts on the category with the most events')
   t.assert.equal(findByClass(details, 'deoptigate-event').length, 2, 'shows the available inline cache events')
   findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')[1].dispatch('click')
   t.assert.equal(findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')[1].focused, true, 'keeps keyboard focus on the selected file after rerendering')
-  selectedTab = findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true')
+  selectedTab = requireElement(findByClass(details, 'deoptigate-tab').find(tab => tab.attributes['aria-selected'] === 'true'))
   t.assert.ok(selectedTab.textContent.startsWith('Deoptimizations'), 'switches to deoptimizations when the selected file has no inline cache events')
   t.assert.equal(findByClass(details, 'deoptigate-event').length, 1, 'shows the selected file’s deoptimization')
 })
 
-test('severity filtering ranks files by the events currently shown', (t) => {
+test('severity filtering ranks files by the events currently shown', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/hidden-high.js', {
       relativePath: 'hidden-high.js',
@@ -323,12 +433,12 @@ test('severity filtering ranks files by the events currently shown', (t) => {
   const severityButtons = nodes.get('deoptigate-severity').children
 
   t.assert.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('hidden-high.js'), 'all severities rank the high-impact file first')
-  severityButtons.find(button => button.dataset.severity === '2').dispatch('click')
-  severityButtons.find(button => button.dataset.severity === '3').dispatch('click')
+  requireElement(severityButtons.find(button => button.dataset.severity === '2')).dispatch('click')
+  requireElement(severityButtons.find(button => button.dataset.severity === '3')).dispatch('click')
   t.assert.ok(findByClass(fileList, 'deoptigate-file')[0].textContent.includes('many-low.js'), 'low severity ranks by the low-severity events now visible')
 })
 
-test('unresolved source files show a useful recovery hint', (t) => {
+test('unresolved source files show a useful recovery hint', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([])
   const fileList = nodes.get('deoptigate-files')
   const details = nodes.get('deoptigate-details')
@@ -338,7 +448,7 @@ test('unresolved source files show a useful recovery hint', (t) => {
   t.assert.ok(findByClass(details, 'deoptigate-empty-hint')[0].textContent.includes('project root'), 'suggests checking the profile project root')
 })
 
-test('large event lists render in pages and keep every event reachable', (t) => {
+test('large event lists render in pages and keep every event reachable', (/** @type {import('node:test').TestContext} */ t) => {
   const points = Array.from({ length: 31 }, (_, index) => ({
     line: index + 1,
     functionName: `function${index}`,
@@ -368,7 +478,7 @@ test('large event lists render in pages and keep every event reachable', (t) => 
   t.assert.equal(findByClass(details, 'deoptigate-show-more')[0].focused, true, 'keeps focus on the page control after moving back')
 })
 
-test('source code shows clickable markers at optimization event locations', (t) => {
+test('source code shows clickable markers at optimization event locations', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/markers.js', {
       relativePath: 'markers.js',
@@ -399,12 +509,12 @@ test('source code shows clickable markers at optimization event locations', (t) 
   const sourceText = code.textContent.replace(/[▲▼◆]/g, '')
   t.assert.equal(sourceText, 'const value = run()', 'keeps each source character once at a shared marker column')
   markers[1].dispatch('click')
-  const optimizationTab = findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Optimizations'))
+  const optimizationTab = requireElement(findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Optimizations')))
   t.assert.equal(optimizationTab.attributes['aria-selected'], 'true', 'clicking an optimization marker selects its event category')
   t.assert.equal(findByClass(details, 'deoptigate-source-marker').some(marker => marker.focused), true, 'keeps focus on the selected source marker after rerendering')
   const selectedEvent = findByClass(details, 'deoptigate-event')[0]
   t.assert.equal(selectedEvent.dataset.selected, 'true', 'selects the matching event in the list')
-  t.assert.equal(selectedEvent.scrollIntoViewOptions.block, 'center', 'scrolls the matching event into view')
+  t.assert.equal(requireDefined(selectedEvent.scrollIntoViewOptions).block, 'center', 'scrolls the matching event into view')
   const inlineCacheMarkers = findByClass(findByClass(details, 'deoptigate-source-line')[2], 'deoptigate-source-marker')
   const inlineCacheCode = findByClass(findByClass(details, 'deoptigate-source-line')[2], 'deoptigate-line-text')[0]
   const inlineCacheGroup = findByClass(inlineCacheCode, 'deoptigate-source-marker-group')[0]
@@ -412,15 +522,15 @@ test('source code shows clickable markers at optimization event locations', (t) 
   t.assert.equal(inlineCacheMarkers[0].dataset.severity, '1', 'retains inline-cache severity')
   t.assert.equal(inlineCacheGroup.dataset.column, '4', 'places inline-cache markers at their one-based source column')
   inlineCacheMarkers[0].dispatch('click')
-  const inlineCacheTab = findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Inline caches'))
+  const inlineCacheTab = requireElement(findByClass(details, 'deoptigate-tab').find(button => button.textContent.includes('Inline caches')))
   t.assert.equal(inlineCacheTab.attributes['aria-selected'], 'true', 'clicking an inline-cache marker selects its event category')
-  nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '1').dispatch('click')
-  nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '2').dispatch('click')
+  requireElement(nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '1')).dispatch('click')
+  requireElement(nodes.get('deoptigate-severity').children.find(button => button.dataset.severity === '2')).dispatch('click')
   const highSeverityMarkers = findByClass(findByClass(details, 'deoptigate-source-line')[1], 'deoptigate-source-marker')
   t.assert.deepEqual(highSeverityMarkers.map(marker => marker.textContent), ['▼'], 'severity filtering hides lower-severity source markers')
 })
 
-test('source markers preserve their V8 columns and keep source text visible', (t) => {
+test('source markers preserve their V8 columns and keep source text visible', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/columns.js', {
       relativePath: 'columns.js',
@@ -442,7 +552,7 @@ test('source markers preserve their V8 columns and keep source text visible', (t
   t.assert.equal(code.textContent.replace(/[▲▼◆]/g, ''), 'const value = run()', 'does not consume or duplicate source characters')
 })
 
-test('source markers follow the full token at a one-based V8 column', (t) => {
+test('source markers follow the full token at a one-based V8 column', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/property.js', {
       relativePath: 'property.js',
@@ -463,7 +573,7 @@ test('source markers follow the full token at a one-based V8 column', (t) => {
   t.assert.equal(markerGroup.dataset.characterOffset, '8', 'positions the marker after the complete identifier token')
 })
 
-test('source markers stay at the parameter boundary after its opening parenthesis', (t) => {
+test('source markers stay at the parameter boundary after its opening parenthesis', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/parameter.js', {
       relativePath: 'parameter.js',
@@ -481,7 +591,7 @@ test('source markers stay at the parameter boundary after its opening parenthesi
   t.assert.equal(sourceText.children[2].textContent, 'arg) {}', 'preserves the parameter and following source text')
 })
 
-test('script wrapper markers stay before the first source token', (t) => {
+test('script wrapper markers stay before the first source token', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer([
     ['/app/script.js', {
       relativePath: 'script.js',
@@ -498,7 +608,7 @@ test('script wrapper markers stay before the first source token', (t) => {
   t.assert.equal(sourceText.children[1].textContent, 'use strict', 'preserves the source after its wrapper marker')
 })
 
-test('source markers jump to event pages beyond the first page', (t) => {
+test('source markers jump to event pages beyond the first page', (/** @type {import('node:test').TestContext} */ t) => {
   const points = Array.from({ length: 61 }, (_, index) => ({
     line: index + 1,
     column: 2,
@@ -515,13 +625,13 @@ test('source markers jump to event pages beyond the first page', (t) => {
   lastLineMarkers[0].dispatch('click')
 
   const eventCards = findByClass(details, 'deoptigate-event')
-  const target = eventCards.find(card => card.textContent.includes('function45'))
-  const sourcePanel = findById(details, 'deoptigate-source')
-  const selectedSourceLine = findByClass(details, 'deoptigate-source-line').find(line => line.attributes['aria-current'] === 'true')
+  const target = requireElement(eventCards.find(card => card.textContent.includes('function45')))
+  const sourcePanel = requireElement(findById(details, 'deoptigate-source'))
+  const selectedSourceLine = requireElement(findByClass(details, 'deoptigate-source-line').find(line => line.attributes['aria-current'] === 'true'))
   t.assert.equal(eventCards.length, 30, 'keeps only one event page in the DOM')
   t.assert.ok(target, 'opens the page containing the clicked marker event')
   t.assert.equal(target.dataset.selected, 'true', 'marks the matching event as selected')
-  t.assert.equal(target.scrollIntoViewOptions.block, 'center', 'scrolls the off-page event into view')
+  t.assert.equal(requireDefined(target.scrollIntoViewOptions).block, 'center', 'scrolls the off-page event into view')
   t.assert.ok(sourcePanel.scrollTop > 0, 'scrolls the source panel to the clicked marker line')
   t.assert.equal(selectedSourceLine.children[0].textContent, '46', 'renders the clicked marker line as the current source line')
 })

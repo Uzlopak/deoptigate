@@ -14,6 +14,10 @@ const CATALOG_REASON_LINE_RX = /^\| `([^`]+)` \| ([^|]+) \|/
 const BACKTICK_EDGE_RX = /^`(.*)`$/
 const CSV_COMMA_RX = /,/g
 
+/** @typedef {{deoptReason: string, severity: number}} TestDeoptUpdate */
+/** @typedef {{updates: TestDeoptUpdate[]}} TestDeoptEntry */
+
+/** @returns {{ name: string, message: string }[]} */
 function readCatalogReasons() {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
@@ -24,11 +28,23 @@ function readCatalogReasons() {
   return reasons
 }
 
+/**
+ * @param {string} value
+ * @returns {string}
+ */
 function v8CsvField(value) {
   return value.replace(CSV_COMMA_RX, '\\x2c')
 }
 
-test('deoptigate retains every supplied catalog deoptimization message', async (t) => {
+/**
+ * @param {string[]} lines
+ * @returns {AsyncIterable<string>}
+ */
+async function * asAsyncIterable(lines) {
+  yield * lines
+}
+
+test('deoptigate retains every supplied catalog deoptimization message', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const reasons = readCatalogReasons()
   const start = '0x1000'
@@ -46,8 +62,8 @@ test('deoptigate retains every supplied catalog deoptimization message', async (
     )
   }
 
-  const processed = await processLogContent(lines, repoRoot)
-  const deopts = processed.toObject().deopts
+  const processed = await processLogContent(asAsyncIterable(lines), repoRoot)
+  const deopts = /** @type {TestDeoptEntry[]} */ (processed.toObject().deopts)
 
   t.assert.equal(reasons.length, 84, 'catalog contains 68 regular and 16 lazy reasons')
   t.assert.equal(deopts.length, 1, 'all synthetic records map to the source location')
@@ -64,9 +80,9 @@ test('deoptigate retains every supplied catalog deoptimization message', async (
   )
 })
 
-test('processor parses complete strings and serializes its output as JSON', async (t) => {
+test('processor parses complete strings and serializes its output as JSON', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
-  const processor = await processLogContent([], repoRoot)
+  const processor = await processLogContent(asAsyncIterable([]), repoRoot)
   const lines = [
     `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~`,
     'sfi-move,0x2000,0x4000',
@@ -82,9 +98,9 @@ test('processor parses complete strings and serializes its output as JSON', asyn
   t.assert.equal(output.codes[0].updates.length, 2, 'both code state updates are serialized')
 })
 
-test('sfi-move updates the function identity associated with existing code', async (t) => {
+test('sfi-move updates the function identity associated with existing code', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
-  const processor = await processLogContent([], repoRoot)
+  const processor = await processLogContent(asAsyncIterable([]), repoRoot)
   processor.processString([
     `code-creation,JS,9,1,0x1000,100,before ${sourceFile}:1:1,0x2000,~`,
     'sfi-move,0x2000,0x4000',

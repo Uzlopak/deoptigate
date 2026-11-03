@@ -5,19 +5,40 @@ const EventEmitter = require('events')
 const net = require('net')
 const os = require('os')
 const path = require('path')
-const { test } = require('node:test')
+/** @type {typeof import('node:test').test} */
+const test = require('node:test').test
 
 const ClinicDeoptigate = require('../src')
 
+/**
+ * Create a promise for an operation that completes without a result.
+ * @param {(resolve: () => void, reject: (reason: unknown) => void) => void} executor
+ * @returns {Promise<void>}
+ */
+function waitFor (executor) {
+  return new Promise((resolve, reject) => executor(resolve, reject))
+}
+
+/**
+ * @param {InstanceType<typeof ClinicDeoptigate>} profiler
+ * @param {string[]} args
+ * @returns {Promise<string>}
+ */
 function collect (profiler, args) {
   return new Promise((resolve, reject) => {
     profiler.collect(args, (err, outputDir) => {
       if (err) reject(err)
-      else resolve(outputDir)
+      else resolve(/** @type {string} */ (outputDir))
     })
   })
 }
 
+/**
+ * @param {InstanceType<typeof ClinicDeoptigate>} profiler
+ * @param {string} source
+ * @param {string} output
+ * @returns {Promise<void>}
+ */
 function visualize (profiler, source, output) {
   return new Promise((resolve, reject) => {
     profiler.visualize(source, output, err => {
@@ -27,18 +48,28 @@ function visualize (profiler, source, output) {
   })
 }
 
+/**
+ * @param {string} directory
+ * @returns {Promise<void>}
+ */
 function removeDirectory (directory) {
-  if (fs.promises.rm) return fs.promises.rm(directory, { recursive: true, force: true })
-  return fs.promises.rmdir(directory, { recursive: true })
+  return fs.promises.rm(directory, { recursive: true, force: true })
 }
 
+/**
+ * @param {import('node:test').TestContext} t
+ * @param {Promise<unknown>} promise
+ * @param {RegExp} pattern
+ * @param {string} message
+ * @returns {Promise<void>}
+ */
 async function rejects (t, promise, pattern, message) {
   const err = await promise.then(() => null, error => error)
   t.assert.ok(err instanceof Error, message)
   if (err) t.assert.match(err.message, pattern, message)
 }
 
-test('ClinicDeoptigate collects a Node process and creates a Clinic report', async (t) => {
+test('ClinicDeoptigate collects a Node process and creates a Clinic report', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-test-'))
   t.after(() => removeDirectory(tempDir))
@@ -71,7 +102,7 @@ test('ClinicDeoptigate collects a Node process and creates a Clinic report', asy
   t.assert.ok(html.includes('Performance overview'), 'renders the deoptigate visualizer')
 })
 
-test('ClinicDeoptigate rejects invalid commands and failed child processes', async (t) => {
+test('ClinicDeoptigate rejects invalid commands and failed child processes', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-errors-'))
   t.after(() => removeDirectory(tempDir))
@@ -90,7 +121,7 @@ test('ClinicDeoptigate rejects invalid commands and failed child processes', asy
   t.assert.ok(fs.statSync(path.join(dataPath, 'v8.log')).isFile(), 'retains the log after an accepted failure')
 })
 
-test('ClinicDeoptigate reports spawn and visualize errors', async (t) => {
+test('ClinicDeoptigate reports spawn and visualize errors', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-spawn-'))
   t.after(() => removeDirectory(tempDir))
@@ -107,7 +138,7 @@ test('ClinicDeoptigate reports spawn and visualize errors', async (t) => {
   await rejects(t, visualize(profiler, path.join(__dirname, 'logs', 'adders.v8.log'), path.join(tempDir, 'missing-output', 'report.html')), /ENOENT/, 'reports output write errors')
 })
 
-test('ClinicDeoptigate reports log cleanup errors before spawning', async (t) => {
+test('ClinicDeoptigate reports log cleanup errors before spawning', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-unlink-'))
   t.after(() => removeDirectory(tempDir))
@@ -122,7 +153,7 @@ test('ClinicDeoptigate reports log cleanup errors before spawning', async (t) =>
   }
 })
 
-test('ClinicDeoptigate invokes its callback once when a child reports error and exit', async (t) => {
+test('ClinicDeoptigate invokes its callback once when a child reports error and exit', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-double-finish-'))
   t.after(() => removeDirectory(tempDir))
@@ -130,14 +161,14 @@ test('ClinicDeoptigate invokes its callback once when a child reports error and 
   const childProcess = require('child_process')
   const indexPath = require.resolve('../src')
   const originalSpawn = childProcess.spawn
-  childProcess.spawn = () => {
+  Object.defineProperty(childProcess, 'spawn', { value: () => {
     const child = new EventEmitter()
     setImmediate(() => {
       child.emit('error', new Error('spawn failed'))
       child.emit('exit', 1, null)
     })
     return child
-  }
+  } })
 
   let MockedClinicDeoptigate
   try {
@@ -149,25 +180,25 @@ test('ClinicDeoptigate invokes its callback once when a child reports error and 
   }
 
   let callbacks = 0
-  const err = await new Promise(resolve => {
+  const err = await new Promise(/** @param {(error: Error) => void} resolve */ resolve => {
     const profiler = new MockedClinicDeoptigate({ dest: tempDir })
     profiler.collect([process.execPath, '-e', ''], error => {
       callbacks++
-      resolve(error)
+      if (error) resolve(error)
     })
   })
-  await new Promise(resolve => setImmediate(resolve))
+  await waitFor(resolve => setImmediate(resolve))
   t.assert.match(err.message, /spawn failed/)
   t.assert.equal(callbacks, 1, 'ignores the later exit event')
 })
 
-test('ClinicDeoptigate detects a listening port and stops after its workload', async (t) => {
+test('ClinicDeoptigate detects a listening port and stops after its workload', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-port-'))
   t.after(() => removeDirectory(tempDir))
 
   const profiler = new ClinicDeoptigate({ dest: tempDir, name: 'port', detectPort: true })
-  const portWasDetected = new Promise(resolve => {
+  const portWasDetected = waitFor(resolve => {
     profiler.once('port', (port, child, stop) => {
       t.assert.ok(Number.isInteger(port) && port > 0, 'reports the application port')
       t.assert.ok(child && child.pid, 'reports the profiled child')
@@ -189,7 +220,7 @@ test('ClinicDeoptigate detects a listening port and stops after its workload', a
   t.assert.equal(invalidPortReported, false, 'continues collection when the reported port is invalid')
 })
 
-test('ClinicDeoptigate visualizes a V8 log directly when metadata is absent', async (t) => {
+test('ClinicDeoptigate visualizes a V8 log directly when metadata is absent', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-log-'))
   t.after(() => removeDirectory(tempDir))
@@ -209,7 +240,7 @@ test('ClinicDeoptigate visualizes a V8 log directly when metadata is absent', as
   t.assert.ok(html.includes('examples/simple/adders.js'), 'resolves source paths from the configured root')
 })
 
-test('detect-port reports the first TCP listener and ignores non-TCP addresses', async (t) => {
+test('detect-port reports the first TCP listener and ignores non-TCP addresses', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const tempDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'clinic-deoptigate-inject-'))
   t.after(() => removeDirectory(tempDir))
@@ -225,29 +256,32 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
   const unixPath = path.join(tempDir, 'app.sock')
 
   try {
-    await new Promise((resolve, reject) => {
+    await waitFor((resolve, reject) => {
       clinicServer.once('error', reject)
-      clinicServer.listen(0, '127.0.0.1', resolve)
+      clinicServer.listen(0, '127.0.0.1', () => resolve())
     })
 
     delete process.env.CLINIC_DEOPTIGATE_PORT
     delete require.cache[injectPath]
     require(injectPath)
 
-    process.env.CLINIC_DEOPTIGATE_PORT = String(clinicServer.address().port)
+    const clinicAddress = clinicServer.address()
+    if (clinicAddress == null || typeof clinicAddress === 'string') throw new Error('Clinic server has no TCP address')
+    process.env.CLINIC_DEOPTIGATE_PORT = String(clinicAddress.port)
     delete require.cache[injectPath]
     require(injectPath)
 
+    /** @param {import('node:net').Server} server */
     const listen = async server => {
       appServers.push(server)
-      await new Promise((resolve, reject) => {
+    await waitFor((resolve, reject) => {
         server.once('error', reject)
-        server.listen(0, '127.0.0.1', resolve)
+        server.listen(0, '127.0.0.1', () => resolve())
       })
     }
 
     await listen(net.createServer())
-    await new Promise(resolve => setTimeout(resolve, 20))
+    await waitFor(resolve => setTimeout(resolve, 20))
     t.assert.equal(receivedPorts.length, 1, 'sends the first port to Clinic')
 
     await listen(net.createServer())
@@ -265,14 +299,14 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
     require(injectPath)
     const unixServer = net.createServer()
     appServers.push(unixServer)
-    await new Promise((resolve, reject) => {
+    await waitFor((resolve, reject) => {
       unixServer.once('error', reject)
-      unixServer.listen(unixPath, resolve)
+      unixServer.listen(unixPath, () => resolve())
     })
     t.assert.equal(receivedPorts.length, 1, 'ignores addressless and Unix socket servers')
 
     let connectionErrorEmitted = false
-    net.createConnection = () => {
+    Object.defineProperty(net, 'createConnection', { value: () => {
       const client = new EventEmitter()
       const emit = client.emit
       client.emit = function (event, ...args) {
@@ -281,36 +315,39 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
       }
       process.nextTick(() => client.emit('error', new Error('synthetic connection failure')))
       return client
-    }
+    } })
     net.Server.prototype.listen = originalListen
     delete require.cache[injectPath]
     require(injectPath)
     await listen(net.createServer())
-    await new Promise(resolve => setImmediate(resolve))
+    await waitFor(resolve => setImmediate(resolve))
     t.assert.equal(connectionErrorEmitted, true, 'handles errors connecting back to Clinic')
   } finally {
     net.Server.prototype.listen = originalListen
     net.createConnection = originalCreateConnection
     delete process.env.CLINIC_DEOPTIGATE_PORT
     delete require.cache[injectPath]
-    await Promise.all(appServers.map(server => new Promise(resolve => {
+    await Promise.all(appServers.map(server => waitFor(resolve => {
       if (!server.listening) return resolve()
-      server.close(resolve)
+      server.close(() => resolve())
     })))
-    await new Promise(resolve => clinicServer.close(resolve))
+    await waitFor(resolve => clinicServer.close(resolve))
   }
 
 })
 
-test('stopViaIPC sends SIGINT only to a live profiled process', (t) => {
+test('stopViaIPC sends SIGINT only to a live profiled process', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   const profiler = new ClinicDeoptigate()
+  /** @type {NodeJS.Signals[]} */
   const signals = []
-  profiler.process = { exitCode: null, kill: signal => signals.push(signal) }
+  /** @type {{exitCode: number | null, kill: (signal: NodeJS.Signals) => boolean}} */
+  const processStub = { exitCode: null, kill: (signal) => { signals.push(signal); return true } }
+  Object.defineProperty(profiler, 'process', { value: processStub, writable: true })
   profiler.stopViaIPC()
   t.assert.deepEqual(signals, ['SIGINT'])
 
-  profiler.process.exitCode = 0
+  processStub.exitCode = 0
   profiler.stopViaIPC()
   t.assert.equal(signals.length, 1, 'does not signal an exited process')
 

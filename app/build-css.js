@@ -2,18 +2,29 @@
 
 const fs = require('node:fs/promises')
 const postcss = require('postcss')
+/** @type {() => import('postcss').Plugin} */
+// @ts-expect-error postcss-import has no declaration file; the plugin's local return type is specified above.
 const postcssImport = require('postcss-import')
-const purgecss = require('@fullhuman/postcss-purgecss')
+/** @type {import('postcss').PluginCreator<import('@fullhuman/postcss-purgecss').UserDefinedOptions>} */
+const purgecss = /** @type {import('postcss').PluginCreator<import('@fullhuman/postcss-purgecss').UserDefinedOptions>} */ (
+  /** @type {unknown} */ (require('@fullhuman/postcss-purgecss'))
+)
 const cssnano = require('cssnano')
 
 const SOURCE = 'main.css'
 const SCRIPT = 'build/deoptigate.js'
 const OUTPUT = 'build/deoptigate.css'
 
+/**
+ * Extract utility class names from HTML or bundled JavaScript content.
+ * @param {string} content
+ * @returns {string[]}
+ */
 function extractClasses(content) {
   return content.match(/[\w-/:]+(?<!:)/g) || []
 }
 
+/** Build and write the purged, minified application stylesheet. @returns {Promise<void>} */
 async function buildCss() {
   const css = await fs.readFile(SOURCE, 'utf8')
   const imported = await postcss([postcssImport()]).process(css, { from: SOURCE })

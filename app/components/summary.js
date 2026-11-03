@@ -2,7 +2,9 @@
 
 const Preact = require('preact')
 const { Component } = Preact
-const scrollIntoView = require('scroll-into-view-if-needed')
+const scrollIntoView = /** @type {typeof import('scroll-into-view-if-needed').default} */ (
+  /** @type {unknown} */ (require('scroll-into-view-if-needed'))
+)
 
 const assert = require('../../lib/assert')
 const { nameIcState, severityIcState } = require('../../lib/log-processing/ic-state')
@@ -12,17 +14,51 @@ const {
 } = require('../../lib/log-processing/optimization-state')
 const { MIN_SEVERITY } = require('../../lib/severities')
 
-const severityClassNames = [
+const severityClassNames = /** @type {const} */ ([
     'green i'
   , 'blue'
   , 'red b'
-]
+])
 
 const OPT_TAB_IDX = 0
 const DEOPT_TAB_IDX = 1
 const ICS_TAB_IDX = 2
 
+/** @typedef {import('../../lib/log-processing/ic-state').IcState} IcState */
+/** @typedef {import('../../lib/log-processing/optimization-state').ParsedOptimizationState} ParsedOptimizationState */
+/** @typedef {import('../../lib/severities').Severity} Severity */
+/** @typedef {{timestamp: number, state: ParsedOptimizationState, severity: Severity}} CodeUpdate */
+/** @typedef {{timestamp: number, bailoutType: string, deoptReason: string, inlined: boolean, severity: Severity}} DeoptUpdate */
+/** @typedef {{oldState: IcState, newState: IcState, key: string, map: string, severity: Severity}} IcUpdate */
+/** @typedef {{id: number, functionName: string, line: number, column: number, severity: Severity}} SummaryPoint */
+/** @typedef {SummaryPoint & {updates: CodeUpdate[]}} CodeSummaryInfo */
+/** @typedef {SummaryPoint & {updates: DeoptUpdate[]}} DeoptSummaryInfo */
+/** @typedef {SummaryPoint & {updates: IcUpdate[]}} IcSummaryInfo */
+/**
+ * @template T
+ * @typedef {Map<string, T> | null | undefined} SummaryData
+ */
+/**
+ * @typedef {object} SummaryViewProps
+ * @property {string=} className
+ * @property {Map<string, IcSummaryInfo>|null} ics
+ * @property {string[]} icLocations
+ * @property {Map<string, DeoptSummaryInfo>|null} deopts
+ * @property {string[]} deoptLocations
+ * @property {Map<string, CodeSummaryInfo>|null} codes
+ * @property {string[]} codeLocations
+ * @property {number|null} selectedLocation
+ * @property {boolean} includeAllSeverities
+ * @property {string} relativePath
+ * @property {number} selectedTabIdx
+ * @property {(id: number) => void} onsummaryClicked
+ * @property {(idx: number) => void} ontabHeaderClicked
+ */
+/** @typedef {import('preact').TargetedMouseEvent<HTMLAnchorElement>} SummaryClickEvent */
+
+/** @extends {Component<SummaryViewProps>} */
 class SummaryView extends Component {
+  /** @param {SummaryViewProps} props */
   constructor(props) {
     super(props)
     const { ics, icLocations, deopts, deoptLocations, onsummaryClicked, ontabHeaderClicked } = props
@@ -35,12 +71,14 @@ class SummaryView extends Component {
     this._bind()
   }
 
+  /** @returns {void} */
   _bind() {
     this._renderIc = this._renderIc.bind(this)
     this._renderDeopt = this._renderDeopt.bind(this)
     this._renderCode = this._renderCode.bind(this)
   }
 
+  /** @returns {void} */
   _maybeScrollIntoView() {
     const { selectedLocation } = this.props
     if (selectedLocation == null) return
@@ -49,14 +87,26 @@ class SummaryView extends Component {
     scrollIntoView(summary, { behavior: 'smooth', scrollMode: 'if-needed' })
   }
 
+  /**
+   * @override
+   * @returns {void}
+   */
   componentDidMount() {
     this._maybeScrollIntoView()
   }
 
+  /**
+   * @override
+   * @returns {void}
+   */
   componentDidUpdate() {
     this._maybeScrollIntoView()
   }
 
+  /**
+   * @override
+   * @returns {import('preact').VNode}
+   */
   render() {
     const {
         className = ''
@@ -91,6 +141,11 @@ class SummaryView extends Component {
    * Tabs
    */
 
+  /**
+   * @param {string} label
+   * @param {number} idx
+   * @returns {import('preact').VNode}
+   */
   _renderTabHeader(label, idx) {
     const { selectedTabIdx } = this.props
     const selected = idx === selectedTabIdx
@@ -107,12 +162,20 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @template {SummaryPoint & {updates: (CodeUpdate|DeoptUpdate|IcUpdate)[]}} T
+   * @param {Map<string, T>} data
+   * @param {string[]} locations
+   * @param {(info: T) => import('preact').ComponentChild} renderDetails
+   * @returns {import('preact').ComponentChild}
+   */
   _renderDataPoint(data, locations, renderDetails) {
     const { selectedLocation, includeAllSeverities, relativePath } = this.props
     if (locations.length === 0) return <h4 className='ml4'>None</h4>
     const rendered = []
     for (const loc of locations) {
       const info = data.get(loc)
+      if (info == null) continue
       if (!includeAllSeverities && info.severity <= MIN_SEVERITY) continue
 
       const highlightedClass = selectedLocation === info.id ? 'bg-light-yellow' : 'bg-light-green'
@@ -127,6 +190,12 @@ class SummaryView extends Component {
     return rendered
   }
 
+  /**
+   * @param {SummaryData<IcSummaryInfo>} ics
+   * @param {string[]} icLocations
+   * @param {boolean} selected
+   * @returns {import('preact').ComponentChild}
+   */
   _renderIcs(ics, icLocations, selected) {
     if (ics == null) return null
     const className = selected ? '' : 'dn'
@@ -138,6 +207,12 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {SummaryData<DeoptSummaryInfo>} deopts
+   * @param {string[]} deoptLocations
+   * @param {boolean} selected
+   * @returns {import('preact').ComponentChild}
+   */
   _renderDeopts(deopts, deoptLocations, selected) {
     if (deopts == null) return null
     const className = selected ? '' : 'dn'
@@ -149,6 +224,12 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {SummaryData<CodeSummaryInfo>} codes
+   * @param {string[]} codeLocations
+   * @param {boolean} selected
+   * @returns {import('preact').ComponentChild}
+   */
   _renderCodes(codes, codeLocations, selected) {
     if (codes == null) return null
     const className = selected ? '' : 'dn'
@@ -160,6 +241,11 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {SummaryPoint} info
+   * @param {string} relativePath
+   * @returns {import('preact').VNode}
+   */
   _summary(info, relativePath) {
     const {
         id
@@ -168,6 +254,7 @@ class SummaryView extends Component {
       , column
     } = info
     const locationEl = <span className='dark-blue f5 mr2'>{id}</span>
+    /** @param {SummaryClickEvent} e */
     const onclicked = e => {
       e.preventDefault()
       e.stopPropagation()
@@ -189,6 +276,10 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {DeoptSummaryInfo} info
+   * @returns {import('preact').VNode}
+   */
   _renderDeopt(info) {
     const rows = info.updates.map((update, idx) => this._deoptRow(update, idx))
     return (
@@ -208,7 +299,12 @@ class SummaryView extends Component {
     )
   }
 
-  _deoptRow(info) {
+  /**
+   * @param {DeoptUpdate} info
+   * @param {number} idx
+   * @returns {import('preact').VNode}
+   */
+  _deoptRow(info, idx) {
     const {
         inlined
       , bailoutType
@@ -228,6 +324,10 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {IcSummaryInfo} info
+   * @returns {import('preact').VNode}
+   */
   _renderIc(info) {
     const rows = info.updates.map((update, idx) => this._icRow(update, idx))
     return (
@@ -247,6 +347,11 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {IcUpdate} update
+   * @param {number} id
+   * @returns {import('preact').VNode}
+   */
   _icRow(update, id) {
     const {
         oldState
@@ -273,6 +378,10 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {CodeSummaryInfo} info
+   * @returns {import('preact').VNode}
+   */
   _renderCode(info) {
     const rows = info.updates.map((update, idx) => this._codeRow(update, idx))
     return (
@@ -290,6 +399,11 @@ class SummaryView extends Component {
     )
   }
 
+  /**
+   * @param {CodeUpdate} info
+   * @param {number} id
+   * @returns {import('preact').VNode}
+   */
   _codeRow(info, id) {
     const { timestamp, state } = info
     const timeStampMs = (timestamp / 1E3).toFixed()
@@ -308,11 +422,19 @@ class SummaryView extends Component {
   /*
    * Events
    */
+  /**
+   * @param {number} idx
+   * @returns {void}
+   */
   _ontabHeaderClicked(idx) {
     const { ontabHeaderClicked } = this.props
     ontabHeaderClicked(idx)
   }
 
+  /**
+   * @param {number} id
+   * @returns {void}
+   */
   _onsummaryClicked(id) {
     const { onsummaryClicked } = this.props
     onsummaryClicked(id)

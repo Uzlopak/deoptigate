@@ -2,6 +2,27 @@
 
 const lookupDeoptimizationReason = require('./deoptimization-lookup')
 
+/**
+ * @typedef {object} StringSchema
+ * @property {() => StringSchema} trim
+ * @property {(length: number) => StringSchema} min
+ * @property {(length: number) => StringSchema} max
+ * @property {(description: string) => StringSchema} describe
+ */
+/** @typedef {{ strict: () => object }} ObjectSchemaBuilder */
+/**
+ * @typedef {object} SchemaBuilder
+ * @property {() => StringSchema} string
+ * @property {(shape: { code: StringSchema, meaning: StringSchema }) => ObjectSchemaBuilder} object
+ */
+/** @typedef {{ isError?: boolean, content: { type: 'text', text: string }[], structuredContent?: { code: string, meaning: string } }} McpToolResult */
+
+/**
+ * Create the deoptimization reason lookup tool for Clinic's MCP registration.
+ *
+ * @param {{ z: SchemaBuilder }} options
+ * @returns {{ name: string, config: { description: string, inputSchema: { reason_code: StringSchema }, outputSchema: object }, handler: (input: { reason_code: string }) => McpToolResult }[]}
+ */
 function getMcpTools ({ z }) {
   return [{
     name: 'lookup_deoptimization_reason',

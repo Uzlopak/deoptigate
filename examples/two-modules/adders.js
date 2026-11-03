@@ -17,32 +17,63 @@ const preventInlining = {
   flag: false
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 function addSmis(a, b) {
   if (preventInlining.flag) return a - b
   return a + b
 }
 
+/**
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
 function addNumbers(a, b) {
   if (preventInlining.flag) return a - b
   return a + b
 }
 
+/**
+ * @param {string} a
+ * @param {string} b
+ * @returns {string | number}
+ */
 function addStrings(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   return a + b
 }
 
+/** @typedef {{x: number, y: number}} CoordinateObject */
+/**
+ * @param {number | string | CoordinateObject} a
+ * @param {number | string=} b
+ * @returns {number | string}
+ */
 function addAny(a, b) {
-  if (preventInlining.flag) return a - b
+  if (preventInlining.flag) return Number(a) - Number(b)
   // passed one object?
-  if (b == null) return a.x + a.y
+  if (b == null) {
+    if (typeof a !== 'object') return Number.NaN
+    return a.x + a.y
+  }
+  if (typeof a === 'string' || typeof b === 'string') return `${a}${b}`
+  if (typeof a === 'object') return `${a}${b}`
   return a + b
 }
 
 const ITER = 1E3
 
+/** @type {(number | string)[]} */
 var results = []
 
+/**
+ * @param {number | string} r
+ * @returns {void}
+ */
 function processResult(r) {
   // will never happen
   if (r === -1) preventInlining.flag = true
@@ -76,6 +107,10 @@ for (let i = 0; i < ITER; i++) {
   }
 }
 
+/**
+ * @param {new (x: number, y: number) => { x: number, y: number }} SomeObject
+ * @returns {void}
+ */
 function addObjects(SomeObject) {
   for (let i = 0; i < ITER; i++) {
     for (let j = ITER; j > 0; j--) {
@@ -92,8 +127,12 @@ addObjects(Object6)
 addObjects(Object7)
 addObjects(Object8)
 
-function log() {
-  console.log.apply(console, arguments)
+/**
+ * @param {...(number | string)} args
+ * @returns {void}
+ */
+function log(...args) {
+  console.log.apply(console, args)
 }
 
 log(results.length)

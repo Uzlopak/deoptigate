@@ -13,13 +13,33 @@ const lookupDeoptimizationReason = require('./deoptimization-lookup')
 const getMcpTools = require('./mcp-tools')
 const softExitPreload = require.resolve('./injects/soft-exit')
 
+/**
+ * @param {string} filename
+ * @returns {Promise<void>}
+ */
 function removeIfPresent (filename) {
   return fs.promises.unlink(filename).catch(err => {
     if (err.code !== 'ENOENT') throw err
   })
 }
 
+/**
+ * @typedef {object} ClinicDeoptigateSettings
+ * @property {string} [dest='.clinic'] Directory for profile data.
+ * @property {string} [name] Name used for the profile directory.
+ * @property {string} [root] Root used to resolve source files.
+ * @property {boolean} [collectOnFailure=false] Keep profile data after a nonzero exit.
+ * @property {boolean} [detectPort=false] Detect the first TCP listening port.
+ */
+
+/**
+ * Collects V8 deoptimization data and generates a standalone report.
+ * @extends {EventEmitter}
+ */
 class ClinicDeoptigate extends EventEmitter {
+  /**
+   * @param {ClinicDeoptigateSettings} [settings]
+   */
   constructor (settings = {}) {
     super()
 
@@ -35,9 +55,18 @@ class ClinicDeoptigate extends EventEmitter {
     this.root = root
     this.collectOnFailure = !!collectOnFailure
     this.detectPort = !!detectPort
+    /** @type {import('child_process').ChildProcess | null} */
     this.process = null
+    /** @type {number | undefined} */
+    this.elapsedTime = undefined
   }
 
+  /**
+   * Run a Node.js process with V8 deoptimization logging enabled.
+   * @param {string[]} args Node executable followed by the script and its arguments.
+   * @param {(err: Error | null, dataPath?: string) => void} callback
+   * @returns {void}
+   */
   collect (args, callback) {
     if (!Array.isArray(args) || args.length < 2) {
       callback(new Error('expected Node.js executable and script arguments'))
@@ -57,8 +86,14 @@ class ClinicDeoptigate extends EventEmitter {
       })))
       .then(() => {
         let completed = false
-        let child
-        let portServer
+        /** @type {import('child_process').ChildProcess | null} */
+        let child = null
+        /** @type {import('net').Server | null} */
+        let portServer = null
+        /**
+         * @param {Error | null} err
+         * @param {string} [result]
+         */
         const finish = (err, result) => {
           if (completed) return
           completed = true
@@ -66,6 +101,7 @@ class ClinicDeoptigate extends EventEmitter {
           callback(err, result)
         }
 
+        /** @param {number} [port] */
         const startChild = port => {
           const childArgs = [
             '--log-ic',
@@ -113,27 +149,39 @@ class ClinicDeoptigate extends EventEmitter {
           return
         }
 
-        portServer = createServer(socket => {
+        const server = createServer(socket => {
           socket.once('data', data => {
             const port = Number(data.toString())
             if (!Number.isInteger(port) || port < 1 || port > 65535) return
-            portServer.close()
+            server.close()
             portServer = null
             this.emit('port', port, child, this.stopViaIPC.bind(this))
           })
         })
-        portServer.once('error', finish)
-        portServer.listen(0, '127.0.0.1', () => startChild(portServer.address().port))
+        portServer = server
+        server.once('error', finish)
+        server.listen(0, '127.0.0.1', () => {
+          const address = server.address()
+          if (address && typeof address !== 'string') startChild(address.port)
+        })
       })
       .catch(callback)
   }
 
+  /**
+   * Generate an HTML report from a profile directory or V8 log file.
+   * @param {string} source Profile directory or path to `v8.log`.
+   * @param {string} outputFilename Destination HTML file.
+   * @param {(err: Error | null) => void} callback
+   * @returns {void}
+   */
   visualize (source, outputFilename, callback) {
     const run = async () => {
       const sourceStat = await fs.promises.stat(source)
       const outputDir = sourceStat.isDirectory() ? source : path.dirname(source)
       const logFile = sourceStat.isDirectory() ? path.join(source, 'v8.log') : source
       let root = this.root || process.cwd()
+      /** @type {string | undefined} */
       let elapsedTime
 
       try {
@@ -143,22 +191,26 @@ class ClinicDeoptigate extends EventEmitter {
         if (metadata.root) root = metadata.root
         if (Number.isFinite(metadata.elapsedTime)) elapsedTime = `${metadata.elapsedTime.toFixed(2)}s`
       } catch (err) {
-        if (err.code !== 'ENOENT') throw err
+        const fileError = /** @type {NodeJS.ErrnoException} */ (err)
+        if (fileError.code !== 'ENOENT') throw err
       }
 
       const data = Array.from(await processLog(logFile, { root }))
-      await new Promise((resolve, reject) => {
+      /** @type {Promise<void>} */
+      const pageWritten = new Promise((resolve, reject) => {
         pipeline(
           createClinicPage(data, require('../package.json').version, elapsedTime),
           fs.createWriteStream(outputFilename),
           err => err ? reject(err) : resolve()
         )
       })
+      await pageWritten
     }
 
     run().then(() => callback(null), callback)
   }
 
+  /** Stop the profiled process with SIGINT, if it is still running. */
   stopViaIPC () {
     if (this.process && this.process.exitCode == null) {
       this.process.kill('SIGINT')

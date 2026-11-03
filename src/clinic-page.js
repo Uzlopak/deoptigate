@@ -10,17 +10,29 @@ const pageStyles = fs.readFileSync(path.join(__dirname, '../visualizer/style.css
 const script = fs.readFileSync(require.resolve('../visualizer/main.js'), 'utf8')
 const faviconLogo = fs.readFileSync(path.join(__dirname, '../visualizer/logo.svg'), 'utf8').trim()
 const headerLogo = fs.readFileSync(path.join(__dirname, '../visualizer/logo-alt.svg'), 'utf8').trim()
-
-function serializeData (data) {
-  return JSON.stringify(data).replace(/[<\u2028\u2029]/g, char => {
-    switch (char) {
-      case '<': return '\\u003c'
-      case '\u2028': return '\\u2028'
-      case '\u2029': return '\\u2029'
-    }
-  })
+/** @type {Record<string, string>} */
+const SCRIPT_DATA_ESCAPES = {
+  '<': '\\u003c',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029'
 }
 
+/**
+ * Serialize report data safely for embedding in an HTML script element.
+ * @param {unknown} data
+ * @returns {string}
+ */
+function serializeData (data) {
+  return JSON.stringify(data).replace(/[<\u2028\u2029]/g, char => SCRIPT_DATA_ESCAPES[char])
+}
+
+/**
+ * Render the report as an HTML readable stream.
+ * @param {unknown} data
+ * @param {string} version
+ * @param {string | undefined} elapsedTime
+ * @returns {import('node:stream').Readable}
+ */
 function createClinicPage (data, version, elapsedTime) {
   return mainTemplate({
     favicon: `data:image/svg+xml;base64,${Buffer.from(faviconLogo).toString('base64')}`,
@@ -33,7 +45,7 @@ function createClinicPage (data, version, elapsedTime) {
     headerLogo,
     headerText: 'Deoptigate',
     toolVersion: version,
-    elapsedTime,
+    ...(elapsedTime === undefined ? {} : { elapsedTime }),
     body: `<main class="clinic-deoptigate">
       <div class="deoptigate-toolbar">
         <div><h1>Performance overview</h1><p>V8 optimizations, deoptimizations and inline cache changes</p></div>

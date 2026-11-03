@@ -7,7 +7,7 @@ const { test } = require('node:test')
 
 const lineReader = require('../lib/line-reader')
 
-test('lineReader yields complete and final UTF-8 lines and handles empty files', async (t) => {
+test('lineReader yields complete and final UTF-8 lines and handles empty files', async (/** @type {import('node:test').TestContext} */ t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-line-reader-'))
   const populatedPath = path.join(dir, 'populated.log')
   const emptyPath = path.join(dir, 'empty.log')
@@ -51,7 +51,7 @@ test('lineReader yields complete and final UTF-8 lines and handles empty files',
   }
 })
 
-test('lineReader rejects invalid chunk sizes before opening the file', async (t) => {
+test('lineReader rejects invalid chunk sizes before opening the file', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   for (const maxBufferSize of [ 0, -1, 1.5, NaN ]) {
     let error

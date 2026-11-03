@@ -3,8 +3,24 @@
 const Preact = require('preact')
 const { Component } = Preact
 const assert = require('../../lib/assert')
-const scrollIntoView = require('scroll-into-view-if-needed')
-const { highlight } = require('peacock')
+/**
+ * @typedef {object} HighlightOptions
+ * @property {InstanceType<typeof Theme>['theme']} theme
+ * @property {boolean} linenos
+ * @property {boolean} jsx
+ */
+
+/**
+ * @type {typeof import('scroll-into-view-if-needed').default}
+ */
+const scrollIntoView = /** @type {typeof import('scroll-into-view-if-needed').default} */ (
+  /** @type {unknown} */ (require('scroll-into-view-if-needed'))
+)
+/** @type {{highlight: (code: string, options: HighlightOptions) => string}} */
+// @ts-expect-error Peacock does not provide a declaration file; its local API is typed here.
+const peacock = require('peacock')
+/** @type {(code: string, options: HighlightOptions) => string} */
+const highlight = peacock.highlight
 
 const Theme = require('../theme.browser')
 const MarkerResolver = require('../../lib/rendering/marker-resolver')
@@ -14,20 +30,50 @@ const escapeHtml = require('../../lib/rendering/escape-html')
 
 const MAX_HIGHLIGHT_LEN = 1E5
 
+/**
+ * @typedef {object} CodeViewProps
+ * @property {string} code
+ * @property {string} fileName
+ * @property {string=} className
+ * @property {number | null=} selectedLocation
+ * @property {boolean} includeAllSeverities
+ * @property {Map<string, CodeMarkerInfo>} ics
+ * @property {Map<string, CodeMarkerInfo>} deopts
+ * @property {Map<string, CodeMarkerInfo>} codes
+ * @property {string[]} icLocations
+ * @property {string[]} deoptLocations
+ * @property {string[]} codeLocations
+ * @property {(id: number, type: string | undefined) => void} onmarkerClicked
+ */
+
+/**
+ * @typedef {object} CodeMarkerInfo
+ * @property {number} id
+ * @property {import('../../lib/severities').Severity} severity
+ * @property {boolean | undefined} [isScript]
+ * @property {number} line
+ * @property {number} column
+ */
+
+/** @extends {Component<CodeViewProps>} */
 class CodeView extends Component {
+  /** @param {CodeViewProps} props */
   constructor(props) {
     super(props)
 
     const { onmarkerClicked } = props
     assert.equal(typeof onmarkerClicked, 'function', 'need to pass onmarkerClicked function')
+    /** @type {import('preact').RefObject<HTMLDivElement | null>} */
     this._rootRef = Preact.createRef()
     this._bind()
   }
 
+  /** @returns {void} */
   _bind() {
     this._onmarkerClicked = this._onmarkerClicked.bind(this)
   }
 
+  /** @returns {void} */
   _maybeScrollIntoView() {
     const { selectedLocation } = this.props
     if (selectedLocation == null) return
@@ -36,10 +82,16 @@ class CodeView extends Component {
     scrollIntoView(code, { behavior: 'smooth', scrollMode: 'if-needed' })
   }
 
+  /**
+   * @override
+   * @returns {void}
+   */
   componentDidMount() {
     const rootEl = this._rootRef.current
+    if (rootEl == null) return
     rootEl.addEventListener('click', event => {
       const tgt = event.target
+      if (!(tgt instanceof HTMLElement)) return
       const { markerid, markertype } = tgt.dataset
       if (markerid == null) return
       event.preventDefault()
@@ -49,10 +101,19 @@ class CodeView extends Component {
     this._maybeScrollIntoView()
   }
 
+  /**
+   * @override
+   * @returns {void}
+   */
   componentDidUpdate() {
     this._maybeScrollIntoView()
   }
 
+  /**
+   * @override
+   * @param {CodeViewProps} nextProps
+   * @returns {boolean}
+   */
   shouldComponentUpdate(nextProps) {
     const props = this.props
     return (
@@ -62,6 +123,10 @@ class CodeView extends Component {
     )
   }
 
+  /**
+   * @override
+   * @returns {import('preact').JSX.Element}
+   */
   render() {
     const {
         className = ''
@@ -95,6 +160,11 @@ class CodeView extends Component {
     )
   }
 
+  /**
+   * @param {InstanceType<typeof Theme>['theme']} theme
+   * @param {InstanceType<typeof MarkerResolver>} markerResolver
+   * @returns {string}
+   */
   _tryHighlightCode(theme, markerResolver) {
     const { fileName, code } = this.props
     const nohighlight = code.length > MAX_HIGHLIGHT_LEN
@@ -123,6 +193,11 @@ class CodeView extends Component {
     }
   }
 
+  /**
+   * @param {number} id
+   * @param {string | undefined} type
+   * @returns {void}
+   */
   _onmarkerClicked(id, type) {
     const { onmarkerClicked } = this.props
     onmarkerClicked(id, type)

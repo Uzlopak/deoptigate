@@ -7,17 +7,62 @@ const SplayTree = require('../lib/v8-tools-core/splaytree')
 const { Profile } = require('../lib/v8-tools-core/profile')
 const { OPTIMIZATION_STATE_OPTIMIZED } = require('../lib/log-processing/optimization-state')
 
-test('LogReader dispatches parsed records and reports malformed rows without stopping', (t) => {
+/** @typedef {{parsers: Array<((field: string) => unknown) | null>, processor: (...args: never[]) => void}} TestDispatch */
+/** @typedef {{dispatchTable_: Record<string, TestDispatch | null>, csvParser_: {parseLine(line: string): string[]}, processLogChunk(chunk: string): void}} TestLogReader */
+/** @typedef {new () => TestLogReader} TestLogReaderConstructor */
+/** @typedef {{key: number, value: unknown}} TestSplayNode */
+/** @typedef {{insert(key: number, value: unknown): void, find(key: number): TestSplayNode | null, findGreatestLessThan(key: number): TestSplayNode | null, exportKeysAndValues(): Array<[number, unknown]>, remove(key: number): TestSplayNode}} TestSplayTree */
+/** @typedef {new () => TestSplayTree} TestSplayTreeConstructor */
+/** @typedef {{addCode(start: number, entry: {size: number, name: string, type: string}): void, moveCode(from: number, to: number): void, deleteCode(start: number): unknown, findEntry(addr: number): {size: number, name: string, type: string} | null}} TestCodeMap */
+/** @typedef {new () => TestCodeMap} TestCodeMapConstructor */
+/** @typedef {new (size: number, name?: string, type?: string) => {size: number, name: string, type: string}} TestCodeEntryConstructor */
+/** @typedef {{getName(): string}} TestFunctionEntry */
+/** @typedef {{func: TestFunctionEntry, state: number}} TestProfileEntry */
+/** @typedef {{addFuncCode(type: string, name: string, timestamp: number, start: number, size: number, funcAddr: number, state: number): TestProfileEntry | null, findEntry(addr: number): TestProfileEntry | null, moveCode(from: number, to: number): void, moveFunc(from: number, to: number): void, deleteCode(start: number): void, codeMap_: {findDynamicEntryByStartAddress(addr: number): unknown | null}}} TestProfile */
+/** @typedef {new () => TestProfile} TestProfileConstructor */
+
+/** @type {TestLogReaderConstructor} */
+const TestLogReaderBase = /** @type {TestLogReaderConstructor} */ (/** @type {unknown} */ (LogReader))
+/** @type {TestSplayTreeConstructor} */
+const TestSplayTreeClass = /** @type {TestSplayTreeConstructor} */ (/** @type {unknown} */ (SplayTree))
+/** @type {TestCodeMapConstructor} */
+const TestCodeMapClass = /** @type {TestCodeMapConstructor} */ (/** @type {unknown} */ (CodeMap))
+/** @type {TestProfileConstructor} */
+const TestProfileClass = /** @type {TestProfileConstructor} */ (/** @type {unknown} */ (Profile))
+/** @type {TestCodeEntryConstructor} */
+const TestCodeEntryClass = /** @type {TestCodeEntryConstructor} */ (/** @type {unknown} */ (CodeMap.CodeEntry))
+
+/**
+ * @param {TestSplayNode | null} node
+ * @returns {TestSplayNode}
+ */
+function requireNode (node) {
+  if (node == null) throw new Error('Expected a SplayTree node')
+  return node
+}
+
+/**
+ * @param {TestProfileEntry | null} entry
+ * @returns {TestProfileEntry}
+ */
+function requireProfileEntry (entry) {
+  if (entry == null) throw new Error('Expected a profile entry')
+  return entry
+}
+
+test('LogReader dispatches parsed records and reports malformed rows without stopping', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
+  /** @type {[number, string][]} */
   const calls = []
+  /** @type {string[]} */
   const errors = []
-  class Reader extends LogReader {
+  class Reader extends TestLogReaderBase {
     constructor() {
       super()
       this.dispatchTable_ = {
         record: {
           parsers: [ parseInt, null ]
-        , processor: (n, value) => {
+        , processor: (/** @type {number} */ n, /** @type {string} */ value) => {
             if (value === 'throws') throw new Error('synthetic dispatch error')
             calls.push([ n, value ])
           }
@@ -25,7 +70,7 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
       }
     }
 
-    printError(message) { errors.push(message) }
+    printError(/** @type {string} */ message) { errors.push(message) }
   }
 
   const reader = new Reader()
@@ -41,11 +86,11 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
   t.assert.equal(parsedRows, 3, 'skips CSV parsing for unsupported record types')
 })
 
-test('CodeMap indexes, moves, deletes and replaces overlapping entries', (t) => {
+test('CodeMap indexes, moves, deletes and replaces overlapping entries', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(5)
-  const map = new CodeMap()
-  const first = new CodeMap.CodeEntry(16, 'first', 'JS')
-  const replacement = new CodeMap.CodeEntry(8, 'replacement', 'JS')
+  const map = new TestCodeMapClass()
+  const first = new TestCodeEntryClass(16, 'first', 'JS')
+  const replacement = new TestCodeEntryClass(8, 'replacement', 'JS')
   map.addCode(100, first)
   t.assert.equal(map.findEntry(108), first, 'finds entries by an interior address')
   map.moveCode(100, 200)
@@ -57,33 +102,33 @@ test('CodeMap indexes, moves, deletes and replaces overlapping entries', (t) => 
   t.assert.equal(map.findEntry(208), null, 'deleted ranges are no longer found')
 })
 
-test('SplayTree maintains ordered address lookup and export', (t) => {
+test('SplayTree maintains ordered address lookup and export', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(5)
-  const tree = new SplayTree()
+  const tree = new TestSplayTreeClass()
   tree.insert(20, 'twenty')
   tree.insert(10, 'ten')
   tree.insert(30, 'thirty')
-  t.assert.equal(tree.find(10).value, 'ten', 'finds an exact key')
-  t.assert.equal(tree.findGreatestLessThan(25).key, 20, 'finds the closest lower key')
+  t.assert.equal(requireNode(tree.find(10)).value, 'ten', 'finds an exact key')
+  t.assert.equal(requireNode(tree.findGreatestLessThan(25)).key, 20, 'finds the closest lower key')
   t.assert.deepEqual(tree.exportKeysAndValues(), [ [ 30, 'thirty' ], [ 20, 'twenty' ], [ 10, 'ten' ] ], 'exports entries in tree traversal order')
-  t.assert.equal(tree.remove(20).value, 'twenty', 'removes an entry')
+  t.assert.equal(requireNode(tree.remove(20)).value, 'twenty', 'removes an entry')
   t.assert.equal(tree.find(20), null, 'removed entries are absent')
 })
 
-test('Profile associates optimized code with functions through moves and deletes', (t) => {
+test('Profile associates optimized code with functions through moves and deletes', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
-  const profile = new Profile()
+  const profile = new TestProfileClass()
   const state = OPTIMIZATION_STATE_OPTIMIZED
   profile.addFuncCode('JS', 'run /tmp/example.js:2:1', 1, 100, 20, 50, state)
 
-  let entry = profile.findEntry(110)
+  let entry = requireProfileEntry(profile.findEntry(110))
   t.assert.equal(entry.func.getName(), 'run /tmp/example.js:2:1', 'maps code to its shared function name')
   t.assert.equal(entry.state, state, 'retains the optimization state')
 
   profile.moveCode(100, 200)
-  t.assert.equal(profile.findEntry(210).func.getName(), 'run /tmp/example.js:2:1', 'moves code address ranges')
+  t.assert.equal(requireProfileEntry(profile.findEntry(210)).func.getName(), 'run /tmp/example.js:2:1', 'moves code address ranges')
   profile.moveFunc(50, 60)
-  entry = profile.findEntry(210)
+  entry = requireProfileEntry(profile.findEntry(210))
   t.assert.equal(entry.func.getName(), 'run /tmp/example.js:2:1', 'moves shared function addresses')
   t.assert.equal(profile.codeMap_.findDynamicEntryByStartAddress(50), null, 'removes the old shared function address')
   t.assert.ok(profile.codeMap_.findDynamicEntryByStartAddress(60), 'registers the shared function at its new address')
