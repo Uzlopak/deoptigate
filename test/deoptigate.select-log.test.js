@@ -23,9 +23,10 @@ const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-repo
  * Load the log selector with mocked filesystem and readline dependencies.
  * @param {LogFileFixture[]} files
  * @param {string[]} [answers]
+ * @param {string[] | null} [pipedLines] Lines delivered with an answer, followed by end of input.
  * @returns {SelectLogState}
  */
-function loadSelectLog(files, answers = [ '1' ]) {
+function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
   /** @type {SelectLogState} */
   const state = {
     root: null,
@@ -79,7 +80,13 @@ function loadSelectLog(files, answers = [ '1' ]) {
             process.nextTick(() => {
               const answer = state.answers.shift()
               if (answer == null) prompt.emit('close')
-              else callback(answer)
+              else {
+                callback(answer)
+                if (pipedLines != null) {
+                  for (const line of pipedLines) prompt.emit('line', line)
+                  prompt.emit('close')
+                }
+              }
             })
           }
           prompt.close = function () {
@@ -259,7 +266,35 @@ test('select-log reports invalid choices and accepts a later valid choice', asyn
     t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected second path')
     t.assert.equal(state.questions.length, 4, 'repeats the prompt until a valid selection is entered')
     t.assert.equal(state.errors.length, 3, 'reports each invalid choice')
-    t.assert.equal(state.closeCount, 4, 'closes each prompt after receiving an answer')
+    t.assert.equal(state.closeCount, 1, 'closes the shared prompt after the valid answer')
+  } finally {
+    state.restoreConsole()
+  }
+})
+
+test('select-log uses a choice piped together with an invalid one', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const state = loadSelectLog([
+    { fullPath: path.join(process.cwd(), 'v8.log') },
+    { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
+  ], [ 'invalid' ], [ '2' ])
+  try {
+    const result = await state.selectLog('deoptigate')
+    t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the piped choice')
+    t.assert.equal(state.questions.length, 1, 'does not prompt for a line that already arrived')
+  } finally {
+    state.restoreConsole()
+  }
+})
+
+test('select-log fails when input ends before a valid choice', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const state = loadSelectLog([
+    { fullPath: path.join(process.cwd(), 'v8.log') },
+    { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
+  ], [ 'invalid' ], [])
+  try {
+    await t.assert.rejects(state.selectLog('deoptigate'), /closed before a choice/)
   } finally {
     state.restoreConsole()
   }

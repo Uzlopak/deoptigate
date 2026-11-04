@@ -118,6 +118,7 @@ class CodeView extends Component {
     const props = this.props
     return (
          props.code !== nextProps.code
+      || props.fileName !== nextProps.fileName
       || props.selectedLocation !== nextProps.selectedLocation
       || props.includeAllSeverities !== nextProps.includeAllSeverities
     )
@@ -167,7 +168,8 @@ class CodeView extends Component {
    */
   _tryHighlightCode(theme, markerResolver) {
     const { fileName, code } = this.props
-    const nohighlight = code.length > MAX_HIGHLIGHT_LEN
+    // Redeyed writes a hashbang line to the page raw, without passing it to the theme
+    const nohighlight = code.length > MAX_HIGHLIGHT_LEN || code.startsWith('#!')
     if (nohighlight) return markOnly(code, markerResolver)
     try {
       try {

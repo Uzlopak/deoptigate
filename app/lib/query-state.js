@@ -72,7 +72,8 @@ function mergeInitialState(defaults, urlState) {
  * @returns {string}
  */
 function urlFromState(state) {
-  const rootUrl = location.origin
+  // An opaque origin such as a file:// page in Firefox serializes to "null".
+  const rootUrl = location.origin === 'null' ? '' : location.origin
   const path = location.pathname
   const queryParams = new URLSearchParams()
   Object.entries(state).forEach(([key, value]) => {

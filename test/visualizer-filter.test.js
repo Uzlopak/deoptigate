@@ -329,6 +329,26 @@ test('repeated event updates collapse and render on demand', (/** @type {import(
   t.assert.equal(findByClass(card, 'deoptigate-event-meta').length, 3, 'does not duplicate history when reopened')
 })
 
+test('file deopt counts include repeats at one location', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const nodes = createVisualizer([
+    ['/app/repeats.js', {
+      relativePath: 'repeats.js',
+      deopts: [{
+        line: 1,
+        column: 1,
+        functionName: 'run',
+        updates: [1, 2, 3].map(timestamp => ({ timestamp, severity: 3, bailoutType: 'eager', deoptReason: 'wrong map' }))
+      }],
+      ics: [],
+      codes: [],
+      src: 'run()'
+    }]
+  ])
+
+  t.assert.match(nodes.get('deoptigate-files').textContent, /3 deopts/)
+})
+
 test('severity filter keeps file list, tabs and event rows in sync', (/** @type {import('node:test').TestContext} */ t) => {
   const nodes = createVisualizer(sampleData())
   const fileList = nodes.get('deoptigate-files')
@@ -378,6 +398,56 @@ test('severity filter keeps file list, tabs and event rows in sync', (/** @type 
   t.assert.deepEqual(severityButtons.map(button => button.attributes['aria-pressed']), ['true', 'true', 'true'], 'clear filters enables every severity')
   t.assert.equal(nodes.get('deoptigate-search').value, '', 'clear filters resets source search')
   t.assert.equal(nodes.get('deoptigate-search').focused, true, 'moves focus to the source filter after clearing filters')
+})
+
+test('severity filter applies to each deopt at a mixed-severity location', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(16)
+  const nodes = createVisualizer([
+    ['/app/mixed.js', {
+      relativePath: 'mixed.js',
+      deopts: [{
+        line: 1,
+        column: 1,
+        functionName: 'run',
+        updates: [
+          { timestamp: 1, severity: 1, bailoutType: 'soft', deoptReason: 'low impact' },
+          { timestamp: 2, severity: 3, bailoutType: 'eager', deoptReason: 'high impact' }
+        ]
+      }],
+      ics: [],
+      codes: [],
+      src: 'run()'
+    }]
+  ])
+  const fileList = nodes.get('deoptigate-files')
+  const details = nodes.get('deoptigate-details')
+  const severityButtons = nodes.get('deoptigate-severity').children
+  /** @param {string} value */
+  const toggle = value => requireElement(severityButtons.find(button => button.dataset.severity === value)).dispatch('click')
+  /**
+   * @param {string} severity
+   * @param {string} reason
+   * @param {string} hiddenReason
+   */
+  const assertOnly = (severity, reason, hiddenReason) => {
+    const cards = findByClass(details, 'deoptigate-event')
+    t.assert.match(fileList.textContent, /1 deopts/, 'file list counts only selected deopts')
+    t.assert.match(details.textContent, /1 deoptimizations/, 'file heading counts only selected deopts')
+    t.assert.equal(cards.length, 1, 'keeps the location visible')
+    t.assert.equal(cards[0].dataset.severity, severity, 'card uses the selected deopt severity')
+    t.assert.ok(details.textContent.includes(reason), 'shows the selected deopt')
+    t.assert.ok(!details.textContent.includes(hiddenReason), 'hides the other deopt')
+    t.assert.equal(findByClass(cards[0], 'deoptigate-event-history').length, 0, 'offers no hidden history')
+  }
+
+  t.assert.match(fileList.textContent, /2 deopts/, 'counts both deopts when every severity is selected')
+  toggle('1')
+  toggle('2')
+  assertOnly('3', 'high impact', 'low impact')
+  toggle('1')
+  toggle('3')
+  assertOnly('1', 'low impact', 'high impact')
+  t.assert.equal(findByClass(details, 'deoptigate-source-marker')[0].dataset.severity, '1', 'source marker uses the selected deopt severity')
 })
 
 test('code event severity follows the summary rules across updates', (

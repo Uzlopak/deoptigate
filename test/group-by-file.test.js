@@ -1,16 +1,14 @@
 'use strict'
 
+const path = require('path')
 const { test } = require('node:test')
 const mapByFile = require('../lib/grouping/group-by-file')
 
-test('grouping ignores child process preload files on POSIX and Windows', (/** @type {import('node:test').TestContext} */ t) => {
+test('grouping ignores this package\'s preload files', (/** @type {import('node:test').TestContext} */ t) => {
   const preloadPaths = [
-    '/repo/bin/soft-exit.js',
-    'C:\\repo\\bin\\soft-exit.js',
-    '/repo/src/injects/soft-exit.js',
-    'C:\\repo\\src\\injects\\soft-exit.js',
-    '/repo/src/injects/detect-port.js',
-    'C:\\repo\\src\\injects\\detect-port.js',
+    path.join(__dirname, '../bin/soft-exit.js'),
+    path.join(__dirname, '../src/injects/soft-exit.js'),
+    path.join(__dirname, '../src/injects/detect-port.js'),
     '/repo/node_modules/ispawn/preload/soft-exit.js',
     'C:\\repo\\node_modules\\ispawn\\preload\\soft-exit.js'
   ]

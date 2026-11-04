@@ -23,8 +23,8 @@ function lookupDeoptimizationReason (reasonCode) {
   if (typeof reasonCode !== 'string') return null
   const reasonKey = reasonCode.trim()
   const reasonTable = /** @type {Record<string, DeoptimizationReasonData>} */ (reasons)
+  if (!Object.hasOwn(reasonTable, reasonKey)) return null
   const reason = reasonTable[reasonKey]
-  if (!reason) return null
   return {
     code: reasonKey,
     type: reason.type,

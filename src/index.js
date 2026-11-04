@@ -113,7 +113,8 @@ class ClinicDeoptigate extends EventEmitter {
           const childArgs = [
             '--log-ic',
             '--log-deopt',
-            `--logfile=${logFile}`,
+            // V8 expands % in this path, and %% is its escape for a literal %.
+            `--logfile=${logFile.replace(/%/g, '%%')}`,
             '--no-logfile-per-isolate',
             '-r',
             softExitPreload
@@ -169,7 +170,13 @@ class ClinicDeoptigate extends EventEmitter {
         server.once('error', finish)
         server.listen(0, '127.0.0.1', () => {
           const address = server.address()
-          if (address && typeof address !== 'string') startChild(address.port)
+          if (address && typeof address !== 'string') {
+            try {
+              startChild(address.port)
+            } catch (err) {
+              finish(/** @type {Error} */ (err))
+            }
+          }
         })
       })
       .catch(err => {

@@ -60,7 +60,7 @@ test('DeoptEntry parses or rejects V8 source positions', (/** @type {import('nod
 })
 
 test('DeoptEntry attributes inlined positions to the innermost user frame', (/** @type {import('node:test').TestContext} */ t) => {
-  t.plan(5)
+  t.plan(6)
   t.assert.deepEqual(
     DeoptEntry.disassembleSourcePosition('</src/app.js:76:57> inlined at </src/app.js:170:9>'),
     { file: '/src/app.js', line: 76, column: 57 },
@@ -87,7 +87,12 @@ test('DeoptEntry attributes inlined positions to the innermost user frame', (/**
   t.assert.deepEqual(
     DeoptEntry.disassembleSourcePosition('</src/app.js:1:2> inlined at not a position'),
     { file: null, line: 0, column: 0 },
-    'rejects a chain containing a malformed frame'
+    'rejects a chain ending in a malformed frame'
+  )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('<not a position> inlined at </src/app.js:1:2>'),
+    { file: null, line: 0, column: 0 },
+    'rejects a chain starting with a malformed frame'
   )
 })
 

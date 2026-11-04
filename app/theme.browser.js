@@ -1,6 +1,8 @@
 'use strict'
 
+const escapeHtml = require('../lib/rendering/escape-html')
 /** @type {{classes: Record<string, string>}} */
+// @ts-expect-error Peacock does not provide a declaration file; its local API is typed here.
 const peacock = require('peacock')
 const { classes } = peacock
 
@@ -38,9 +40,11 @@ class ThemeBrowser {
      * @returns {string}
      */
     function mark(s, info) {
+      // Peacock passes raw source text, which is inserted into the page as HTML
+      const text = escapeHtml(s)
       const element = typeof rendererOrClassName === 'function'
-        ? rendererOrClassName(s)
-        : `<span class=${className}>${s}</span>`
+        ? rendererOrClassName(text)
+        : `<span class=${className}>${text}</span>`
       const { tokens, tokenIndex } = info
       const token = tokens[tokenIndex]
       const loc = token.loc.end
@@ -77,6 +81,16 @@ class ThemeBrowser {
       }
 
     , 'String': {
+        _default: x(classes.String)
+      }
+
+      // Redeyed writes tokens of a type without a renderer to the page raw, so
+      // every Esprima token type needs one here.
+    , 'Template': {
+        _default: x(classes.String)
+      }
+
+    , 'RegularExpression': {
         _default: x(classes.String)
       }
 
@@ -204,19 +218,19 @@ class ThemeBrowser {
 
       // JSX
       , JSXAttribute: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXClosingElement: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXElement: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXEmptyExpression: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXExpressionContainer: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXIdentifier: {
           // many more identifies are possible, div, table, etc.
@@ -224,19 +238,19 @@ class ThemeBrowser {
           , _default: x(classes['Name.Tag'])
         }
       , JSXMemberExpression: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXNamespacedName: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXOpeningElement: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXSpreadAttribute: {
-          _default: undefined
+          _default: x(identity)
         }
       , JSXText: {
-          _default: undefined
+          _default: x(identity)
         }
 
       , _default: x(identity)

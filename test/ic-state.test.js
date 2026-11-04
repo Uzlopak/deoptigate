@@ -37,8 +37,8 @@ function severityUncheckedState(state) {
 }
 
 test('parseIcState supports V8 inline-cache state codes', (/** @type {import('node:test').TestContext} */ t) => {
-  t.plan(9)
-  /** @type {Array<['0' | 'X' | '.' | '1' | '^' | 'P' | 'N' | 'G', TestIcState]>} */
+  t.plan(10)
+  /** @type {Array<['0' | 'X' | '.' | '1' | '^' | 'P' | 'N' | 'D' | 'G', TestIcState]>} */
   const states = [
       [ '0', 0 ]
     , [ 'X', 0 ]
@@ -47,6 +47,7 @@ test('parseIcState supports V8 inline-cache state codes', (/** @type {import('no
     , [ '^', 3 ]
     , [ 'P', 4 ]
     , [ 'N', 5 ]
+    , [ 'D', 5 ]
     , [ 'G', 6 ]
   ]
 
@@ -60,7 +61,7 @@ test('nameIcState names every inline-cache state', (/** @type {import('node:test
   t.plan(8)
   /** @type {Array<[TestIcState, string]>} */
   const names = [
-      [ 0, 'unintialized' ]
+      [ 0, 'uninitialized' ]
     , [ 1, 'premonomorphic' ]
     , [ 2, 'monomorphic' ]
     , [ 3, 'recompute handler' ]

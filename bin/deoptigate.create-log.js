@@ -4,8 +4,10 @@ const { spawn } = require('child_process')
 const { tmpdir } = require('os')
 const fs = require('fs')
 const { promisify } = require('util')
+const chmod = promisify(fs.chmod)
 const mkdir = promisify(fs.mkdir)
 const stat = promisify(fs.stat)
+const unlink = promisify(fs.unlink)
 const processInfo = require('process')
 const softExitPreload = require.resolve('./soft-exit')
 
@@ -13,6 +15,11 @@ const { brightBlack } = require('./ansi')
 
 const NODE_OPTIONS_WITH_VALUES = new Set([
     '-r'
+  , '-e'
+  , '-p'
+  , '-pe'
+  , '--eval'
+  , '--print'
   , '--require'
   , '--import'
   , '--loader'
@@ -27,6 +34,13 @@ const NODE_OPTIONS_WITH_VALUES = new Set([
   , '--redirect-warnings'
   , '--diagnostic-dir'
   , '--title'
+  , '--input-type'
+  , '--disable-warning'
+  , '--stack-trace-limit'
+  , '--trace-event-categories'
+  , '--trace-event-file-pattern'
+  , '--unhandled-rejections'
+  , '--watch-path'
   , '--cpu-prof-dir'
   , '--cpu-prof-interval'
   , '--heap-prof-dir'
@@ -44,12 +58,11 @@ const NODE_OPTIONS_WITH_VALUES = new Set([
  * @returns {{argv: string[], extraExecArgv: string[], nodeExecutable?: string}}
  */
 function determineArgs(args) {
-  const __index = args.indexOf('--')
-  if (__index < 0) {
+  // Only a leading separator is ours; a later one belongs to the application.
+  if (args[0] !== '--') {
     return { argv: args, extraExecArgv: [] }
   }
-  // Deoptigate does not consume arguments before the separator.
-  const afterDashes = args.slice(__index + 1)
+  const afterDashes = args.slice(1)
 
   const first = afterDashes[0]
   if (first == null) return { argv: [], extraExecArgv: [] }
@@ -115,17 +128,25 @@ async function createLog(args, head, simpleHead) {
     }
   } catch (err) {
     if (!(err instanceof Error) || !('code' in err) || err.code !== 'ENOENT') throw err
-    await mkdir(logDir, { recursive: true })
+    await mkdir(logDir, { recursive: true, mode: 0o700 })
   }
+  await chmod(logDir, 0o700)
 
   const logFile = `${tmpdir()}/deoptigate/v8.log`
+  // A run that never starts must not report the previous run's log.
+  try {
+    await unlink(logFile)
+  } catch (err) {
+    if (!(err instanceof Error) || !('code' in err) || err.code !== 'ENOENT') throw err
+  }
   const nodeMajorVersion = Number(processInfo.versions.node.split('.')[0])
   const inlineCacheArg = nodeMajorVersion > 15 ? '--log-ic' : '--trace-ic'
 
   const execArgv = [
       inlineCacheArg
     , '--log-deopt'
-    , `--logfile=${logFile}`
+    // V8 expands % in this path, and %% is its escape for a literal %.
+    , `--logfile=${logFile.replace(/%/g, '%%')}`
     , '--no-logfile-per-isolate'
   ].concat(extraExecArgv)
 

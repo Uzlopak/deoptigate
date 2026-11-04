@@ -77,6 +77,21 @@ test('unknown deopt kinds are counted conservatively in file summaries', (/** @t
   t.assert.equal(summary.hasCriticalSeverities, true, 'summary flags the unknown bailout for review')
 })
 
+test('summarizeFile does not escalate a function for tiering up', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const summary = summarizeFile({
+    ics: new Map(),
+    deopts: new Map(),
+    codes: new Map([ [ 'tiering', codeVector(
+      { severity: 2, state: 1 },
+      { severity: 2, state: 1 },
+      { severity: 1, state: 2 },
+      { severity: 1, state: 2 }
+    ) ] ])
+  })
+  t.assert.deepEqual(summary.codeSeverities, [ 0, 1, 0, 0 ])
+})
+
 test('summarizeFile counts every deopt, not only deopt locations', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const summary = summarizeFile({
@@ -111,9 +126,9 @@ test('summarizeFile counts all severity buckets and final code states', (/** @ty
       [ 'code-optimizable', codeVector({ severity: 2, state: 1 }) ],
       [ 'code-compiled', codeVector({ severity: 3, state: 2 }) ],
       [ 'code-many-updates', codeVector(
-        { severity: 1, state: 0 },
-        { severity: 1, state: 1 },
-        { severity: 1, state: 0 },
+        { severity: 1, state: 2 },
+        { severity: 1, state: 2 },
+        { severity: 1, state: 2 },
         { severity: 1, state: 2 }
       ) ]
     ])

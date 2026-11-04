@@ -18,6 +18,7 @@ const createLogPath = path.join(__dirname, '../bin/deoptigate.create-log.js')
  * @property {boolean=} spawnError
  * @property {boolean=} interruptChild
  * @property {Error=} statError
+ * @property {Error=} unlinkError
  */
 /**
  * @typedef {object} CreateLogTestState
@@ -30,11 +31,15 @@ const createLogPath = path.join(__dirname, '../bin/deoptigate.create-log.js')
  * @property {boolean=} spawnError
  * @property {boolean=} interruptChild
  * @property {Error=} statError
+ * @property {Error=} unlinkError
  * @property {{node: string, args: (string | undefined)[], spawnOptions: {stdio: string[]}}[]} spawnCalls
  * @property {string[]} killSignals
  * @property {string[]} mkdirCalls
  * @property {[string, number][]} accessCalls
  * @property {string[]} statCalls
+ * @property {[string, number][]} chmodCalls
+ * @property {string[]} unlinkCalls
+ * @property {{recursive?: boolean, mode?: number}[]} mkdirOptions
  * @property {EventEmitter & {versions: {node: string}, execPath: string, exitCode?: number | null}} processInfo
  * @property {(args: string[], head: string, simpleHead: string) => Promise<string>} createLog
  */
@@ -57,6 +62,9 @@ function loadCreateLog(options = {}) {
     mkdirCalls: [],
     accessCalls: [],
     statCalls: [],
+    chmodCalls: [],
+    unlinkCalls: [],
+    mkdirOptions: [],
     processInfo: Object.assign(new EventEmitter(), {
       versions: { node: '16.0.0' },
       execPath: process.execPath
@@ -74,17 +82,34 @@ function loadCreateLog(options = {}) {
     access(file, mode, callback) {
       state.accessCalls.push([ file, mode ])
       if (state.exists) return callback(null)
-      const err = Object.assign(new Error('not found'), { code: 'ENOENT' })
-      callback(err)
+      callback(Object.assign(new Error('not found'), { code: 'ENOENT' }))
     },
     /**
      * @param {string} file
-     * @param {{recursive?: boolean}} options
+     * @param {{recursive?: boolean, mode?: number}} options
      * @param {(error: NodeJS.ErrnoException | null) => void} callback
      */
     mkdir(file, options, callback) {
       state.mkdirCalls.push(file)
+      state.mkdirOptions.push(options)
       callback(null)
+    },
+    /**
+     * @param {string} file
+     * @param {number} mode
+     * @param {(error: NodeJS.ErrnoException | null) => void} callback
+     */
+    chmod(file, mode, callback) {
+      state.chmodCalls.push([ file, mode ])
+      callback(null)
+    },
+    /**
+     * @param {string} file
+     * @param {(error: NodeJS.ErrnoException | null) => void} callback
+     */
+    unlink(file, callback) {
+      state.unlinkCalls.push(file)
+      callback(state.unlinkError || Object.assign(new Error('not found'), { code: 'ENOENT' }))
     },
     /**
      * @param {string} file
@@ -94,8 +119,7 @@ function loadCreateLog(options = {}) {
       state.statCalls.push(file)
       if (state.statError) return callback(/** @type {NodeJS.ErrnoException} */ (state.statError))
       if (!state.exists) {
-        const err = Object.assign(new Error('not found'), { code: 'ENOENT' })
-        callback(err)
+        callback(Object.assign(new Error('not found'), { code: 'ENOENT' }))
         return
       }
       callback(null, { isDirectory: () => state.isDirectory })
@@ -190,7 +214,7 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
   t.plan(7)
   const state = loadCreateLog({ exists: true, exitCode: null })
   const logPath = await state.createLog([
-    'ignored-before-separator', '--', '/custom/node', '--allow-natives-syntax',
+    '--', '/custom/node', '--allow-natives-syntax',
     'app.js', '--app-flag'
   ], 'head', 'simple')
 
@@ -201,6 +225,53 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
   t.assert.deepEqual(state.spawnCalls[0].args.slice(-2), [ 'app.js', '--app-flag' ], 'passes only app arguments')
   t.assert.ok(state.spawnCalls[0].args.includes('--allow-natives-syntax'), 'passes Node flags')
   t.assert.ok(state.spawnCalls[0].args.indexOf('app.js') < state.spawnCalls[0].args.indexOf('--app-flag'), 'keeps app flags after the app path')
+})
+
+test('create-log removes the previous log and keeps its directory private', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(3)
+  const state = loadCreateLog()
+  await state.createLog([ 'app.js' ], 'head', 'simple')
+  t.assert.deepEqual(state.unlinkCalls, [ `${state.logDir}/deoptigate/v8.log` ], 'removes the previous log')
+  t.assert.equal(state.mkdirOptions[0].mode, 0o700, 'creates the directory privately')
+  t.assert.deepEqual(state.chmodCalls, [ [ `${state.logDir}/deoptigate`, 0o700 ] ], 'tightens an existing directory')
+})
+
+test('create-log rethrows unexpected errors removing the previous log', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const unlinkError = Object.assign(new Error('denied'), { code: 'EACCES' })
+  const state = loadCreateLog({ unlinkError })
+  await t.assert.rejects(state.createLog([ 'app.js' ], 'head', 'simple'), unlinkError)
+  t.assert.equal(state.spawnCalls.length, 0, 'does not start the process')
+})
+
+test('create-log escapes percent signs in the V8 log path', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const state = loadCreateLog({ logDir: '/tmp/100%p' })
+  await state.createLog([ 'app.js' ], 'head', 'simple')
+  t.assert.ok(state.spawnCalls[0].args.includes('--logfile=/tmp/100%%p/deoptigate/v8.log'))
+})
+
+test('create-log forwards a separator that belongs to the app', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const state = loadCreateLog()
+  await state.createLog([ 'app.js', '--', '--port', '3000' ], 'head', 'simple')
+  t.assert.deepEqual(state.spawnCalls[0].args.slice(-4), [ 'app.js', '--', '--port', '3000' ])
+})
+
+test('create-log keeps node -e and its source together', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const state = loadCreateLog()
+  await state.createLog([ '--', 'node', '-e', 'console.log(1)' ], 'head', 'simple')
+  const { args } = state.spawnCalls[0]
+  t.assert.equal(args[args.indexOf('-e') + 1], 'console.log(1)')
+})
+
+test('create-log does not mistake a node flag value for the app', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const state = loadCreateLog()
+  await state.createLog([ '--', 'node', '--trace-event-categories', 'v8', 'app.js' ], 'head', 'simple')
+  const { args } = state.spawnCalls[0]
+  t.assert.equal(args[args.indexOf('--trace-event-categories') + 1], 'v8')
 })
 
 test('create-log supports the node executable and legacy IC flag', async (/** @type {import('node:test').TestContext} */ t) => {

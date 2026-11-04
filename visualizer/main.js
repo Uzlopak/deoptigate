@@ -12,9 +12,9 @@
 
 /** @type {Array<[string, FileInfo]>} */
 const data = JSON.parse(/** @type {HTMLElement} */ (document.getElementById('clinic-data')).textContent)
-const files = data
-  .filter(([, info]) => !/(?:^|[/\\])src[/\\]injects[/\\](?:soft-exit|detect-port)\.js$/.test(info.relativePath))
-  .map(([file, info]) => ({ file, info, summary: summarize(info) }))
+const OPTIMIZATION_STATE_OPTIMIZED = 2
+const MAX_EXPECTED_OPTIMIZATIONS = 3
+const files = data.map(([file, info]) => ({ file, info, summary: summarize(info) }))
 const optimizationStateNames = /** @type {const} */ (['compiled', 'optimizable', 'optimized'])
 const icStateNames = /** @type {const} */ ([
   'uninitialized',
@@ -112,7 +112,7 @@ function locationText (point) {
 /**
  * Calculate an event's severity using the category's summary rule.
  *
- * Code entries use their lowest update severity, with repeated updates
+ * Code entries use their lowest update severity, with repeated optimization
  * escalated to severity 3. Deopts and inline caches use their highest.
  *
  * @param {EventPoint} point
@@ -123,7 +123,8 @@ function severityOf (point, category) {
   const updates = point.updates || []
   if (category === 'codes') {
     const lowest = updates.reduce((min, update) => Math.min(min, update.severity || 0), 99)
-    return updates.length > 3 ? Math.max(lowest, 3) : lowest
+    const optimizations = updates.filter(update => update.state === OPTIMIZATION_STATE_OPTIMIZED).length
+    return optimizations > MAX_EXPECTED_OPTIMIZATIONS ? Math.max(lowest, 3) : lowest
   }
   return updates.reduce((max, update) => Math.max(max, update.severity || 0), 0)
 }
@@ -210,7 +211,44 @@ function markerPositionForPoint (line, point, fallback) {
  * @returns {boolean}
  */
 function matchesSeverity (point, category) {
+  if (category === 'deopts') return visibleUpdates(point, category).length > 0
   return selectedSeverities.has(String(severityOf(point, category)))
+}
+
+/**
+ * List the updates to show for an event. Each deopt is a separate occurrence
+ * with its own severity, so deopts are filtered one by one. Code and inline
+ * cache updates describe one event's history and stay together.
+ *
+ * @param {EventPoint} point
+ * @param {EventCategory} category
+ * @returns {EventUpdate[]}
+ */
+function visibleUpdates (point, category) {
+  const updates = point.updates || []
+  if (category !== 'deopts') return updates
+  return updates.filter(update => selectedSeverities.has(String(update.severity || 0)))
+}
+
+/**
+ * Calculate an event's severity from the updates the active filter shows.
+ *
+ * @param {EventPoint} point
+ * @param {EventCategory} category
+ * @returns {number}
+ */
+function visibleSeverity (point, category) {
+  return severityOf({ ...point, updates: visibleUpdates(point, category) }, category)
+}
+
+/**
+ * Count every deoptimization matching the active severity filter.
+ *
+ * @param {EventPoint[]} points
+ * @returns {number}
+ */
+function matchingDeoptCount (points) {
+  return points.reduce((total, point) => total + visibleUpdates(point, 'deopts').length, 0)
 }
 
 /**
@@ -269,7 +307,7 @@ function visibleScore (item) {
   for (const category of categories) {
     for (const point of item.summary[category]) {
       if (matchesSeverity(point, category)) {
-        const severity = severityOf(point, category)
+        const severity = visibleSeverity(point, category)
         score += severity * severity
       }
     }
@@ -370,7 +408,7 @@ function renderFiles () {
     if (item.file === selectedFile) selectedFileButton = button
     const name = element('span', 'deoptigate-file-name', item.info.relativePath)
     const counts = element('span', 'deoptigate-file-counts',
-      `${matchingPoints(item.summary.deopts, 'deopts').length} deopts · ${matchingPoints(item.summary.ics, 'ics').length} ICs · ${matchingPoints(item.summary.codes, 'codes').length} optimizations`)
+      `${matchingDeoptCount(item.summary.deopts)} deopts · ${matchingPoints(item.summary.ics, 'ics').length} ICs · ${matchingPoints(item.summary.codes, 'codes').length} optimizations`)
     button.append(name, counts)
     button.addEventListener('click', () => {
       selectedFile = item.file
@@ -510,7 +548,7 @@ function renderEvents (info, events) {
    */
   const renderEvent = point => {
     const card = element('article', 'deoptigate-event')
-    card.dataset.severity = String(severityOf(point, selectedTab))
+    card.dataset.severity = String(visibleSeverity(point, selectedTab))
     card.dataset.selected = String(point === selectedSourceMarker)
     const heading = element('div', 'deoptigate-event-heading')
     heading.appendChild(element('span', 'deoptigate-event-title', point.functionName || '(anonymous)'))
@@ -526,7 +564,7 @@ function renderEvents (info, events) {
     heading.appendChild(location)
     card.appendChild(heading)
 
-    const updates = point.updates || []
+    const updates = visibleUpdates(point, selectedTab)
     if (updates.length) card.appendChild(eventMeta(selectedTab, updates[0]))
     if (updates.length > 1) {
       const history = element('details', 'deoptigate-event-history')
@@ -641,7 +679,7 @@ function renderVisibleSourceLines () {
         const currentPosition = markerPositionForPoint(lineText, currentMarker.point, cursor)
         if (Math.max(cursor, currentPosition) !== position) break
 
-        const severity = severityOf(currentMarker.point, currentMarker.category)
+        const severity = visibleSeverity(currentMarker.point, currentMarker.category)
         const selected = selectedSourceMarker === currentMarker.point ? ' selected' : ''
         const button = element('button', `deoptigate-source-marker deoptigate-marker-${currentMarker.type} deoptigate-marker-severity-${severity}${selected}`, currentMarker.symbol)
         button.type = 'button'
@@ -751,7 +789,7 @@ function render () {
   const events = element('section', 'deoptigate-events')
   const summary = item.summary
   const codeCount = matchingPoints(summary.codes, 'codes').length
-  const deoptCount = matchingPoints(summary.deopts, 'deopts').length
+  const deoptCount = matchingDeoptCount(summary.deopts)
   const icCount = matchingPoints(summary.ics, 'ics').length
   events.appendChild(element('h2', 'deoptigate-file-title', info.relativePath))
   events.appendChild(element('div', 'deoptigate-muted',

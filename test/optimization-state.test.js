@@ -15,7 +15,7 @@ test('optimization states parse, name, and map to severity', (/** @type {import(
   t.assert.equal(parseOptimizationState(''), OPTIMIZATION_STATE_COMPILED, 'empty state is compiled')
   t.assert.equal(parseOptimizationState('~'), OPTIMIZATION_STATE_OPTIMIZABLE, 'tilde state is optimizable')
   t.assert.equal(parseOptimizationState('*'), OPTIMIZATION_STATE_OPTIMIZED, 'asterisk state is optimized')
-  t.assert.equal(parseOptimizationState('^'), OPTIMIZATION_STATE_OPTIMIZED, 'Maglev state is optimized')
+  t.assert.equal(parseOptimizationState('^'), OPTIMIZATION_STATE_OPTIMIZABLE, 'Sparkplug baseline state is still optimizable')
 
   t.assert.equal(nameOptimizationState(OPTIMIZATION_STATE_COMPILED), 'compiled', 'compiled state name')
   t.assert.equal(nameOptimizationState(OPTIMIZATION_STATE_OPTIMIZABLE), 'optimizable', 'optimizable state name')

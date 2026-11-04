@@ -34,22 +34,42 @@ async function findLogFiles(root) {
 }
 
 /**
- * @param {string} question
- * @returns {Promise<string>}
+ * Create a prompt that keeps lines arriving between questions, as piped input
+ * can deliver several answers at once.
+ * @returns {{ask: (question: string) => Promise<string>, close: () => void}}
  */
-function ask(question) {
+function createPrompt() {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
-  return new Promise((resolve, reject) => {
-    let answered = false
-    prompt.once('close', () => {
-      if (!answered) reject(new Error('log selection closed before a choice was entered'))
-    })
-    prompt.question(question, answer => {
-      answered = true
-      prompt.close()
-      resolve(answer || '')
-    })
+  /** @type {string[]} */
+  const pendingLines = []
+  /** @type {((err: Error) => void) | null} */
+  let rejectAnswer = null
+  let closed = false
+  const closedError = () => new Error('log selection closed before a choice was entered')
+
+  prompt.on('line', line => pendingLines.push(line))
+  prompt.once('close', () => {
+    closed = true
+    if (rejectAnswer != null) rejectAnswer(closedError())
   })
+
+  return {
+    ask(question) {
+      const pendingLine = pendingLines.shift()
+      if (pendingLine != null) return Promise.resolve(pendingLine)
+      if (closed) return Promise.reject(closedError())
+      return new Promise((resolve, reject) => {
+        rejectAnswer = reject
+        prompt.question(question, answer => {
+          rejectAnswer = null
+          resolve(answer || '')
+        })
+      })
+    },
+    close() {
+      prompt.close()
+    }
+  }
 }
 
 /**
@@ -64,13 +84,18 @@ async function selectLogFile(files, head) {
   console.log(`${head}: please select a v8.log file to open:\n`)
   files.forEach((file, index) => console.log(`\t${index + 1}:  ${file.entry}`))
 
-  while (true) {
-    const answer = await ask('\n\nYour choice: ')
-    if (/^[1-9]\d*$/.test(answer)) {
-      const index = Number(answer) - 1
-      if (index < files.length) return files[index]
+  const prompt = createPrompt()
+  try {
+    while (true) {
+      const answer = await prompt.ask('\n\nYour choice: ')
+      if (/^[1-9]\d*$/.test(answer)) {
+        const index = Number(answer) - 1
+        if (index < files.length) return files[index]
+      }
+      console.error(`Invalid choice: '${answer}', please select one of the given numbers`)
     }
-    console.error(`Invalid choice: '${answer}', please select one of the given numbers`)
+  } finally {
+    prompt.close()
   }
 }
 
