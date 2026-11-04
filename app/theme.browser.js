@@ -1,8 +1,7 @@
 'use strict'
 
-const peacockModuleName = 'peacock'
 /** @type {{classes: Record<string, string>}} */
-const peacock = require(peacockModuleName)
+const peacock = require('peacock')
 const { classes } = peacock
 
 /** @typedef {{ line: number, column: number }} TokenLocation */

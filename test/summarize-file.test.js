@@ -77,6 +77,21 @@ test('unknown deopt kinds are counted conservatively in file summaries', (/** @t
   t.assert.equal(summary.hasCriticalSeverities, true, 'summary flags the unknown bailout for review')
 })
 
+test('summarizeFile counts every deopt, not only deopt locations', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const summary = summarizeFile({
+    ics: new Map(),
+    deopts: new Map([
+      [ 'repeated', vector({ severity: 3 }, { severity: 3 }, { severity: 3 }) ],
+      [ 'single', vector({ severity: 1 }) ]
+    ]),
+    codes: new Map()
+  })
+
+  t.assert.deepEqual(summary.deoptSeverities, [ 0, 1, 0, 1 ], 'severity buckets still count locations')
+  t.assert.equal(summary.deoptCount, 4, 'deoptCount includes repeats at one location')
+})
+
 test('summarizeFile counts all severity buckets and final code states', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(8)
   /** @type {SummaryFixture} */

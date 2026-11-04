@@ -84,7 +84,7 @@ class FilesView extends Component {
       .sort(bySeverityScoreDesc)
 
     for (const { file, summary } of filesSeverities) {
-      const { icSeverities, deoptSeverities, codeStates } = summary
+      const { icSeverities, deoptSeverities, deoptCount, codeStates } = summary
       const fileGroup = groups.get(file)
       if (fileGroup == null) continue
       const { relativePath } = fileGroup
@@ -93,6 +93,7 @@ class FilesView extends Component {
         , relativePath
         , icSeverities
         , deoptSeverities
+        , deoptCount
         , codeStates
       })
       rows.push(rendered)
@@ -104,7 +105,7 @@ class FilesView extends Component {
         : 'No files with critical events. Enable “Include low severities” to show all files.'
       rows.push(
         <tr key='empty-state'>
-          <td className='empty-table-state' colSpan={10}>{message}</td>
+          <td className='empty-table-state' colSpan={11}>{message}</td>
         </tr>
       )
     }
@@ -114,7 +115,7 @@ class FilesView extends Component {
         <table className='files-table' cellSpacing='0'>
           <colgroup>
             <col className='file-column' />
-            <col span={9} className='metric-column' />
+            <col span={10} className='metric-column' />
           </colgroup>
           {tableHeader}
           <tbody>{rows}</tbody>
@@ -132,13 +133,14 @@ class FilesView extends Component {
         <tr>
           <th scope='col' rowSpan={2} className={topHeaderClass + ' file-header'}>File</th>
           <th scope='colgroup' colSpan={3} className={topHeaderClass}>Optimizations</th>
-          <th scope='colgroup' colSpan={3} className={topHeaderClass}>Deoptimizations</th>
+          <th scope='colgroup' colSpan={4} className={topHeaderClass}>Deoptimizations</th>
           <th scope='colgroup' colSpan={3} className={topHeaderClass}>Inline Caches</th>
         </tr>
         <tr>
           <th scope='col' className={subHeaderClass}>Optimized</th>
           <th scope='col' className={subHeaderClass}>Optimizable</th>
           <th scope='col' className={subHeaderClass}>Compiled</th>
+          <th scope='col' className={subHeaderClass} title='Every deoptimization, including repeats at one location. The severity columns count locations.'>Total</th>
           <th scope='col' className={subHeaderClass}>Severity 1</th>
           <th scope='col' className={subHeaderClass}>Severity 2</th>
           <th scope='col' className={subHeaderClass}>Severity 3</th>
@@ -152,10 +154,10 @@ class FilesView extends Component {
 
   /**
    * Render one file row and its optimization, deoptimization, and IC counts.
-   * @param {{file: string, relativePath: string, deoptSeverities: number[], icSeverities: number[], codeStates: number[]}} data
+   * @param {{file: string, relativePath: string, deoptSeverities: number[], deoptCount: number, icSeverities: number[], codeStates: number[]}} data
    * @returns {import('preact').ComponentChildren}
    */
-  _renderFile({ file, relativePath, deoptSeverities, icSeverities, codeStates }) {
+  _renderFile({ file, relativePath, deoptSeverities, deoptCount, icSeverities, codeStates }) {
     const { selectedFile } = this.props
 
     // Optimized = 3, Compile = 0, but we show them in order of serverity, so we reverse
@@ -179,6 +181,7 @@ class FilesView extends Component {
           </a>
         </td>
         {codeColumns}
+        <td className={' pl2 pr2 tr' + underlineTdClass}>{deoptCount}</td>
         {deoptColumns}
         {icColumns}
       </tr>

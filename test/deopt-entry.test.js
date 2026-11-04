@@ -59,6 +59,38 @@ test('DeoptEntry parses or rejects V8 source positions', (/** @type {import('nod
   )
 })
 
+test('DeoptEntry attributes inlined positions to the innermost user frame', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(5)
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('</src/app.js:76:57> inlined at </src/app.js:170:9>'),
+    { file: '/src/app.js', line: 76, column: 57 },
+    'keeps the position where the deopt happened'
+  )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition(
+      '<node:internal/streams/readable:870:11> inlined at <node:internal/streams/readable:400:5>' +
+      ' inlined at </src/app.js:78:10> inlined at </src/app.js:170:9>'
+    ),
+    { file: '/src/app.js', line: 78, column: 10 },
+    'skips Node.js internals inlined into user code'
+  )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('<file:///src/app.mjs:4:2> inlined at </src/other.js:9:1>'),
+    { file: 'file:///src/app.mjs', line: 4, column: 2 },
+    'accepts file URLs as user frames'
+  )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('<node:events:1:2> inlined at <node:internal/streams/state:3:4>'),
+    { file: 'node:events', line: 1, column: 2 },
+    'keeps the innermost frame when every frame is internal'
+  )
+  t.assert.deepEqual(
+    DeoptEntry.disassembleSourcePosition('</src/app.js:1:2> inlined at not a position'),
+    { file: null, line: 0, column: 0 },
+    'rejects a chain containing a malformed frame'
+  )
+})
+
 test('DeoptEntry preserves function names containing spaces', (
   /** @type {import('node:test').TestContext} */ t
 ) => {
