@@ -24,7 +24,7 @@ function savePage(html) {
 /**
  * Save serialized render data as a script that invokes the report renderer.
  * @param {string} json Serialized report data.
- * @returns {void}
+ * @returns {string} Path to the saved render-data script.
  */
 function saveEntry(json) {
   fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
@@ -39,6 +39,27 @@ function saveEntry(json) {
 
   fs.writeFileSync(entryDest, entryJS, { encoding: 'utf8', mode: 0o600 })
   fs.chmodSync(entryDest, 0o600)
+  return entryDest
 }
 
-module.exports = { savePage, saveEntry }
+/**
+ * Save serialized report data as a standalone JSON file.
+ * @param {string} json Serialized report data.
+ * @param {'json' | 'compact_json' | 'jsonl'} [format='json'] JSON format.
+ * @returns {string} Path to the saved JSON file.
+ */
+function saveJson(json, format = 'json') {
+  fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
+  fs.chmodSync(deoptigateDir, 0o700)
+  const filename = format === 'compact_json'
+    ? 'deoptigate.compact.json'
+    : format === 'jsonl'
+      ? 'deoptigate.jsonl'
+      : 'deoptigate.json'
+  const dest = path.join(deoptigateDir, filename)
+  fs.writeFileSync(dest, json, { encoding: 'utf8', mode: 0o600 })
+  fs.chmodSync(dest, 0o600)
+  return dest
+}
+
+module.exports = { savePage, saveEntry, saveJson }

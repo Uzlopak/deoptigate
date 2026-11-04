@@ -208,6 +208,70 @@ test('CLI stops after reporting that no V8 log is available', async (
   }
 })
 
+test('CLI selects JSON output before forwarding application arguments', async (
+  /** @type {import('node:test').TestContext} */ t
+) => {
+  t.plan(5)
+  const originalRequire = Module.prototype.require
+  const originalError = console.error
+  const originalArgv = process.argv
+  /** @type {string[]} */
+  let createLogArgs = []
+  /** @type {string | undefined} */
+  let outputFormat
+  /** @type {string | undefined} */
+  let outputFilter
+  /** @type {(1 | 2 | 3)[] | undefined} */
+  let outputSeverityFilter
+  /** @type {('opt' | 'deopt' | 'ic')[] | undefined} */
+  let outputTypeFilter
+  Module.prototype.require = function (request) {
+    if (this.filename === binPath) {
+      if (request === './deoptigate.generate-report') {
+        return async (
+          /** @type {string} */ _log,
+          /** @type {string} */ _head,
+          /** @type {'html' | 'json' | 'compact_json' | 'jsonl'} */ format,
+          /** @type {string | undefined} */ fileNameFilter,
+          /** @type {(1 | 2 | 3)[] | undefined} */ severityFilter,
+          /** @type {('opt' | 'deopt' | 'ic')[] | undefined} */ typeFilter
+        ) => {
+          outputFormat = format
+          outputFilter = fileNameFilter
+          outputSeverityFilter = severityFilter
+          outputTypeFilter = typeFilter
+        }
+      }
+      if (request === './deoptigate.select-log') return async () => undefined
+      if (request === './deoptigate.create-log') {
+        return async (/** @type {string[]} */ args) => {
+          createLogArgs = args
+          return '/tmp/deoptigate/v8.log'
+        }
+      }
+    }
+    return originalRequire.call(this, request)
+  }
+  console.error = () => {}
+  process.argv = [ process.execPath, binPath, '--format', 'compact_json', '--filter-file-name', 'parse', '--filter-severity', '1,3', '--filter-type', 'opt,deopt', 'app.js', '--app-option' ]
+  delete require.cache[binPath]
+
+  try {
+    require(binPath)
+    await new Promise(resolve => setImmediate(resolve))
+    t.assert.equal(outputFormat, 'compact_json', 'passes the requested format to report generation')
+    t.assert.equal(outputFilter, 'parse', 'passes the path filter to report generation')
+    t.assert.deepEqual(outputSeverityFilter, [ 1, 3 ], 'passes the severity filter to report generation')
+    t.assert.deepEqual(outputTypeFilter, [ 'opt', 'deopt' ], 'passes the selected event type combination to report generation')
+    t.assert.deepEqual(createLogArgs, [ 'app.js', '--app-option' ], 'does not pass the format option to the app')
+  } finally {
+    Module.prototype.require = originalRequire
+    console.error = originalError
+    process.argv = originalArgv
+    delete require.cache[binPath]
+  }
+})
+
 test('CLI preserves the profiled process exit code after generating its report', async (
   /** @type {import('node:test').TestContext} */ t
 ) => {

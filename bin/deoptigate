@@ -9,14 +9,100 @@ const generateReport = require('./deoptigate.generate-report')
 const selectLog = require('./deoptigate.select-log')
 const createLog = require('./deoptigate.create-log')
 
+/**
+ * Parse Deoptigate options before handing the remaining arguments to Node.
+ * @param {string[]} args
+ * @returns {{format: 'html' | 'json' | 'compact_json' | 'jsonl', fileNameFilter?: string, severityFilter?: (1 | 2 | 3)[], typeFilter?: ('opt' | 'deopt' | 'ic')[], args: string[]}}
+ */
+function parseOptions(args) {
+  /** @type {'html' | 'json' | 'compact_json' | 'jsonl'} */
+  let format = 'html'
+  /** @type {string | undefined} */
+  let fileNameFilter
+  /** @type {(1 | 2 | 3)[]} */
+  const severityFilter = []
+  /** @type {('opt' | 'deopt' | 'ic')[]} */
+  const typeFilter = []
+  let index = 0
+  while (index < args.length) {
+    const argument = args[index]
+    if (argument === '--') break
+    let value
+    if (argument === '--format') {
+      value = args[index + 1]
+      index += 2
+    } else if (argument.startsWith('--format=')) {
+      value = argument.slice('--format='.length)
+      index++
+    } else if (argument === '--filter-file-name') {
+      value = args[index + 1]
+      index += 2
+    } else if (argument.startsWith('--filter-file-name=')) {
+      value = argument.slice('--filter-file-name='.length)
+      index++
+    } else if (argument === '--filter-severity') {
+      value = args[index + 1]
+      index += 2
+    } else if (argument.startsWith('--filter-severity=')) {
+      value = argument.slice('--filter-severity='.length)
+      index++
+    } else if (argument === '--filter-type') {
+      value = args[index + 1]
+      index += 2
+    } else if (argument.startsWith('--filter-type=')) {
+      value = argument.slice('--filter-type='.length)
+      index++
+    } else {
+      break
+    }
+
+    if (argument === '--format' || argument.startsWith('--format=')) {
+      if (value !== 'html' && value !== 'json' && value !== 'compact_json' && value !== 'jsonl') {
+        throw new Error(`Invalid output format '${value}'; expected 'html', 'json', 'compact_json', or 'jsonl'.`)
+      }
+      format = value
+    } else if (argument === '--filter-file-name' || argument.startsWith('--filter-file-name=')) {
+      if (value == null || value === '') throw new Error('--filter-file-name requires a nonempty filename or path substring.')
+      fileNameFilter = value
+    } else if (argument === '--filter-type' || argument.startsWith('--filter-type=')) {
+      if (value == null || value === '') throw new Error('--filter-type requires one or more values from opt, deopt, or ic.')
+      for (const type of value.split(',')) {
+        if (type !== 'opt' && type !== 'deopt' && type !== 'ic') {
+          throw new Error(`Invalid event type '${type}'; expected values opt, deopt, or ic.`)
+        }
+        if (!typeFilter.includes(type)) typeFilter.push(type)
+      }
+    } else {
+      if (value == null || value === '') throw new Error('--filter-severity requires one or more values from 1, 2, or 3.')
+      const severities = value.split(',')
+      for (const severity of severities) {
+        if (severity !== '1' && severity !== '2' && severity !== '3') {
+          throw new Error(`Invalid severity '${severity}'; expected values 1, 2, or 3.`)
+        }
+        const parsedSeverity = /** @type {1 | 2 | 3} */ (Number(severity))
+        if (!severityFilter.includes(parsedSeverity)) severityFilter.push(parsedSeverity)
+      }
+    }
+  }
+
+  return {
+      format
+    , fileNameFilter
+    , severityFilter: severityFilter.length > 0 ? severityFilter : undefined
+    , typeFilter: typeFilter.length > 0 ? typeFilter : undefined
+    , args: args.slice(index)
+  }
+}
+
 ;(async () => {
   try {
-    const log = (process.argv.length <= 2
+    const { format, fileNameFilter, severityFilter, typeFilter, args } = parseOptions(process.argv.slice(2))
+    const log = (args.length === 0
       ? await selectLog(happyHead)
-      : await createLog(process.argv.slice(2), happyHead, simpleHead)
+      : await createLog(args, happyHead, simpleHead)
     )
     if (log == null) return
-    await generateReport(log, happyHead)
+    await generateReport(log, happyHead, format, fileNameFilter, severityFilter, typeFilter)
   } catch (err) {
     console.error(`${errorHead}: ${err}`)
     process.exitCode = 1

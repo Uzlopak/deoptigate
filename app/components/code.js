@@ -3,12 +3,6 @@
 const Preact = require('preact')
 const { Component } = Preact
 const assert = require('../../lib/assert')
-/**
- * @typedef {object} HighlightOptions
- * @property {InstanceType<typeof Theme>['theme']} theme
- * @property {boolean} linenos
- * @property {boolean} jsx
- */
 
 /**
  * @type {typeof import('scroll-into-view-if-needed').default}
@@ -16,11 +10,6 @@ const assert = require('../../lib/assert')
 const scrollIntoView = /** @type {typeof import('scroll-into-view-if-needed').default} */ (
   /** @type {unknown} */ (require('scroll-into-view-if-needed'))
 )
-/** @type {{highlight: (code: string, options: HighlightOptions) => string}} */
-// @ts-expect-error Peacock does not provide a declaration file; its local API is typed here.
-const peacock = require('peacock')
-/** @type {(code: string, options: HighlightOptions) => string} */
-const highlight = peacock.highlight
 
 const Theme = require('../theme.browser')
 const MarkerResolver = require('../../lib/rendering/marker-resolver')
@@ -152,7 +141,7 @@ class CodeView extends Component {
       , includeAllSeverities
     })
 
-    const theme = new Theme(markerResolver).theme
+    const theme = new Theme(markerResolver)
     const highlightedCode = this._tryHighlightCode(theme, markerResolver)
     return (
       <div ref={this._rootRef} className={className}>
@@ -162,24 +151,23 @@ class CodeView extends Component {
   }
 
   /**
-   * @param {InstanceType<typeof Theme>['theme']} theme
+   * @param {InstanceType<typeof Theme>} theme
    * @param {InstanceType<typeof MarkerResolver>} markerResolver
    * @returns {string}
    */
   _tryHighlightCode(theme, markerResolver) {
     const { fileName, code } = this.props
-    // Redeyed writes a hashbang line to the page raw, without passing it to the theme
-    const nohighlight = code.length > MAX_HIGHLIGHT_LEN || code.startsWith('#!')
+    const nohighlight = code.length > MAX_HIGHLIGHT_LEN
     if (nohighlight) return markOnly(code, markerResolver)
     try {
       try {
         // Highlighting without jsx support allows peacock to only parse out tokens
         // which is faster than building the AST
         const jsx = fileName.endsWith('jsx')
-        return highlight(code, { theme, linenos: true, jsx })
+        return theme.highlight(code, { jsx })
       } catch (err) {
         // Higlighting without jsx option failed, try again
-        return highlight(code, { theme, linenos: true, jsx: true })
+        return theme.highlight(code, { jsx: true })
       }
     } catch (err) {
       // Highlighting failed alltogether

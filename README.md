@@ -61,6 +61,55 @@ Use it to profile an application directly:
 deoptigate app.js
 ```
 
+Use `--format json` to save the full parsed report data as JSON instead of
+generating the HTML report:
+
+```sh
+deoptigate --format json app.js
+```
+
+Use `--format compact_json` for a smaller tuple-based export intended for LLM
+input. It omits source text and repeated absolute paths while keeping event
+locations, updates, severities, states, and deoptimization reasons:
+
+```sh
+deoptigate --format compact_json app.js
+```
+
+The output is an array of files. Each file is
+`[fullPath, inlineCaches, deoptimizations, optimizations]`. Inline cache
+events are `[functionName, line, column, updates]`, with updates shaped as
+`[type, oldState, newState, key, map, optimizationState, severity]`.
+Deoptimizations use the same event shape, with updates
+`[timestamp, bailoutType, deoptReason, optimizationState, inlined, severity]`.
+Optimization events are `[functionName, line, column, isScript, updates]`, with
+updates `[timestamp, state, severity]`; `isScript` is `1` or `0`.
+
+Use `--format jsonl` to write one readable JSON object per source file. It also
+omits source text and repeated event-level file paths:
+
+```sh
+deoptigate --format jsonl app.js
+```
+
+Add `--filter-file-name` to keep files whose absolute or relative path contains
+the given case-sensitive text, and `--filter-severity` to keep only updates at
+the selected severity. `--filter-type` keeps selected event categories: `opt`
+(optimization), `deopt` (deoptimization), and `ic` (inline cache). Severity
+values and event types accept comma-separated combinations. All filters apply
+to every output format:
+
+```sh
+deoptigate --format compact_json --filter-file-name parseLine --filter-severity 1,3 --filter-type opt,deopt app.js
+```
+
+HTML is the default format. Put the format option before the `--` separator
+when profiling a command with an explicit Node executable:
+
+```sh
+deoptigate --format compact_json -- node app.js
+```
+
 Or run `deoptigate` in a directory containing V8 log files to open an existing
 log. If several logs match, it prompts you to select one.
 

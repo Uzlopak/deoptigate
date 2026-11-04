@@ -165,10 +165,11 @@ test('a megadom inline cache state keeps its record', async (/** @type {import('
   t.assert.equal(group?.ics.length, 1, 'the inline cache change is reported')
 })
 
+const NO_MARKERS = { resolve: () => ({ insertBefore: '', insertAfter: '' }) }
+
 test('source text is escaped by the highlighting theme', (/** @type {import('node:test').TestContext} */ t) => {
   if (peacock == null) return t.skip('app dependencies are not installed')
   const Theme = require('../app/theme.browser')
-  const theme = new Theme({ resolve: () => ({ insertBefore: '', insertAfter: '' }) }).theme
 
   for (const source of [
     "const a = '<img src=x onerror=alert(1)>'",
@@ -176,12 +177,50 @@ test('source text is escaped by the highlighting theme', (/** @type {import('nod
     'const a = `<img src=x onerror=alert(1)>`',
     'const a = /<img src=x onerror=alert(1)>/'
   ]) {
-    const html = peacock.highlight(source, { theme, linenos: false, jsx: false })
+    const html = new Theme(NO_MARKERS).highlight(source, { jsx: false })
     t.assert.ok(!html.includes('<img'), `escapes ${source}`)
   }
 
-  const jsx = peacock.highlight('const a = <div>b &amp; c</div>', { theme, linenos: false, jsx: true })
+  const jsx = new Theme(NO_MARKERS).highlight('const a = <div>b &amp; c</div>', { jsx: true })
   t.assert.ok(jsx.includes('&amp;amp;'), 'escapes JSX text')
+})
+
+test('a token the theme has no renderer for is escaped', (/** @type {import('node:test').TestContext} */ t) => {
+  if (peacock == null) return t.skip('app dependencies are not installed')
+  const Theme = require('../app/theme.browser')
+  class IncompleteTheme extends Theme {
+    /** @override */
+    get theme () {
+      const theme = super.theme
+      delete theme.Line
+      theme.String = { _default: undefined }
+      return theme
+    }
+  }
+
+  const html = new IncompleteTheme(NO_MARKERS).highlight("'<img src=x>' // <img src=y>", { jsx: false })
+  t.assert.ok(!html.includes('<img'))
+  t.assert.ok(html.includes('&lt;img src=y&gt;'), 'keeps the unstyled text readable')
+})
+
+test('a token without an end location gets no markers', (/** @type {import('node:test').TestContext} */ t) => {
+  if (peacock == null) return t.skip('app dependencies are not installed')
+  const Theme = require('../app/theme.browser')
+  const { placeholder } = require('../app/lib/render-highlighted')
+  const resolver = { resolve: t.mock.fn(() => ({ insertBefore: '', insertAfter: '' })) }
+  const renderer = /** @type {any} */ (new Theme(resolver).theme).Line._default
+
+  t.assert.equal(renderer('// a', { tokens: [ { loc: { end: null } } ], tokenIndex: 0 }), placeholder(0))
+  t.assert.equal(resolver.resolve.mock.callCount(), 0)
+})
+
+test('highlighted code keeps its colours and markers', (/** @type {import('node:test').TestContext} */ t) => {
+  if (peacock == null) return t.skip('app dependencies are not installed')
+  const Theme = require('../app/theme.browser')
+  const marker = { resolve: () => ({ insertBefore: '<a>', insertAfter: '</a>' }) }
+
+  const html = new Theme(marker).highlight('const a = 1', { jsx: false })
+  t.assert.match(html, /<a><span class=\S+>const<\/span><\/a>/)
 })
 
 /** Load CodeView with its JSX transformed and its browser dependencies stubbed. */
@@ -197,7 +236,6 @@ function loadCodeView () {
   const modules = {
     preact: { Component: class {} },
     'scroll-into-view-if-needed': () => {},
-    peacock,
     '../theme.browser': require('../app/theme.browser'),
     '../../lib/assert': require('../lib/assert'),
     '../../lib/rendering/marker-resolver': MarkerResolver,
@@ -210,7 +248,7 @@ function loadCodeView () {
   return module.exports.CodeView
 }
 
-test('a hashbang line is escaped in the code view', (/** @type {import('node:test').TestContext} */ t) => {
+test('a hashbang line is escaped in the code view and keeps its colours', (/** @type {import('node:test').TestContext} */ t) => {
   try {
     require.resolve('../app/node_modules/esbuild')
   } catch (err) {
@@ -221,9 +259,11 @@ test('a hashbang line is escaped in the code view', (/** @type {import('node:tes
   const resolver = new MarkerResolver({})
   const html = CodeView.prototype._tryHighlightCode.call({
     props: { fileName: 'bin.js', code: '#!/usr/bin/env node <img src=x onerror=alert(1)>\nrun()\n' }
-  }, new Theme(resolver).theme, resolver)
+  }, new Theme(resolver), resolver)
 
   t.assert.ok(!html.includes('<img'))
+  t.assert.ok(html.includes('#!/usr/bin/env node &lt;img src=x onerror=alert(1)&gt;'), 'shows the line as text')
+  t.assert.match(html, /<span class=\S+>run<\/span>/, 'colours the rest of the file')
 })
 
 test('plain marker rendering keeps source text intact with several markers on a line', (/** @type {import('node:test').TestContext} */ t) => {

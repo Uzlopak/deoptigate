@@ -366,18 +366,18 @@ function getEventCardToScroll () {
 let previousEventsButton = null
 /** @type {HTMLButtonElement | null} */
 let nextEventsButton = null
-/** @type {HTMLElement | null} */
-let sourceElement = null
-/** @type {HTMLElement | null} */
-let sourceRows = null
-/** @type {HTMLElement | null} */
-let sourceBefore = null
-/** @type {HTMLElement | null} */
-let sourceAfter = null
+/** @type {HTMLElement} */
+let sourceElement = /** @type {any} */ (null)
+/** @type {HTMLElement} */
+let sourceRows = /** @type {any} */ (null)
+/** @type {HTMLElement} */
+let sourceBefore = /** @type {any} */ (null)
+/** @type {HTMLElement} */
+let sourceAfter = /** @type {any} */ (null)
 /** @type {string[]} */
 let sourceLines = []
-/** @type {FileInfo | null} */
-let sourceInfo = null
+/** @type {FileInfo} */
+let sourceInfo = /** @type {any} */ (null)
 /** @type {HTMLButtonElement | null} */
 let selectedMarkerElement = null
 let sourceRenderPending = false
@@ -565,7 +565,7 @@ function renderEvents (info, events) {
     card.appendChild(heading)
 
     const updates = visibleUpdates(point, selectedTab)
-    if (updates.length) card.appendChild(eventMeta(selectedTab, updates[0]))
+    card.appendChild(eventMeta(selectedTab, updates[0]))
     if (updates.length > 1) {
       const history = element('details', 'deoptigate-event-history')
       const remaining = updates.length - 1
@@ -639,7 +639,6 @@ function renderEvents (info, events) {
 
 /** Render the currently visible source lines and their markers. @returns {void} */
 function renderVisibleSourceLines () {
-  if (sourceElement == null || sourceRows == null || sourceBefore == null || sourceAfter == null || sourceInfo == null) return
   selectedMarkerElement = null
   const firstVisible = Math.floor(sourceElement.scrollTop / SOURCE_LINE_HEIGHT)
   const start = Math.max(0, firstVisible - SOURCE_OVERSCAN)
@@ -713,7 +712,7 @@ function renderVisibleSourceLines () {
 
 /** Scroll the selected marker into view when it is horizontally clipped. @returns {void} */
 function revealSelectedSourceMarker () {
-  if (selectedMarkerElement == null || sourceElement == null) return
+  if (selectedMarkerElement == null) return
 
   const sourceRect = sourceElement.getBoundingClientRect()
   const markerRect = selectedMarkerElement.getBoundingClientRect()
@@ -745,20 +744,18 @@ function scheduleSourceRender () {
  */
 function renderSource (info, lineToScroll) {
   const source = /** @type {HTMLElement} */ (document.getElementById('deoptigate-source'))
-  if (sourceElement !== source || sourceInfo !== info) {
-    sourceElement = source
-    sourceInfo = info
-    const cachedSourceLines = sourceLinesByInfo.get(info)
-    sourceLines = cachedSourceLines || (info.src || '').split('\n')
-    if (cachedSourceLines == null) sourceLinesByInfo.set(info, sourceLines)
-    sourceBefore = element('div', 'deoptigate-source-spacer')
-    sourceRows = element('div', 'deoptigate-source-lines')
-    sourceAfter = element('div', 'deoptigate-source-spacer')
-    source.replaceChildren(sourceBefore, sourceRows, sourceAfter)
-    source.addEventListener('scroll', scheduleSourceRender, { passive: true })
-    source.scrollTop = 0
-    source.scrollLeft = 0
-  }
+  sourceElement = source
+  sourceInfo = info
+  const cachedSourceLines = sourceLinesByInfo.get(info)
+  sourceLines = cachedSourceLines || (info.src || '').split('\n')
+  if (cachedSourceLines == null) sourceLinesByInfo.set(info, sourceLines)
+  sourceBefore = element('div', 'deoptigate-source-spacer')
+  sourceRows = element('div', 'deoptigate-source-lines')
+  sourceAfter = element('div', 'deoptigate-source-spacer')
+  source.replaceChildren(sourceBefore, sourceRows, sourceAfter)
+  source.addEventListener('scroll', scheduleSourceRender, { passive: true })
+  source.scrollTop = 0
+  source.scrollLeft = 0
 
   renderVisibleSourceLines()
   if (lineToScroll != null) {
@@ -818,14 +815,14 @@ search.addEventListener('input', () => {
 function updateSeverityButtons () {
   for (const child of severityFilter.children) {
     const button = /** @type {HTMLElement} */ (child)
-    button.setAttribute('aria-pressed', String(selectedSeverities.has(button.dataset.severity || '')))
+    button.setAttribute('aria-pressed', String(selectedSeverities.has(String(button.dataset.severity))))
   }
 }
 
 for (const child of severityFilter.children) {
   const button = /** @type {HTMLElement} */ (child)
   button.addEventListener('click', () => {
-    const severity = button.dataset.severity || ''
+    const severity = String(button.dataset.severity)
     if (selectedSeverities.has(severity)) selectedSeverities.delete(severity)
     else selectedSeverities.add(severity)
     selectedSourceMarker = null

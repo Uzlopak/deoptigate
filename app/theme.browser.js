@@ -1,9 +1,13 @@
 'use strict'
 
 const escapeHtml = require('../lib/rendering/escape-html')
+const { placeholder, renderHighlighted } = require('./lib/render-highlighted')
 /** @type {{classes: Record<string, string>}} */
 // @ts-expect-error Peacock does not provide a declaration file; its local API is typed here.
 const peacock = require('peacock')
+/** @type {(code: string, theme: BrowserTheme, options: {jsx: boolean}) => {code: string}} */
+// @ts-expect-error Redeyed does not provide a declaration file; its local API is typed here.
+const redeyed = require('redeyed')
 const { classes } = peacock
 
 /** @typedef {{ line: number, column: number }} TokenLocation */
@@ -25,6 +29,28 @@ class ThemeBrowser {
   constructor(markerResolver) {
     /** @type {MarkerResolver} */
     this._markerResolver = markerResolver
+    /** @type {string[]} */
+    this._fragments = []
+  }
+
+  /**
+   * Highlight source code as an HTML fragment.
+   *
+   * @param {string} code
+   * @param {{jsx: boolean}} options
+   * @returns {string}
+   */
+  highlight(code, { jsx }) {
+    return renderHighlighted(redeyed(code, this.theme, { jsx }).code, this._fragments)
+  }
+
+  /**
+   * @param {string} html
+   * @returns {string}
+   */
+  _addFragment(html) {
+    this._fragments.push(html)
+    return placeholder(this._fragments.length - 1)
   }
 
   /**
@@ -48,10 +74,10 @@ class ThemeBrowser {
       const { tokens, tokenIndex } = info
       const token = tokens[tokenIndex]
       const loc = token.loc.end
-      if (loc == null) return element
+      if (loc == null) return this._addFragment(element)
 
       const { insertBefore, insertAfter } = this._markerResolver.resolve(loc)
-      return insertBefore + element + insertAfter
+      return this._addFragment(insertBefore + element + insertAfter)
     }
     return mark.bind(this)
   }

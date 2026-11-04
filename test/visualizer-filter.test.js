@@ -2,11 +2,15 @@
 
 const fs = require('fs')
 const path = require('path')
+const { pathToFileURL } = require('url')
 const vm = require('vm')
 const test = require('node:test')
 
 /** @typedef {FakeElement} FakeChild */
 /** @typedef {{target?: FakeElement, key?: string, preventDefault?: () => void, stopPropagation?: () => void}} FakeEvent */
+
+/** @type {(element: FakeElement) => {left: number, right: number}} */
+let elementRect = () => ({ left: 100, right: 100 })
 
 /** Minimal DOM element model used to execute the visualizer in a VM. */
 class FakeElement {
@@ -26,6 +30,9 @@ class FakeElement {
     this.value = ''
     this._scrollTop = 0
     this.clientHeight = 400
+    this.clientWidth = 200
+    this.clientLeft = 0
+    this.scrollLeft = 0
     this.open = false
     this.tabIndex = 0
     this.focused = false
@@ -69,7 +76,7 @@ class FakeElement {
 
   /** @returns {{left: number, right: number}} */
   getBoundingClientRect () {
-    return { left: 0, right: 0 }
+    return elementRect(this)
   }
 
   set textContent (text) {
@@ -211,9 +218,10 @@ function requireDefined (value) {
 
 /**
  * @param {unknown} data
+ * @param {(callback: () => void) => void} [requestAnimationFrame]
  * @returns {VisualizerNodes}
  */
-function createVisualizer (data) {
+function createVisualizer (data, requestAnimationFrame = callback => callback()) {
   /** @type {Map<string, FakeElement>} */
   const nodes = new Map()
   for (const id of ['clinic-data', 'deoptigate-files', 'deoptigate-details', 'deoptigate-search', 'deoptigate-severity']) {
@@ -246,10 +254,12 @@ function createVisualizer (data) {
     }
   }
   const window = {
-    requestAnimationFrame: (/** @type {() => void} */ callback) => callback()
+    requestAnimationFrame
   }
-  const script = fs.readFileSync(path.join(__dirname, '../visualizer/main.js'), 'utf8')
-  vm.runInNewContext(script, { document, window })
+  const scriptPath = path.join(__dirname, '../visualizer/main.js')
+  const script = fs.readFileSync(scriptPath, 'utf8')
+  // A file URL lets the coverage gate see this script
+  vm.runInNewContext(script, { document, window }, { filename: pathToFileURL(scriptPath).href })
   return { get: id => requireNode(nodes, id) }
 }
 
@@ -790,4 +800,152 @@ test('source markers jump to event pages beyond the first page', (/** @type {imp
   t.assert.equal(requireDefined(target.scrollIntoViewOptions).block, 'center', 'scrolls the off-page event into view')
   t.assert.ok(sourcePanel.scrollTop > 0, 'scrolls the source panel to the clicked marker line')
   t.assert.equal(selectedSourceLine.children[0].textContent, '46', 'renders the clicked marker line as the current source line')
+})
+
+/**
+ * @param {VisualizerNodes} nodes
+ * @param {string} id
+ * @returns {FakeElement}
+ */
+function byId (nodes, id) {
+  return requireElement(findById(nodes.get('deoptigate-details'), id))
+}
+
+/** @returns {Array<[string, object]>} */
+function threeTabs () {
+  return [['/app/tabs.js', {
+    relativePath: 'tabs.js',
+    deopts: [{ line: 1, column: 1, functionName: 'run', updates: [{ severity: 3, bailoutType: 'eager', deoptReason: 'wrong map', inlined: true }] }],
+    ics: [{ line: 1, column: 5, functionName: 'read', updates: [{ severity: 3, type: 'LoadIC', oldState: 99, key: 'name', map: 'ab' }, { severity: 3, type: 'LoadIC', key: 'other' }] }],
+    codes: [{ line: 1, column: 8, functionName: 'code', updates: [{ severity: 3, state: 99 }] }],
+    src: 'run(a) => b\n\nend'
+  }]]
+}
+
+test('event tabs switch by click and report their event text', (/** @type {import('node:test').TestContext} */ t) => {
+  const nodes = createVisualizer(threeTabs())
+  byId(nodes, 'deoptigate-tab-ics').dispatch('click')
+  t.assert.equal(byId(nodes, 'deoptigate-tab-ics').attributes['aria-selected'], 'true')
+  t.assert.ok(byId(nodes, 'deoptigate-tab-ics').focused, 'keeps keyboard focus on the tab')
+  const panel = byId(nodes, 'deoptigate-event-panel')
+  t.assert.match(panel.textContent, /unknown → unknown/, 'names an unknown inline cache state')
+  t.assert.match(panel.textContent, /map ab/)
+
+  byId(nodes, 'deoptigate-tab-codes').dispatch('click')
+  t.assert.match(byId(nodes, 'deoptigate-event-panel').textContent, /unknown/, 'names an unknown code state')
+  byId(nodes, 'deoptigate-tab-deopts').dispatch('click')
+  t.assert.match(byId(nodes, 'deoptigate-event-panel').textContent, /wrong map/)
+  t.assert.match(byId(nodes, 'deoptigate-event-panel').textContent, /inlined/)
+})
+
+test('event tabs follow the keyboard', (/** @type {import('node:test').TestContext} */ t) => {
+  const nodes = createVisualizer(threeTabs())
+  /**
+   * @param {string} from
+   * @param {string} key
+   * @param {string} to
+   */
+  const press = (from, key, to) => {
+    let prevented = false
+    byId(nodes, `deoptigate-tab-${from}`).dispatch('keydown', { key, preventDefault () { prevented = true } })
+    t.assert.equal(byId(nodes, `deoptigate-tab-${to}`).attributes['aria-selected'], 'true', `${key} from ${from}`)
+    t.assert.ok(prevented)
+  }
+
+  byId(nodes, 'deoptigate-tab-codes').dispatch('click')
+  press('codes', 'ArrowRight', 'deopts')
+  press('deopts', 'ArrowDown', 'ics')
+  press('ics', 'ArrowRight', 'codes')
+  press('codes', 'ArrowLeft', 'ics')
+  press('ics', 'ArrowUp', 'deopts')
+  press('deopts', 'Home', 'codes')
+  press('codes', 'End', 'ics')
+
+  let prevented = false
+  byId(nodes, 'deoptigate-tab-ics').dispatch('keydown', { key: 'a', preventDefault () { prevented = true } })
+  t.assert.equal(prevented, false, 'leaves other keys alone')
+})
+
+test('an event location selects its source marker', (/** @type {import('node:test').TestContext} */ t) => {
+  const nodes = createVisualizer(threeTabs())
+  const details = nodes.get('deoptigate-details')
+  findByClass(details, 'deoptigate-event-location')[0].dispatch('click')
+  const selected = findByClass(details, 'deoptigate-source-marker').filter(marker => marker.className.includes(' selected'))
+  t.assert.equal(selected.length, 1)
+  t.assert.ok(selected[0].focused, 'moves focus to the marker')
+})
+
+test('a selected marker clipped by the source view is scrolled into it', (/** @type {import('node:test').TestContext} */ t) => {
+  const nodes = createVisualizer(threeTabs())
+  const details = nodes.get('deoptigate-details')
+  /**
+   * Select an event with its marker at the given position; each render rebuilds the source view.
+   *
+   * @param {number} left
+   * @returns {number}
+   */
+  const scrollFor = left => {
+    elementRect = element => element.id === 'deoptigate-source' ? { left: 0, right: 200 } : { left, right: left + 10 }
+    findByClass(details, 'deoptigate-event-location')[0].dispatch('click')
+    return byId(nodes, 'deoptigate-source').scrollLeft
+  }
+  t.after(() => { elementRect = () => ({ left: 100, right: 100 }) })
+
+  t.assert.equal(scrollFor(-50), -62, 'scrolls left past the margin')
+  t.assert.equal(scrollFor(300), 122, 'scrolls right past the margin')
+  t.assert.equal(scrollFor(50), 0, 'leaves a visible marker alone')
+})
+
+test('scrolling the source renders once per animation frame', (/** @type {import('node:test').TestContext} */ t) => {
+  /** @type {Array<() => void>} */
+  const frames = []
+  const nodes = createVisualizer(threeTabs(), callback => frames.push(callback))
+  const source = byId(nodes, 'deoptigate-source')
+  const queued = frames.length
+
+  source.dispatch('scroll')
+  source.dispatch('scroll')
+  t.assert.equal(frames.length, queued + 1, 'coalesces scroll events')
+  frames[frames.length - 1]()
+  source.dispatch('scroll')
+  t.assert.equal(frames.length, queued + 2, 'schedules again after rendering')
+})
+
+test('sparse report data renders without failing', (/** @type {import('node:test').TestContext} */ t) => {
+  const nodes = createVisualizer([
+    ['/app/sparse.js', {
+      relativePath: 'sparse.js',
+      deopts: [
+        { functionName: 'nowhere', updates: [{ severity: 3, bailoutType: 'eager' }] },
+        { line: 1, functionName: 'noColumn', updates: [{ severity: 3, bailoutType: 'eager' }, { bailoutType: 'lazy' }] },
+        { line: 1, functionName: 'noColumnEither', updates: [{ severity: 3, bailoutType: 'eager' }] },
+        { line: 1, column: 2, updates: [{ severity: 3, bailoutType: 'eager' }] },
+        { line: 1, column: 99, functionName: 'pastEnd', updates: [{ severity: 3, bailoutType: 'eager' }] },
+        { functionName: 'noUpdates' }
+      ],
+      codes: [{ line: 2, functionName: 'noSeverity', updates: [{ state: 1 }] }]
+    }],
+    ['/app/empty.js', { relativePath: 'empty.js' }],
+    ['/app/other.js', { relativePath: 'other.js', codes: [{ line: 1, updates: [{ severity: 3, state: 1, timestamp: 1000 }, { severity: 3, state: 1 }] }], src: 'x' }]
+  ])
+  const details = nodes.get('deoptigate-details')
+  t.assert.match(details.textContent, /0:0/, 'shows a missing location as zero')
+  t.assert.match(details.textContent, /\(anonymous\)/, 'names an anonymous function')
+  t.assert.equal(findByClass(details, 'deoptigate-source-marker').length, 4, 'marks only events with a source line')
+  t.assert.ok(!details.textContent.includes('lazy'), 'filters a deopt without a severity')
+
+  requireElement(findByClass(details, 'deoptigate-event-location').find(location => location.textContent === '0:0')).dispatch('click')
+  t.assert.equal(findByClass(details, 'deoptigate-source-marker').filter(marker => marker.className.includes(' selected')).length, 0, 'an event without a line has no marker to select')
+
+  const files = () => findByClass(nodes.get('deoptigate-files'), 'deoptigate-file')
+  /** @param {string} name */
+  const open = name => requireElement(files().find(file => file.textContent.includes(name))).dispatch('click')
+  open('other.js')
+  t.assert.match(details.textContent, /other\.js/, 'opens the tab that has events')
+  t.assert.equal(byId(nodes, 'deoptigate-tab-codes').attributes['aria-selected'], 'true')
+
+  open('empty.js')
+  t.assert.match(details.textContent, /No events in this category/)
+  open('sparse.js')
+  t.assert.match(details.textContent, /sparse\.js/, 'returns to a cached file')
 })

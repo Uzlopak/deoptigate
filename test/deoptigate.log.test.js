@@ -11,7 +11,7 @@ const writeFile = util.promisify(fs.writeFile)
 const WINDOWS_LINE_ENDINGS_RX = /\r\n/g
 const V8_LOG_SUFFIX_RX = /\.v8\.log$/
 
-const { deoptigateLog } = require('../deoptigate.log')
+const { deoptigateLog, logToJSON } = require('../deoptigate.log')
 
 /**
  * @typedef {{file: string, updates: {bailoutType?: string, map?: string}[]}} TestLogEntry
@@ -172,5 +172,17 @@ test('two-modules.v8.log', async (t) => {
 
     const updateData = icData.updates[0]
     t.assert.equal(updateData.map, '37cdf3b7a811', 'ics update map')
+  })
+})
+
+test('logToJSON returns the complete grouped file data', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const sourceFile = repoRoot('examples/simple/adders.js')
+  const srcLogPath = path.join(__dirname, 'logs', 'adders.v8.log')
+  await withPreparedLog(srcLogPath, [ [ '/tmp/deoptigate/examples/simple/adders.js', sourceFile ] ], async destLogPath => {
+    const json = await logToJSON(destLogPath, { root: repoRoot() })
+    const entries = JSON.parse(json)
+    t.assert.ok(Array.isArray(entries), 'returns serialized file groups')
+    t.assert.equal(entries[0][0], sourceFile, 'preserves the full source path')
   })
 })

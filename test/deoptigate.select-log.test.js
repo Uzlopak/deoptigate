@@ -10,7 +10,8 @@ const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-repo
 
 /** @typedef {{ fullPath: string, readable?: boolean, isFile?: boolean }} LogFileFixture */
 /** @typedef {{ root: string | null, answers: string[], questions: string[], closeCount: number, selectLog: (head: string) => Promise<string | undefined>, logs: string[], errors: string[], restoreConsole: () => void }} SelectLogState */
-/** @typedef {{ pages: string[], entries: string[], errors: string[], logCalls: [string, { root: string }][], generateReport: (file: string, head: string) => Promise<void>, restore: () => void }} GenerateReportState */
+/** @typedef {{ pages: string[], entries: string[], jsonFiles: string[], errors: string[], logCalls: [string, { root: string }][], generateReport: (file: string, head: string, format?: 'html' | 'json' | 'compact_json' | 'jsonl', fileNameFilter?: string, severityFilter?: (1 | 2 | 3)[], typeFilter?: ('opt' | 'deopt' | 'ic')[]) => Promise<void>, restore: () => void }} GenerateReportState */
+/** @typedef {{fullPath: string, relativePath: string, src: string, ics: object[], deopts: object[], codes: object[]}} FakeReportFile */
 /**
  * `Module._load` is an undocumented CommonJS hook, so describe the narrow
  * signature used by these dependency mocks locally.
@@ -114,12 +115,25 @@ function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
   return state
 }
 
-/** @returns {GenerateReportState} */
-function loadGenerateReport() {
+/**
+ * @param {Map<string, FakeReportFile>} [report]
+ * @returns {GenerateReportState}
+ */
+function loadGenerateReport(report = new Map([
+  [ '/tmp/fake-deoptigate/app.js', {
+    fullPath: '/tmp/fake-deoptigate/app.js',
+    relativePath: 'app.js',
+    src: 'function run () {}',
+    ics: [],
+    deopts: [],
+    codes: []
+  } ]
+])) {
   /** @type {GenerateReportState} */
   const state = {
     pages: [],
     entries: [],
+    jsonFiles: [],
     errors: [],
     logCalls: [],
     generateReport: async () => {},
@@ -135,11 +149,11 @@ function loadGenerateReport() {
         /**
          * @param {string} file
          * @param {{root: string}} options
-         * @returns {Promise<string>}
+        * @returns {Promise<Map<string, FakeReportFile>>}
          */
-        async logToJSON(file, options) {
+        async processLog(file, options) {
           state.logCalls.push([ file, options ])
-          return '{"files":[]}'
+          return report
         }
       }
     }
@@ -158,10 +172,25 @@ function loadGenerateReport() {
         },
         /**
          * @param {string} json
-         * @returns {void}
+         * @returns {string}
          */
         saveEntry(json) {
           state.entries.push(json)
+          return '/tmp/fake-deoptigate/deoptigate.render-data.js'
+        },
+        /**
+         * @param {string} json
+         * @param {'json' | 'compact_json' | 'jsonl'} [format]
+         * @returns {string}
+         */
+        saveJson(json, format) {
+          state.jsonFiles.push(json)
+          const filename = format === 'compact_json'
+            ? 'deoptigate.compact.json'
+            : format === 'jsonl'
+              ? 'deoptigate.jsonl'
+              : 'deoptigate.json'
+          return `/tmp/fake-deoptigate/${filename}`
         }
       }
     }
@@ -307,10 +336,175 @@ test('generate-report saves output and reports the generated page path', async (
     await state.generateReport('/logs/v8.log', 'deoptigate')
     t.assert.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log in the current root')
     t.assert.deepEqual(state.pages, [ '<html>fake page</html>' ], 'saves the generated HTML page')
-    t.assert.deepEqual(state.entries, [ '{"files":[]}' ], 'saves parsed render data')
+    t.assert.equal(JSON.parse(state.entries[0])[0][0], '/tmp/fake-deoptigate/app.js', 'saves parsed render data')
     t.assert.ok(state.errors[0].includes('Successfully generated deoptimization visualization'), 'reports successful generation')
     t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'prints the generated page path')
     t.assert.ok(!state.errors[0].includes('Opening now in your default browser'), 'does not claim to open a browser')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report writes standalone JSON when requested', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(6)
+  const state = loadGenerateReport()
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json')
+    t.assert.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log')
+    t.assert.equal(JSON.parse(state.jsonFiles[0])[0][0], '/tmp/fake-deoptigate/app.js', 'saves the serialized report data')
+    t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
+    t.assert.deepEqual(state.entries, [], 'does not save a browser script')
+    t.assert.ok(state.errors[0].includes('Successfully generated deoptimization data'), 'reports JSON generation')
+    t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/deoptigate.json'), 'prints the JSON file path')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report writes compact JSON when requested', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(6)
+  const state = loadGenerateReport()
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'compact_json')
+    t.assert.deepEqual(state.jsonFiles, [ '[["/tmp/fake-deoptigate/app.js",[],[],[]]]' ], 'saves the compact report data')
+    t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
+    t.assert.deepEqual(state.entries, [], 'does not save a browser script')
+    t.assert.ok(state.errors[0].includes('Successfully generated compact deoptimization data'), 'reports compact JSON generation')
+    t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/deoptigate.compact.json'), 'prints the compact JSON path')
+    t.assert.ok(!state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'does not report an HTML output')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report writes JSON Lines when requested', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(5)
+  const state = loadGenerateReport()
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'jsonl')
+    const line = state.jsonFiles[0]
+    t.assert.equal(line.split('\n').length, 1, 'writes one record per source file')
+    t.assert.equal(JSON.parse(line).file, '/tmp/fake-deoptigate/app.js', 'keeps the file identity')
+    t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
+    t.assert.ok(state.errors[0].includes('Successfully generated deoptimization data as JSONL'), 'reports JSONL generation')
+    t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/deoptigate.jsonl'), 'prints the JSONL path')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report filters files by filename or path substring', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(3)
+  const report = new Map([
+      [ '/tmp/project/src/keep.js', {
+        fullPath: '/tmp/project/src/keep.js', relativePath: 'src/keep.js', src: '', ics: [], deopts: [], codes: []
+      } ]
+    , [ '/tmp/project/lib/skip.js', {
+        fullPath: '/tmp/project/lib/skip.js', relativePath: 'lib/skip.js', src: '', ics: [], deopts: [], codes: []
+      } ]
+  ])
+  const state = loadGenerateReport(report)
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', 'src/keep')
+    const files = JSON.parse(state.jsonFiles[0])
+    t.assert.equal(files.length, 1, 'keeps only matching files')
+    t.assert.equal(files[0][0], '/tmp/project/src/keep.js', 'matches a path substring')
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', '/tmp/project/src/keep.js')
+    t.assert.equal(JSON.parse(state.jsonFiles[1]).length, 1, 'matches an absolute file path')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report filters updates by selected severities', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(4)
+  const report = new Map([
+    [ '/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+      ics: [{
+        functionName: 'run', file: '/tmp/project/app.js', line: 1, column: 1,
+        updates: [{ severity: 1 }, { severity: 2 }]
+      }],
+      deopts: [{
+        functionName: 'run', file: '/tmp/project/app.js', line: 2, column: 1,
+        updates: [{ severity: 3 }]
+      }],
+      codes: [{
+        functionName: 'run', file: '/tmp/project/app.js', line: 3, column: 1,
+        updates: [{ severity: 2 }]
+      }]
+    } ]
+  ])
+  const state = loadGenerateReport(report)
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [ 1, 3 ])
+    const entries = JSON.parse(state.jsonFiles[0])
+    const info = entries[0][1]
+    t.assert.equal(info.ics[0].updates.length, 1, 'keeps only matching updates within an event')
+    t.assert.equal(info.ics[0].updates[0].severity, 1, 'preserves the selected inline-cache severity')
+    t.assert.equal(info.deopts[0].updates[0].severity, 3, 'keeps selected deoptimization severity')
+    t.assert.deepEqual(info.codes, [], 'drops events with no selected updates')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report keeps combinations of selected event types', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(3)
+  const report = new Map([
+    [ '/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+      ics: [{ updates: [{ severity: 1 }] }],
+      deopts: [{ updates: [{ severity: 2 }] }],
+      codes: [{ updates: [{ severity: 3 }] }]
+    } ]
+  ])
+  const state = loadGenerateReport(report)
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, [ 'opt', 'deopt' ])
+    const entries = JSON.parse(state.jsonFiles[0])
+    const info = entries[0][1]
+    t.assert.deepEqual(info.ics, [], 'removes IC events not selected')
+    t.assert.equal(info.deopts.length, 1, 'keeps selected deoptimization events')
+    t.assert.equal(info.codes.length, 1, 'keeps selected optimization events')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report keeps only inline-cache events when requested', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(2)
+  const report = new Map([
+    [ '/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+      ics: [{ updates: [{ severity: 1 }] }],
+      deopts: [{ updates: [{ severity: 2 }] }],
+      codes: [{ updates: [{ severity: 3 }] }]
+    } ]
+  ])
+  const state = loadGenerateReport(report)
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, [ 'ic' ])
+    const info = JSON.parse(state.jsonFiles[0])[0][1]
+    t.assert.equal(info.ics.length, 1, 'keeps inline-cache events')
+    t.assert.deepEqual([ info.deopts, info.codes ], [ [], [] ], 'removes optimization and deoptimization events')
+  } finally {
+    state.restore()
+  }
+})
+
+test('generate-report omits files with no events at selected severities', async (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  const report = new Map([
+    [ '/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+      ics: [], deopts: [], codes: [{ updates: [{ severity: 2 }] }]
+    } ]
+  ])
+  const state = loadGenerateReport(report)
+  try {
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [ 1 ])
+    t.assert.deepEqual(JSON.parse(state.jsonFiles[0]), [], 'drops the now-empty file group')
   } finally {
     state.restore()
   }

@@ -188,3 +188,98 @@ test('Profile associates optimized code with functions through moves and deletes
   profile.deleteCode(200)
   t.assert.equal(profile.findEntry(210), null, 'deletes code address ranges')
 })
+
+/** @typedef {{dispatchTable_: Record<string, unknown>, processLogLine(line: string): void, processStack(pc: number, func: number, stack: string[]): number[], printError(message: string): void, skipDispatch(dispatch: unknown): boolean}} TimedLogReader */
+
+/**
+ * Build a reader that records the first field of each dispatched row.
+ *
+ * @param {boolean} [timed]
+ * @param {boolean} [pairwise]
+ * @returns {{reader: TimedLogReader, seen: string[]}}
+ */
+function timedReader (timed, pairwise) {
+  /** @type {string[]} */
+  const seen = []
+  const Reader = /** @type {new (table: object, timed?: boolean, pairwise?: boolean) => TimedLogReader} */ (/** @type {unknown} */ (LogReader))
+  const dispatch = { parsers: [ null ], processor: (/** @type {string} */ value) => { seen.push(value) } }
+  const reader = new Reader({ row: dispatch, tick: dispatch, 'current-time': dispatch, ignored: null }, timed, pairwise)
+  return { reader, seen }
+}
+
+test('LogReader holds timed lines until the next time marker', (/** @type {import('node:test').TestContext} */ t) => {
+  const { reader, seen } = timedReader(true)
+  reader.processLogLine('tick,dropped')
+  reader.processLogLine('row,before')
+  reader.processLogLine('current-time,1')
+  reader.processLogLine('row,held')
+  t.assert.deepEqual(seen, [ 'before' ], 'holds lines after the first marker')
+  reader.processLogLine('current-time,2')
+  t.assert.deepEqual(seen, [ 'before', 'held' ])
+  reader.processLogLine('row,after')
+  reader.processLogLine('current-time,3')
+  t.assert.deepEqual(seen, [ 'before', 'held', 'after' ], 'each marker starts a new range')
+})
+
+test('LogReader ends a pairwise timed range at its second marker', (/** @type {import('node:test').TestContext} */ t) => {
+  const { reader, seen } = timedReader(false, true)
+  reader.processLogLine('current-time,1')
+  reader.processLogLine('row,inside')
+  reader.processLogLine('current-time,2')
+  reader.processLogLine('tick,outside')
+  reader.processLogLine('row,after')
+  t.assert.deepEqual(seen, [ 'inside', 'after' ], 'ticks outside the range are dropped')
+})
+
+test('LogReader skips disabled and vetoed records', (/** @type {import('node:test').TestContext} */ t) => {
+  const { reader, seen } = timedReader()
+  reader.processLogLine('ignored,value')
+  reader.processLogLine('ignored')
+  reader.skipDispatch = () => true
+  reader.processLogLine('row,value')
+  t.assert.deepEqual(seen, [])
+})
+
+test('LogReader resolves stack frames relative to the previous frame', (/** @type {import('node:test').TestContext} */ t) => {
+  const { reader } = timedReader()
+  /** @type {string[]} */
+  const errors = []
+  t.assert.deepEqual(reader.processStack(0x10, 0, [ '+2', '-1', '20', 'overflow' ]), [ 0x10, 0x12, 0x11, 0x20 ], 'drops the overflow marker')
+  t.assert.deepEqual(reader.processStack(0x10, 0x30, []), [ 0x10, 0x30 ], 'includes the function address')
+  reader.printError = message => { errors.push(message) }
+  reader.processStack(0, 0, [ 'overflow' ])
+  t.assert.deepEqual(errors, [ 'dropping: overflow' ])
+})
+
+test('Profile ignores moves and deletes of untracked code', (/** @type {import('node:test').TestContext} */ t) => {
+  const profile = new TestProfileClass()
+  t.assert.doesNotThrow(() => profile.moveCode(0x1000, 0x2000))
+  t.assert.doesNotThrow(() => profile.deleteCode(0x1000))
+})
+
+test('Profile names code and function entries', (/** @type {import('node:test').TestContext} */ t) => {
+  const profile = /** @type {any} */ (new TestProfileClass())
+  t.assert.equal(profile.addCode('Stub', 'load', 1, 0x100, 16).getName(), 'Stub: load')
+  t.assert.equal(profile.addFuncCode('Function', 'run a.js:1:1', 1, 0x200, 16, 0x9000, 1).getName(), 'Function: ~run a.js:1:1')
+  t.assert.equal(profile.addFuncCode('Function', '', 1, 0x300, 16, 0x9100, 0).getName(), 'Function: <anonymous>')
+  t.assert.equal(profile.addFuncCode('Function', ' a.js:1:1', 1, 0x400, 16, 0x9200, 0).getName(), 'Function: <anonymous> a.js:1:1')
+})
+
+test('SplayTree handles empty trees, duplicates and missing keys', (/** @type {import('node:test').TestContext} */ t) => {
+  const tree = /** @type {any} */ (new TestSplayTreeClass())
+  t.assert.equal(tree.findMin(), null)
+  t.assert.equal(tree.findMax(), null)
+  t.assert.deepEqual(tree.exportValues(), [])
+  t.assert.throws(() => tree.remove(1), /Key not found: 1/)
+  t.assert.doesNotThrow(() => tree.splay_(1))
+
+  tree.insert(2, 'two')
+  tree.insert(2, 'duplicate')
+  tree.insert(1, 'one')
+  tree.insert(3, 'three')
+  t.assert.equal(requireNode(tree.find(2)).value, 'two', 'keeps the first value for a key')
+  t.assert.equal(tree.findMin().key, 1)
+  t.assert.equal(tree.findMax().key, 3)
+  t.assert.deepEqual(tree.exportValues().sort(), [ 'one', 'three', 'two' ])
+  t.assert.throws(() => tree.remove(9), /Key not found: 9/)
+})

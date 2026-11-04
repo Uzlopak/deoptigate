@@ -76,18 +76,15 @@ class FilesView extends Component {
     const rows = []
     const filesSeverities = Array.from(groups)
       .map(([ file, info ]) => {
-        const { deopts, ics, codes } = info
+        const { deopts, ics, codes, relativePath } = info
         const summary = summarizeFile({ ics, deopts, codes })
-        return { file, summary }
+        return { file, relativePath, summary }
       })
       .filter(({ summary }) => includeAllSeverities || summary.hasCriticalSeverities)
       .sort(bySeverityScoreDesc)
 
-    for (const { file, summary } of filesSeverities) {
+    for (const { file, relativePath, summary } of filesSeverities) {
       const { icSeverities, deoptSeverities, deoptCount, codeStates } = summary
-      const fileGroup = groups.get(file)
-      if (fileGroup == null) continue
-      const { relativePath } = fileGroup
       const rendered = this._renderFile({
           file
         , relativePath
