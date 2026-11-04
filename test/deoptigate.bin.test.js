@@ -28,7 +28,7 @@ const supportsDeoptLog = spawnSync(
  * @param {string} dir
  * @returns {Promise<void>}
  */
-async function removeDirectory(dir) {
+async function removeDirectory (dir) {
   const entries = await readdir(dir).catch(err => {
     if (err.code === 'ENOENT') return []
     throw err
@@ -49,7 +49,7 @@ async function removeDirectory(dir) {
  * @param {string} srcPath
  * @returns {Promise<Array<[string, FileRenderData]>>}
  */
-async function runDeoptigate(srcPath) {
+async function runDeoptigate (srcPath) {
   const isolatedTmpDir = await mkdtemp(path.join(tmpdir(), 'deoptigate-bin-test-'))
 
   try {
@@ -154,7 +154,7 @@ test('CLI sets a nonzero exit status when a command fails', async (/** @type {im
     return originalRequire.call(this, request)
   }
   console.error = message => { errors.push(message) }
-  process.argv = [ process.execPath, binPath, 'script.js' ]
+  process.argv = [process.execPath, binPath, 'script.js']
   delete require.cache[binPath]
 
   try {
@@ -191,7 +191,7 @@ test('CLI stops after reporting that no V8 log is available', async (
     return originalRequire.call(this, request)
   }
   console.error = () => {}
-  process.argv = [ process.execPath, binPath ]
+  process.argv = [process.execPath, binPath]
   delete require.cache[binPath]
 
   try {
@@ -253,7 +253,7 @@ test('CLI selects JSON output before forwarding application arguments', async (
     return originalRequire.call(this, request)
   }
   console.error = () => {}
-  process.argv = [ process.execPath, binPath, '--format', 'compact_json', '--filter-file-name', 'parse', '--filter-severity', '1,3', '--filter-type', 'opt,deopt', 'app.js', '--app-option' ]
+  process.argv = [process.execPath, binPath, '--format', 'compact_json', '--filter-file-name', 'parse', '--filter-severity', '1,3', '--filter-type', 'opt,deopt', 'app.js', '--app-option']
   delete require.cache[binPath]
 
   try {
@@ -261,9 +261,9 @@ test('CLI selects JSON output before forwarding application arguments', async (
     await new Promise(resolve => setImmediate(resolve))
     t.assert.equal(outputFormat, 'compact_json', 'passes the requested format to report generation')
     t.assert.equal(outputFilter, 'parse', 'passes the path filter to report generation')
-    t.assert.deepEqual(outputSeverityFilter, [ 1, 3 ], 'passes the severity filter to report generation')
-    t.assert.deepEqual(outputTypeFilter, [ 'opt', 'deopt' ], 'passes the selected event type combination to report generation')
-    t.assert.deepEqual(createLogArgs, [ 'app.js', '--app-option' ], 'does not pass the format option to the app')
+    t.assert.deepEqual(outputSeverityFilter, [1, 3], 'passes the severity filter to report generation')
+    t.assert.deepEqual(outputTypeFilter, ['opt', 'deopt'], 'passes the selected event type combination to report generation')
+    t.assert.deepEqual(createLogArgs, ['app.js', '--app-option'], 'does not pass the format option to the app')
   } finally {
     Module.prototype.require = originalRequire
     console.error = originalError

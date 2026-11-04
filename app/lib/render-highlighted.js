@@ -14,7 +14,7 @@ const PLACEHOLDER_RX = new RegExp(`${PLACEHOLDER_START}(\\d+)${PLACEHOLDER_END}`
  * @param {number} index Position of the fragment in the list of fragments.
  * @returns {string}
  */
-function placeholder(index) {
+function placeholder (index) {
   return PLACEHOLDER_START + index + PLACEHOLDER_END
 }
 
@@ -22,7 +22,7 @@ function placeholder(index) {
  * @param {number} lineCount
  * @returns {string}
  */
-function lineNumbers(lineCount) {
+function lineNumbers (lineCount) {
   const totalDigits = getDigits(lineCount)
   const lines = []
   for (let lineno = 1; lineno <= lineCount; lineno++) {
@@ -42,7 +42,7 @@ function lineNumbers(lineCount) {
  * @param {string[]} fragments HTML rendered by the theme.
  * @returns {string} HTML fragment.
  */
-function renderHighlighted(transformedCode, fragments) {
+function renderHighlighted (transformedCode, fragments) {
   const code = escapeHtml(transformedCode).replace(PLACEHOLDER_RX, (match, index) => {
     const fragment = fragments[Number(index)]
     return fragment === undefined ? match : fragment

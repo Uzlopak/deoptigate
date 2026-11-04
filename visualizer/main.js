@@ -66,9 +66,9 @@ function summarize (info) {
   const deopts = info.deopts || []
   const ics = info.ics || []
   const codes = info.codes || []
-  const score = scorePoints(deopts, 'deopts')
-    + scorePoints(ics, 'ics')
-    + scorePoints(codes, 'codes')
+  const score = scorePoints(deopts, 'deopts') +
+    scorePoints(ics, 'ics') +
+    scorePoints(codes, 'codes')
   return { deopts, ics, codes, score }
 }
 

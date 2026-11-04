@@ -44,7 +44,7 @@ const groupByFile = require('./lib/grouping/group-by-file')
  * @param {LogOptions} options Parsing options.
  * @returns {Promise<ParsedLog>}
  */
-async function extractDataFromLog(p, { icStateChangesOnly, root }) {
+async function extractDataFromLog (p, { icStateChangesOnly, root }) {
   const lines = await lineReader(p, 'utf-8')
   root = root == null ? path.dirname(p) : root
   const processed = await processLogContent(lines, root)
@@ -58,7 +58,7 @@ async function extractDataFromLog(p, { icStateChangesOnly, root }) {
  * @param {LogOptions} [options]
  * @returns {Promise<Map<string, FileGroup>>}
  */
-async function processLog(p, { icStateChangesOnly = true, root } = {}) {
+async function processLog (p, { icStateChangesOnly = true, root } = {}) {
   const extracted = await extractDataFromLog(p, { icStateChangesOnly, root })
   const data = extracted.toObject()
   const files = await resolveFiles(data)
@@ -72,7 +72,7 @@ async function processLog(p, { icStateChangesOnly = true, root } = {}) {
  * @param {LogOptions} [options]
  * @returns {Promise<string>} Pretty-printed JSON representation.
  */
-async function logToJSON(p, { icStateChangesOnly = true, root } = {}) {
+async function logToJSON (p, { icStateChangesOnly = true, root } = {}) {
   const groupedByFile = await processLog(p, { icStateChangesOnly, root })
   return JSON.stringify(Array.from(groupedByFile), null, 2)
 }
@@ -83,13 +83,13 @@ async function logToJSON(p, { icStateChangesOnly = true, root } = {}) {
  * @param {Pick<LogOptions, 'icStateChangesOnly'>} [options]
  * @returns {Promise<Map<string, LocatedFileGroup>>}
  */
-async function deoptigateLog(p, { icStateChangesOnly = true } = {}) {
+async function deoptigateLog (p, { icStateChangesOnly = true } = {}) {
   const groupedByFile = await processLog(p, { icStateChangesOnly })
   return deoptigate(groupedByFile)
 }
 
 module.exports = {
-    processLog
-  , logToJSON
-  , deoptigateLog
+  processLog,
+  logToJSON,
+  deoptigateLog
 }

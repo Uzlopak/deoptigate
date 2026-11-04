@@ -22,7 +22,7 @@ const { deoptigateLog, logToJSON } = require('../deoptigate.log')
  * @param {unknown} value
  * @returns {value is TestLogEntry}
  */
-function isTestLogEntry(value) {
+function isTestLogEntry (value) {
   return value != null && typeof value === 'object' &&
     'file' in value && typeof value.file === 'string' &&
     'updates' in value && Array.isArray(value.updates)
@@ -32,7 +32,7 @@ function isTestLogEntry(value) {
  * @param {unknown} value
  * @returns {value is TestFileData}
  */
-function isTestFileData(value) {
+function isTestFileData (value) {
   return value != null && typeof value === 'object' &&
     'fullPath' in value && typeof value.fullPath === 'string' &&
     'relativePath' in value && typeof value.relativePath === 'string' &&
@@ -48,7 +48,7 @@ function isTestFileData(value) {
  * @param {...string} args
  * @returns {string}
  */
-function repoRoot(...args) {
+function repoRoot (...args) {
   return path.join(__dirname, '..', ...args)
 }
 
@@ -60,11 +60,11 @@ function repoRoot(...args) {
  * @param {string} destDir
  * @returns {Promise<string>}
  */
-async function prepareLogFile(srcLog, replacements, destDir) {
+async function prepareLogFile (srcLog, replacements, destDir) {
   let contents = await readFile(srcLog, 'utf8')
 
   // Windows + Git shenanigans
-  contents = contents.replace(WINDOWS_LINE_ENDINGS_RX, '\n');
+  contents = contents.replace(WINDOWS_LINE_ENDINGS_RX, '\n')
   for (const [template, realPath] of replacements) {
     contents = contents.replace(
       new RegExp(escapeRegex(template), 'g'),
@@ -84,7 +84,7 @@ async function prepareLogFile(srcLog, replacements, destDir) {
  * @param {(preparedLogPath: string) => Promise<T>} run
  * @returns {Promise<T>}
  */
-async function withPreparedLog(srcLog, replacements, run) {
+async function withPreparedLog (srcLog, replacements, run) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-prepared-log-'))
   const destLog = path.join(tempDir, path.basename(srcLog).replace(V8_LOG_SUFFIX_RX, '.prepared.v8.log'))
   try {
@@ -179,7 +179,7 @@ test('logToJSON returns the complete grouped file data', async (/** @type {impor
   t.plan(2)
   const sourceFile = repoRoot('examples/simple/adders.js')
   const srcLogPath = path.join(__dirname, 'logs', 'adders.v8.log')
-  await withPreparedLog(srcLogPath, [ [ '/tmp/deoptigate/examples/simple/adders.js', sourceFile ] ], async destLogPath => {
+  await withPreparedLog(srcLogPath, [['/tmp/deoptigate/examples/simple/adders.js', sourceFile]], async destLogPath => {
     const json = await logToJSON(destLogPath, { root: repoRoot() })
     const entries = JSON.parse(json)
     t.assert.ok(Array.isArray(entries), 'returns serialized file groups')

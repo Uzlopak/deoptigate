@@ -64,20 +64,20 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
   /** @type {string[]} */
   const errors = []
   class Reader extends TestLogReaderBase {
-    constructor() {
+    constructor () {
       super()
       this.dispatchTable_ = new Map(Object.entries({
         record: {
-          parsers: [ parseInt, null ]
-        , processor: (/** @type {number} */ n, /** @type {string} */ value) => {
+          parsers: [parseInt, null],
+          processor: (/** @type {number} */ n, /** @type {string} */ value) => {
             if (value === 'throws') throw new Error('synthetic dispatch error')
-            calls.push([ n, value ])
+            calls.push([n, value])
           }
         }
       }))
     }
 
-    printError(/** @type {string} */ message) { errors.push(message) }
+    printError (/** @type {string} */ message) { errors.push(message) }
   }
 
   const reader = new Reader()
@@ -89,8 +89,8 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
   }
   reader.processLogChunk('record,12,hello\\nworld\nunknown,ignored\nrecord,13,throws\nrecord,14,still-runs')
   reader.processLogEnd()
-  t.assert.deepEqual(calls, [ [ 12, 'hello\nworld' ], [ 14, 'still-runs' ] ], 'known records are parsed and processing continues after an error')
-  t.assert.deepEqual(errors, [ 'line 3: synthetic dispatch error' ], 'reports errors with the source line number')
+  t.assert.deepEqual(calls, [[12, 'hello\nworld'], [14, 'still-runs']], 'known records are parsed and processing continues after an error')
+  t.assert.deepEqual(errors, ['line 3: synthetic dispatch error'], 'reports errors with the source line number')
   t.assert.equal(parsedRows, 3, 'skips CSV parsing for unsupported record types')
 })
 
@@ -99,11 +99,11 @@ test('LogReader joins records split across input chunks', (/** @type {import('no
   /** @type {string[]} */
   const values = []
   class Reader extends TestLogReaderBase {
-    constructor() {
+    constructor () {
       super()
       this.dispatchTable_ = new Map(Object.entries({
         record: {
-          parsers: [ null ],
+          parsers: [null],
           processor: (/** @type {string} */ value) => values.push(value)
         }
       }))
@@ -114,7 +114,7 @@ test('LogReader joins records split across input chunks', (/** @type {import('no
   reader.processLogChunk('record,par')
   t.assert.deepEqual(values, [], 'waits until a complete record is available')
   reader.processLogChunk('tial\n')
-  t.assert.deepEqual(values, [ 'partial' ], 'dispatches the reconstructed record')
+  t.assert.deepEqual(values, ['partial'], 'dispatches the reconstructed record')
   reader.processLogEnd()
 })
 
@@ -142,12 +142,12 @@ test('LogReader ignores unknown commands that match Object prototype properties'
   /** @type {string[]} */
   const errors = []
   class Reader extends TestLogReaderBase {
-    constructor() {
+    constructor () {
       super()
       this.dispatchTable_ = new Map()
     }
 
-    printError(/** @type {string} */ message) {
+    printError (/** @type {string} */ message) {
       errors.push(message)
     }
   }
@@ -181,7 +181,7 @@ test('SplayTree maintains ordered address lookup and export', (/** @type {import
   tree.insert(30, 'thirty')
   t.assert.equal(requireNode(tree.find(10)).value, 'ten', 'finds an exact key')
   t.assert.equal(requireNode(tree.findGreatestLessThan(25)).key, 20, 'finds the closest lower key')
-  t.assert.deepEqual(tree.exportKeysAndValues(), [ [ 30, 'thirty' ], [ 20, 'twenty' ], [ 10, 'ten' ] ], 'exports entries in tree traversal order')
+  t.assert.deepEqual(tree.exportKeysAndValues(), [[30, 'thirty'], [20, 'twenty'], [10, 'ten']], 'exports entries in tree traversal order')
   t.assert.equal(requireNode(tree.remove(20)).value, 'twenty', 'removes an entry')
   t.assert.equal(tree.find(20), null, 'removed entries are absent')
 })
@@ -220,7 +220,7 @@ function timedReader (timed, pairwise) {
   /** @type {string[]} */
   const seen = []
   const Reader = /** @type {new (table: object, timed?: boolean, pairwise?: boolean) => TimedLogReader} */ (/** @type {unknown} */ (LogReader))
-  const dispatch = { parsers: [ null ], processor: (/** @type {string} */ value) => { seen.push(value) } }
+  const dispatch = { parsers: [null], processor: (/** @type {string} */ value) => { seen.push(value) } }
   const table = new Map(Object.entries({ row: dispatch, tick: dispatch, 'current-time': dispatch, ignored: null }))
   const reader = new Reader(table, timed, pairwise)
   return { reader, seen }
@@ -232,12 +232,12 @@ test('LogReader holds timed lines until the next time marker', (/** @type {impor
   reader.processLogLine('row,before')
   reader.processLogLine('current-time,1')
   reader.processLogLine('row,held')
-  t.assert.deepEqual(seen, [ 'before' ], 'holds lines after the first marker')
+  t.assert.deepEqual(seen, ['before'], 'holds lines after the first marker')
   reader.processLogLine('current-time,2')
-  t.assert.deepEqual(seen, [ 'before', 'held' ])
+  t.assert.deepEqual(seen, ['before', 'held'])
   reader.processLogLine('row,after')
   reader.processLogLine('current-time,3')
-  t.assert.deepEqual(seen, [ 'before', 'held', 'after' ], 'each marker starts a new range')
+  t.assert.deepEqual(seen, ['before', 'held', 'after'], 'each marker starts a new range')
 })
 
 test('LogReader ends a pairwise timed range at its second marker', (/** @type {import('node:test').TestContext} */ t) => {
@@ -247,7 +247,7 @@ test('LogReader ends a pairwise timed range at its second marker', (/** @type {i
   reader.processLogLine('current-time,2')
   reader.processLogLine('tick,outside')
   reader.processLogLine('row,after')
-  t.assert.deepEqual(seen, [ 'inside', 'after' ], 'ticks outside the range are dropped')
+  t.assert.deepEqual(seen, ['inside', 'after'], 'ticks outside the range are dropped')
 })
 
 test('LogReader skips disabled and vetoed records', (/** @type {import('node:test').TestContext} */ t) => {
@@ -263,11 +263,11 @@ test('LogReader resolves stack frames relative to the previous frame', (/** @typ
   const { reader } = timedReader()
   /** @type {string[]} */
   const errors = []
-  t.assert.deepEqual(reader.processStack(0x10, 0, [ '+2', '-1', '20', 'overflow' ]), [ 0x10, 0x12, 0x11, 0x20 ], 'drops the overflow marker')
-  t.assert.deepEqual(reader.processStack(0x10, 0x30, []), [ 0x10, 0x30 ], 'includes the function address')
+  t.assert.deepEqual(reader.processStack(0x10, 0, ['+2', '-1', '20', 'overflow']), [0x10, 0x12, 0x11, 0x20], 'drops the overflow marker')
+  t.assert.deepEqual(reader.processStack(0x10, 0x30, []), [0x10, 0x30], 'includes the function address')
   reader.printError = message => { errors.push(message) }
-  reader.processStack(0, 0, [ 'overflow' ])
-  t.assert.deepEqual(errors, [ 'dropping: overflow' ])
+  reader.processStack(0, 0, ['overflow'])
+  t.assert.deepEqual(errors, ['dropping: overflow'])
 })
 
 test('Profile ignores moves and deletes of untracked code', (/** @type {import('node:test').TestContext} */ t) => {
@@ -299,6 +299,6 @@ test('SplayTree handles empty trees, duplicates and missing keys', (/** @type {i
   t.assert.equal(requireNode(tree.find(2)).value, 'two', 'keeps the first value for a key')
   t.assert.equal(tree.findMin().key, 1)
   t.assert.equal(tree.findMax().key, 3)
-  t.assert.deepEqual(tree.exportValues().sort(), [ 'one', 'three', 'two' ])
+  t.assert.deepEqual(tree.exportValues().sort(), ['one', 'three', 'two'])
   t.assert.throws(() => tree.remove(9), /Key not found: 9/)
 })

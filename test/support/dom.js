@@ -54,7 +54,7 @@ function installDom ({ search = '' } = {}) {
     return /** @type {TestElement[]} */ (Array.from(this.getElementsByTagName(tagName)))
   }
   helpers.link = function (text) {
-    const [ found ] = this.findAll(element => element.localName === 'a' && element.textContent === text)
+    const [found] = this.findAll(element => element.localName === 'a' && element.textContent === text)
     if (found == null) throw new Error(`no link named ${text}`)
     return found
   }

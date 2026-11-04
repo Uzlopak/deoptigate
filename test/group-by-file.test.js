@@ -16,8 +16,8 @@ test('grouping ignores this package\'s preload files', (/** @type {import('node:
 
   for (const file of preloadPaths) {
     /** @type {Map<string, { fullPath: string, relativePath: string, src: string }>} */
-    const files = new Map([[ file, { fullPath: file, relativePath: file, src: '' } ]])
-    const groups = mapByFile({ ics: [ { file } ], deopts: [], codes: [] }, files)
+    const files = new Map([[file, { fullPath: file, relativePath: file, src: '' }]])
+    const groups = mapByFile({ ics: [{ file }], deopts: [], codes: [] }, files)
     t.assert.equal(groups.size, 0, `ignores ${file}`)
   }
 })

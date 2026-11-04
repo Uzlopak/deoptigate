@@ -9,7 +9,7 @@ const logPath = path.resolve(
 )
 
 /** Run the V8 log parsing benchmark. @returns {Promise<void>} */
-async function main() {
+async function main () {
   const bench = new Bench({ time: 1000 })
   bench.add('parse V8 log: ' + path.basename(logPath), async () => {
     await processLog(logPath)

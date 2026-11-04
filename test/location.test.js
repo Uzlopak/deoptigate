@@ -7,7 +7,7 @@ const { byLocation, byLocationKey, unkeyLocation } = require('../lib/grouping/lo
  * @param {import('../lib/grouping/location').Location | null} location
  * @returns {import('../lib/grouping/location').Location}
  */
-function requireLocation(location) {
+function requireLocation (location) {
   if (location == null) throw new Error('expected a parsed location')
   return location
 }

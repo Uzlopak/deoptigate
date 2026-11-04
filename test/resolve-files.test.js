@@ -19,9 +19,9 @@ test('resolveFiles reads unique readable source files and skips missing paths an
   try {
     const files = await resolveFiles({
       root,
-      ics: [ { file: 'source.js' }, { file: 'missing.js' } ],
-      deopts: [ { file: 'directory' } ],
-      codes: [ { file: 'source.js' } ]
+      ics: [{ file: 'source.js' }, { file: 'missing.js' }],
+      deopts: [{ file: 'directory' }],
+      codes: [{ file: 'source.js' }]
     })
 
     t.assert.equal(files.size, 1, 'only readable regular files are returned')
@@ -47,7 +47,7 @@ test('resolveFiles reads files referenced by file URLs', async (/** @type {impor
   fs.writeFileSync(source, 'export default 42\n')
 
   try {
-    const files = await resolveFiles({ root, ics: [], deopts: [ { file: url } ], codes: [] })
+    const files = await resolveFiles({ root, ics: [], deopts: [{ file: url }], codes: [] })
     t.assert.deepEqual(files.get(url), {
       fullPath: source,
       relativePath: 'module.mjs',
@@ -65,7 +65,7 @@ test('resolveFiles skips malformed file URLs', async (/** @type {import('node:te
   const files = await resolveFiles({
     root: os.tmpdir(),
     ics: [],
-    deopts: [ { file: 'file://remote-host/module.mjs' }, { file: 'file:///%2Fencoded-slash.mjs' } ],
+    deopts: [{ file: 'file://remote-host/module.mjs' }, { file: 'file:///%2Fencoded-slash.mjs' }],
     codes: []
   })
   t.assert.equal(files.size, 0, 'unusable URLs are omitted like missing files')
@@ -76,4 +76,3 @@ test('resolveFiles returns an empty map when there are no data points', async (/
   const files = await resolveFiles({ root: os.tmpdir(), ics: [], deopts: [], codes: [] })
   t.assert.equal(files.size, 0, 'empty input resolves to no files')
 })
-

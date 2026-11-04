@@ -7,7 +7,7 @@ const { processLogContent } = require('../deoptigate')
 const repoRoot = path.join(__dirname, '..')
 
 /** @returns {AsyncGenerator<string>} */
-async function* emptyLogLines() {}
+async function * emptyLogLines () {}
 
 test('processor handles code deletion and reports errors when configured', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
@@ -40,7 +40,7 @@ test('processor handles code deletion and reports errors when configured', async
   }
 
   t.assert.equal(traceCalls, 1, 'an error prints a trace when silent errors are disabled')
-  t.assert.deepEqual(errors, [ 'synthetic parser error' ], 'the error message is printed')
+  t.assert.deepEqual(errors, ['synthetic parser error'], 'the error message is printed')
 })
 
 test('processor handles names without positions, missing code, and non-wrapper scripts', async (/** @type {import('node:test').TestContext} */ t) => {

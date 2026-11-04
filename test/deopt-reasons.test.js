@@ -18,7 +18,7 @@ const CSV_COMMA_RX = /,/g
 /** @typedef {{updates: TestDeoptUpdate[]}} TestDeoptEntry */
 
 /** @returns {{ name: string, message: string }[]} */
-function readCatalogReasons() {
+function readCatalogReasons () {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
   for (const line of contents.split('\n')) {
@@ -32,7 +32,7 @@ function readCatalogReasons() {
  * @param {string} value
  * @returns {string}
  */
-function v8CsvField(value) {
+function v8CsvField (value) {
   return value.replace(CSV_COMMA_RX, '\\x2c')
 }
 
@@ -40,7 +40,7 @@ function v8CsvField(value) {
  * @param {string[]} lines
  * @returns {AsyncIterable<string>}
  */
-async function * asAsyncIterable(lines) {
+async function * asAsyncIterable (lines) {
   yield * lines
 }
 

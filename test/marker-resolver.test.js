@@ -13,7 +13,7 @@ const MarkerResolver = require('../lib/rendering/marker-resolver')
  * @returns {[string, {id: number, severity: 1 | 2 | 3, line: number, column: number, isScript?: boolean | undefined}]}
  */
 function marker (line, column, id, severity = 3, isScript) {
-  return [ `run:${line}:${column}`, { id, severity, line, column, isScript } ]
+  return [`run:${line}:${column}`, { id, severity, line, column, isScript }]
 }
 
 /**
@@ -27,7 +27,7 @@ function markers (markers) {
 
 test('MarkerResolver requires locations for each marker map', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
-  const { map } = markers([ marker(1, 1, 0) ])
+  const { map } = markers([marker(1, 1, 0)])
   t.assert.throws(() => new MarkerResolver({ ics: map }), /locations for ics/)
   t.assert.throws(() => new MarkerResolver({ deopts: map }), /locations for deopts/)
   t.assert.throws(() => new MarkerResolver({ codes: map }), /locations for codes/)
@@ -42,9 +42,9 @@ test('MarkerResolver resolves nothing without marker data', (/** @type {import('
 
 test('MarkerResolver walks all marker kinds in source order', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
-  const ics = markers([ marker(3, 1, 0) ])
-  const deopts = markers([ marker(1, 5, 1), marker(2, 1, 2) ])
-  const codes = markers([ marker(1, 2, 3) ])
+  const ics = markers([marker(3, 1, 0)])
+  const deopts = markers([marker(1, 5, 1), marker(2, 1, 2)])
+  const codes = markers([marker(1, 2, 3)])
   const resolver = new MarkerResolver({
     ics: ics.map,
     icLocations: ics.locations,
@@ -66,9 +66,9 @@ test('MarkerResolver walks all marker kinds in source order', (/** @type {import
 
 test('MarkerResolver prefers the earlier of two locations on a line', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
-  const earlier = markers([ marker(1, 2, 0) ])
-  const later = markers([ marker(1, 5, 1) ])
-  const lowerLine = markers([ marker(2, 1, 2) ])
+  const earlier = markers([marker(1, 2, 0)])
+  const later = markers([marker(1, 5, 1)])
+  const lowerLine = markers([marker(2, 1, 2)])
 
   t.assert.equal(new MarkerResolver({
     ics: later.map, icLocations: later.locations, deopts: earlier.map, deoptLocations: earlier.locations
@@ -83,7 +83,7 @@ test('MarkerResolver prefers the earlier of two locations on a line', (/** @type
 
 test('MarkerResolver can hide minimum severity markers', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
-  const deopts = markers([ marker(1, 1, 0, 1), marker(2, 1, 1, 2) ])
+  const deopts = markers([marker(1, 1, 0, 1), marker(2, 1, 1, 2)])
   const resolver = new MarkerResolver({
     deopts: deopts.map,
     deoptLocations: deopts.locations,
@@ -98,20 +98,20 @@ test('MarkerResolver can hide minimum severity markers', (/** @type {import('nod
 
 test('MarkerResolver places a script wrapper marker before the source', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
-  const codes = markers([ marker(1, 1, 0, 3, true) ])
+  const codes = markers([marker(1, 1, 0, 3, true)])
   const resolver = new MarkerResolver({ codes: codes.map, codeLocations: codes.locations })
   t.assert.match(resolver.resolve({ line: 1, column: 1 }).insertBefore, /data-markertype="code"/)
 })
 
 test('MarkerResolver renders a marker left behind on an earlier line', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
-  const deopts = markers([ marker(1, 9, 0) ])
+  const deopts = markers([marker(1, 9, 0)])
   const resolver = new MarkerResolver({ deopts: deopts.map, deoptLocations: deopts.locations })
   t.assert.match(resolver.resolve({ line: 2, column: 1 }).insertAfter, /data-markertype="deopt"/)
 })
 
 test('MarkerResolver skips a location missing from its map', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
-  const resolver = new MarkerResolver({ deopts: new Map(), deoptLocations: [ 'run:1:1' ] })
+  const resolver = new MarkerResolver({ deopts: new Map(), deoptLocations: ['run:1:1'] })
   t.assert.deepEqual(resolver.resolve({ line: 1, column: 1 }), { insertBefore: '', insertAfter: '' })
 })

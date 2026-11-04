@@ -18,7 +18,7 @@ const FUNCTION_LOCATION_RX = /(.*):([0-9]+):([0-9]+)$/
  * @param {string} s
  * @returns {number}
  */
-function maybeNumber(s) {
+function maybeNumber (s) {
   return parseInt(s)
 }
 
@@ -26,14 +26,14 @@ function maybeNumber(s) {
  * @param {{ func: { getName(): string } }} entry
  * @returns {{ fnFile: string, line: number, column: number }}
  */
-function formatName(entry) {
+function formatName (entry) {
   const name = entry.func.getName()
   const array = FUNCTION_LOCATION_RX.exec(name)
   if (!array) return { fnFile: name, line: -1, column: -1 }
   return {
-      fnFile: array[1]
-    , line: maybeNumber(array[2])
-    , column: maybeNumber(array[3])
+    fnFile: array[1],
+    line: maybeNumber(array[2]),
+    column: maybeNumber(array[3])
   }
 }
 
@@ -43,13 +43,13 @@ function formatName(entry) {
  * @param {number} column
  * @returns {string}
  */
-function locationKey(file, line, column) {
+function locationKey (file, line, column) {
   return `${file}:${line}:${column}`
 }
 
 // IC records gained a timestamp field after the PC in newer V8 releases.
 // Parse them as raw fields and normalize both layouts in the processor.
-const propertyICParser = /** @type {const} */ ([ 'var-args' ])
+const propertyICParser = /** @type {const} */ (['var-args'])
 
 /**
  * @typedef {object} DeoptProcessorOptions
@@ -188,7 +188,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string} root
    * @param {DeoptProcessorOptions=} options
    */
-  constructor(root, { silentErrors = true } = {}) {
+  constructor (root, { silentErrors = true } = {}) {
     super()
     this._root = root
     this._silentErrors = silentErrors
@@ -197,55 +197,55 @@ class DeoptProcessor extends LogReaderBase {
     // doesn't work, so we set it afterwards
     this.dispatchTable_ = new Map(Object.entries({
 
-        // Collect info about CRUD of code
-        'code-creation': {
-            parsers: [
-              null, parseInt, parseInt, parseInt, parseInt, null, 'var-args'
-            ]
-          , processor: this._processCodeCreation.bind(this)
-        }
-      , 'code-move': {
-            parsers: [ parseInt, parseInt ]
-          , processor: this._processCodeMove.bind(this)
-        }
-      , 'code-delete': {
-            parsers: [ parseInt ]
-          , processor: this._processCodeDelete.bind(this)
-        }
-      , 'sfi-move': {
-            parsers: [ parseInt, parseInt ]
-          , processor: this._processFunctionMove.bind(this)
-        }
+      // Collect info about CRUD of code
+      'code-creation': {
+        parsers: [
+          null, parseInt, parseInt, parseInt, parseInt, null, 'var-args'
+        ],
+        processor: this._processCodeCreation.bind(this)
+      },
+      'code-move': {
+        parsers: [parseInt, parseInt],
+        processor: this._processCodeMove.bind(this)
+      },
+      'code-delete': {
+        parsers: [parseInt],
+        processor: this._processCodeDelete.bind(this)
+      },
+      'sfi-move': {
+        parsers: [parseInt, parseInt],
+        processor: this._processFunctionMove.bind(this)
+      },
 
       // Collect deoptimization info
-      , 'code-deopt': {
-            parsers: [
-              parseInt, parseInt, parseInt, parseInt, parseInt, null, null, null
-            ]
-          , processor: this._processCodeDeopt.bind(this)
-        }
+      'code-deopt': {
+        parsers: [
+          parseInt, parseInt, parseInt, parseInt, parseInt, null, null, null
+        ],
+        processor: this._processCodeDeopt.bind(this)
+      },
 
       // Collect IC info
-      , 'LoadIC': {
-            parsers : propertyICParser
-          , processor: this._processPropertyIC.bind(this, 'LoadIC')
-        }
-      , 'StoreIC': {
-            parsers : propertyICParser
-          , processor: this._processPropertyIC.bind(this, 'StoreIC')
-        }
-      , 'KeyedLoadIC': {
-            parsers : propertyICParser
-          , processor: this._processPropertyIC.bind(this, 'KeyedLoadIC')
-        }
-      , 'KeyedStoreIC': {
-            parsers : propertyICParser
-          , processor: this._processPropertyIC.bind(this, 'KeyedStoreIC')
-        }
-      , 'StoreInArrayLiteralIC': {
-            parsers : propertyICParser
-          , processor: this._processPropertyIC.bind(this, 'StoreInArrayLiteralIC')
-        }
+      LoadIC: {
+        parsers: propertyICParser,
+        processor: this._processPropertyIC.bind(this, 'LoadIC')
+      },
+      StoreIC: {
+        parsers: propertyICParser,
+        processor: this._processPropertyIC.bind(this, 'StoreIC')
+      },
+      KeyedLoadIC: {
+        parsers: propertyICParser,
+        processor: this._processPropertyIC.bind(this, 'KeyedLoadIC')
+      },
+      KeyedStoreIC: {
+        parsers: propertyICParser,
+        processor: this._processPropertyIC.bind(this, 'KeyedStoreIC')
+      },
+      StoreInArrayLiteralIC: {
+        parsers: propertyICParser,
+        processor: this._processPropertyIC.bind(this, 'StoreInArrayLiteralIC')
+      }
     }))
 
     this._profile = new ProfileConstructor()
@@ -262,7 +262,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {number} pc
    * @returns {FunctionInfo}
    */
-  functionInfo(pc) {
+  functionInfo (pc) {
     const entry = this._profile.findEntry(pc)
     if (entry == null) return { fnFile: '', line: -1, column: -1, state: -1 }
     const { fnFile, line, column } = formatName(entry)
@@ -274,9 +274,9 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string[]} fields
    * @returns {void}
    */
-  _processPropertyIC(
-      type
-    , fields
+  _processPropertyIC (
+    type,
+    fields
   ) {
     const modernFormat = fields.length >= 10
     const pc = parseInt(fields[0])
@@ -310,15 +310,15 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string} deoptReasonText
    * @returns {void}
    */
-  _processCodeDeopt(
-      timestamp
-    , size
-    , code
-    , inliningId
-    , scriptOffset
-    , bailoutType
-    , sourcePositionText
-    , deoptReasonText
+  _processCodeDeopt (
+    timestamp,
+    size,
+    code,
+    inliningId,
+    scriptOffset,
+    bailoutType,
+    sourcePositionText,
+    deoptReasonText
   ) {
     const { fnFile, state } = this.functionInfo(code)
     const { file, line, column } = DeoptEntry.disassembleSourcePosition(sourcePositionText)
@@ -344,7 +344,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string[]} maybe_func
    * @returns {void}
    */
-  _processCodeCreation(
+  _processCodeCreation (
     type, kind, timestamp, start, size, name, maybe_func
   ) {
     if (maybe_func.length) {
@@ -358,7 +358,7 @@ class DeoptProcessor extends LogReaderBase {
       const isScript = type === 'Script'
       const isUserFunction = type === 'LazyCompile' || type === 'JS'
       if (isUserFunction || isScript) {
-        let { fnFile, line, column } = this.functionInfo(start)
+        const { fnFile, line, column } = this.functionInfo(start)
 
         // only interested in Node.js anonymous wrapper function
         // (function (exports, require, module, __filename, __dirname) {
@@ -383,7 +383,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {number} to
    * @returns {void}
    */
-  _processCodeMove(from, to) {
+  _processCodeMove (from, to) {
     this._profile.moveCode(from, to)
   }
 
@@ -391,7 +391,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {number} start
    * @returns {void}
    */
-  _processCodeDelete(start) {
+  _processCodeDelete (start) {
     this._profile.deleteCode(start)
   }
 
@@ -400,7 +400,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {number} to
    * @returns {void}
    */
-  _processFunctionMove(from, to) {
+  _processFunctionMove (from, to) {
     this._profile.moveFunc(from, to)
   }
 
@@ -409,7 +409,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string} msg
    * @returns {void}
    */
-  printError(msg) {
+  printError (msg) {
     if (this._silentErrors) return
     console.trace()
     console.error(msg)
@@ -419,11 +419,11 @@ class DeoptProcessor extends LogReaderBase {
    * @param {string} string
    * @returns {void}
    */
-  processString(string) {
-    var end = string.length
-    var current = 0
-    var next = 0
-    var line
+  processString (string) {
+    const end = string.length
+    let current = 0
+    let next = 0
+    let line
     while (current < end) {
       next = string.indexOf('\n', current)
       if (next === -1) break
@@ -434,9 +434,9 @@ class DeoptProcessor extends LogReaderBase {
   }
 
   /** @returns {void} */
-  filterIcStateChanges() {
+  filterIcStateChanges () {
     const emptyEntries = new Set()
-    for (const [ key, entry ] of this.entriesIC) {
+    for (const [key, entry] of this.entriesIC) {
       entry.filterIcStateChanges()
       if (entry.updates.length === 0) emptyEntries.add(key)
     }
@@ -444,7 +444,7 @@ class DeoptProcessor extends LogReaderBase {
   }
 
   /** @returns {DeoptProcessorResult} */
-  toObject() {
+  toObject () {
     const ics = []
     for (const entry of this.entriesIC.values()) {
       ics.push(entry.hashmap)
@@ -464,7 +464,7 @@ class DeoptProcessor extends LogReaderBase {
    * @param {number=} indent
    * @returns {string}
    */
-  toJSON(indent = 2) {
+  toJSON (indent = 2) {
     return JSON.stringify(this.toObject(), null, indent)
   }
 }
@@ -482,24 +482,24 @@ const WARM_UP_ROWS = 60
  * @param {number} row
  * @returns {string[]} Log lines that together take the branches a real log only reaches late.
  */
-function warmUpLines(row) {
+function warmUpLines (row) {
   // Stepping through 64 slots out of order revisits and reuses addresses.
   const address = (/** @type {number} */ offset) =>
     '0x' + (0x100000 + (row * 37 + offset) % 64 * 0x40).toString(16)
   return [
-      `code-creation,Builtin,2,${row},${address(0)},32,warm\\x2Cup\\u0041\\n\\\\\\q tail`
-    , `code-creation,JS,9,${row},${address(1)},32, warmUp /warm-up.js:1:${row},${address(2)},~`
-    , `code-creation,Builtin,2,${row},${address(0)},8,overlaps`
-    , `code-move,${address(3)},${address(4)}`
-    , `sfi-move,${address(5)},${address(6)}`
-    , `code-delete,${address(7)}`
+      `code-creation,Builtin,2,${row},${address(0)},32,warm\\x2Cup\\u0041\\n\\\\\\q tail`,
+     `code-creation,JS,9,${row},${address(1)},32, warmUp /warm-up.js:1:${row},${address(2)},~`,
+     `code-creation,Builtin,2,${row},${address(0)},8,overlaps`,
+     `code-move,${address(3)},${address(4)}`,
+     `sfi-move,${address(5)},${address(6)}`,
+     `code-delete,${address(7)}`
   ]
 }
 
 let isWarmedUp = false
 
 /** @returns {void} */
-function warmUp() {
+function warmUp () {
   if (isWarmedUp) return
   isWarmedUp = true
   const processor = new DeoptProcessor('')
@@ -515,7 +515,7 @@ function warmUp() {
  * @param {AsyncIterator<string>} lines
  * @returns {Promise<void>}
  */
-async function processLines(deoptProcessor, lines) {
+async function processLines (deoptProcessor, lines) {
   let next
   while (!(next = await lines.next()).done) {
     try {
@@ -535,7 +535,7 @@ async function processLines(deoptProcessor, lines) {
  * @param {string} root
  * @returns {Promise<DeoptProcessor>}
  */
-async function processLogContent(lines, root) {
+async function processLogContent (lines, root) {
   warmUp()
   const deoptProcessor = new DeoptProcessor(root)
   await processLines(deoptProcessor, lines[Symbol.asyncIterator]())
@@ -552,12 +552,12 @@ async function processLogContent(lines, root) {
  * @param {Map<string, RawFileGroup>} groupedByFile
  * @returns {Map<string, LocatedFileGroup>}
  */
-function deoptigate(groupedByFile) {
+function deoptigate (groupedByFile) {
   const groupedByFileAndLocation = groupByFileAndLocation(groupedByFile)
   return groupedByFileAndLocation
 }
 
 module.exports = {
-    processLogContent
-  , deoptigate
+  processLogContent,
+  deoptigate
 }

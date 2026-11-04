@@ -2,10 +2,10 @@
 
 const { test } = require('node:test')
 const {
-    stateFromUrl
-  , normalizeIndex
-  , mergeInitialState
-  , urlFromState
+  stateFromUrl,
+  normalizeIndex,
+  mergeInitialState,
+  urlFromState
 } = require('../app/lib/query-state')
 
 /**
@@ -16,7 +16,7 @@ const {
  * @param {() => T} callback
  * @returns {T}
  */
-function withLocation(search, callback) {
+function withLocation (search, callback) {
   const previousLocation = Object.getOwnPropertyDescriptor(globalThis, 'location')
   Object.defineProperty(globalThis, 'location', {
     configurable: true,
@@ -41,7 +41,7 @@ function withLocation(search, callback) {
  * @param {string} search
  * @returns {ReturnType<typeof stateFromUrl>}
  */
-function readState(search) {
+function readState (search) {
   return withLocation(search, stateFromUrl)
 }
 
@@ -75,9 +75,9 @@ test('stateFromUrl rejects malformed numeric query values', (
 test('normalizeIndex uses a default for indexes outside the known tabs', (
   /** @type {import('node:test').TestContext} */ t
 ) => {
-  t.assert.equal(normalizeIndex(1, [ 0, 1 ], 0), 1, 'keeps a valid tab index')
-  t.assert.equal(normalizeIndex(99, [ 0, 1 ], 0), 0, 'replaces an out-of-range tab index')
-  t.assert.equal(normalizeIndex(null, [ 0, 1 ], 0), 0, 'replaces a missing tab index')
+  t.assert.equal(normalizeIndex(1, [0, 1], 0), 1, 'keeps a valid tab index')
+  t.assert.equal(normalizeIndex(99, [0, 1], 0), 0, 'replaces an out-of-range tab index')
+  t.assert.equal(normalizeIndex(null, [0, 1], 0), 0, 'replaces a missing tab index')
 })
 
 test('mergeInitialState restores URL state without mutating shared defaults', (
@@ -102,10 +102,10 @@ test('urlFromState serializes selected state and skips undefined values', (
   /** @type {import('node:test').TestContext} */ t
 ) => {
   const url = withLocation('?initial=true', () => urlFromState({
-      includeAllSeverities: true
-    , selectedFileIdx: null
-    , selectedLocation: undefined
-    , selectedTabIdx: 1
+    includeAllSeverities: true,
+    selectedFileIdx: null,
+    selectedLocation: undefined,
+    selectedTabIdx: 1
   }))
 
   t.assert.equal(

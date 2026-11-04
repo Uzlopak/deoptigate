@@ -5,7 +5,7 @@
  * @param {boolean} selected Whether this category is active.
  * @returns {{'aria-current': 'true' | undefined}}
  */
-function summaryNavigationAttributes(selected) {
+function summaryNavigationAttributes (selected) {
   return { 'aria-current': selected ? 'true' : undefined }
 }
 

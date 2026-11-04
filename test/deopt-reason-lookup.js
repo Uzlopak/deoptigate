@@ -28,7 +28,7 @@ observedAliasesByMajor[12]['const tracking let constness invalidated'] = 'ConstT
  * @param {number} v8Major
  * @returns {Record<string, string>}
  */
-function createReasonLookup(reasons, v8Major) {
+function createReasonLookup (reasons, v8Major) {
   /** @type {Record<string, string>} */
   const aliases = Object.create(null)
 
@@ -53,7 +53,7 @@ function createReasonLookup(reasons, v8Major) {
  * @param {number} v8Major
  * @returns {Set<string>|null} IDs, or null when no generated map exists.
  */
-function reasonIdsForMajor(v8Major) {
+function reasonIdsForMajor (v8Major) {
   const aliases = generatedAliasesByMajor[v8Major]
   if (!aliases) return null
 

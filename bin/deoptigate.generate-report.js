@@ -20,40 +20,40 @@ const { savePage, saveEntry, saveJson } = require('../app/lib/save-parts')
  * @param {EventType[]} [typeFilter] Event categories that should remain.
  * @returns {Promise<void>}
  */
-async function generateReport(v8log, head, format = 'html', fileNameFilter, severityFilter, typeFilter) {
-    const parsedReport = await processLog(v8log, { root: process.cwd() })
-    const report = filterReport(parsedReport, fileNameFilter, severityFilter, typeFilter)
-    if (format === 'json' || format === 'compact_json' || format === 'jsonl') {
-      let output
-      if (format === 'compact_json') output = compactJson(report)
-      else if (format === 'jsonl') output = toJsonl(report)
-      else {
-        const entries = []
-        for (const entry of report) entries.push(entry)
-        output = JSON.stringify(entries, null, 2)
-      }
-      const jsonFile = saveJson(output, format)
-      const description = format === 'jsonl'
-        ? 'deoptimization data as JSONL'
-        : format === 'compact_json'
-          ? 'compact deoptimization data'
-          : 'deoptimization data'
-      console.error(`
+async function generateReport (v8log, head, format = 'html', fileNameFilter, severityFilter, typeFilter) {
+  const parsedReport = await processLog(v8log, { root: process.cwd() })
+  const report = filterReport(parsedReport, fileNameFilter, severityFilter, typeFilter)
+  if (format === 'json' || format === 'compact_json' || format === 'jsonl') {
+    let output
+    if (format === 'compact_json') output = compactJson(report)
+    else if (format === 'jsonl') output = toJsonl(report)
+    else {
+      const entries = []
+      for (const entry of report) entries.push(entry)
+      output = JSON.stringify(entries, null, 2)
+    }
+    const jsonFile = saveJson(output, format)
+    const description = format === 'jsonl'
+      ? 'deoptimization data as JSONL'
+      : format === 'compact_json'
+        ? 'compact deoptimization data'
+        : 'deoptimization data'
+    console.error(`
 ${head}: Successfully generated ${description}
   Saved to:
     ${jsonFile}
     `)
-      return
-    }
+    return
+  }
 
-    const html = createPage(null)
-    const indexHtmlFile = savePage(html)
-    const entries = []
-    for (const entry of report) entries.push(entry)
-    const json = JSON.stringify(entries, null, 2)
-    saveEntry(json)
+  const html = createPage(null)
+  const indexHtmlFile = savePage(html)
+  const entries = []
+  for (const entry of report) entries.push(entry)
+  const json = JSON.stringify(entries, null, 2)
+  saveEntry(json)
 
-      console.error(`
+  console.error(`
 ${head}: Successfully generated deoptimization visualization  🎉 ⚡ ✨
   Saved to:
     ${indexHtmlFile}
@@ -68,15 +68,15 @@ ${head}: Successfully generated deoptimization visualization  🎉 ⚡ ✨
  * @param {EventType[] | undefined} typeFilter
  * @returns {Awaited<ReturnType<typeof processLog>>}
  */
-function filterReport(report, fileNameFilter, severityFilter, typeFilter) {
+function filterReport (report, fileNameFilter, severityFilter, typeFilter) {
   if (fileNameFilter == null && severityFilter == null && typeFilter == null) return report
 
   const filteredReport = new Map()
   for (const [file, info] of report) {
     if (
-      fileNameFilter != null
-      && !file.includes(fileNameFilter)
-      && !info.relativePath.includes(fileNameFilter)
+      fileNameFilter != null &&
+      !file.includes(fileNameFilter) &&
+      !info.relativePath.includes(fileNameFilter)
     ) continue
 
     if (severityFilter == null && typeFilter == null) {
@@ -85,10 +85,10 @@ function filterReport(report, fileNameFilter, severityFilter, typeFilter) {
     }
 
     const filteredInfo = {
-        ...info
-      , ics: typeFilter != null && !typeFilter.includes('ic') ? [] : filterEventsBySeverity(info.ics, severityFilter)
-      , deopts: typeFilter != null && !typeFilter.includes('deopt') ? [] : filterEventsBySeverity(info.deopts, severityFilter)
-      , codes: typeFilter != null && !typeFilter.includes('opt') ? [] : filterEventsBySeverity(info.codes, severityFilter)
+      ...info,
+      ics: typeFilter != null && !typeFilter.includes('ic') ? [] : filterEventsBySeverity(info.ics, severityFilter),
+      deopts: typeFilter != null && !typeFilter.includes('deopt') ? [] : filterEventsBySeverity(info.deopts, severityFilter),
+      codes: typeFilter != null && !typeFilter.includes('opt') ? [] : filterEventsBySeverity(info.codes, severityFilter)
     }
     if (filteredInfo.ics.length === 0 && filteredInfo.deopts.length === 0 && filteredInfo.codes.length === 0) continue
     filteredReport.set(file, filteredInfo)
@@ -102,7 +102,7 @@ function filterReport(report, fileNameFilter, severityFilter, typeFilter) {
  * @param {Severity[] | undefined} severityFilter
  * @returns {import('../deoptigate.log').V8DataPoint[]}
  */
-function filterEventsBySeverity(events, severityFilter) {
+function filterEventsBySeverity (events, severityFilter) {
   /** @type {import('../deoptigate.log').V8DataPoint[]} */
   const filteredEvents = []
   for (const event of events) {

@@ -7,7 +7,7 @@ const { fileURLToPath } = require('url')
 const esbuild = require('../../app/node_modules/esbuild')
 
 const APP_DIRECTORY = path.join(__dirname, '../../app')
-const JSX_FILES = new Set([ path.join(APP_DIRECTORY, 'main.js') ])
+const JSX_FILES = new Set([path.join(APP_DIRECTORY, 'main.js')])
 const COMPONENTS_DIRECTORY = path.join(APP_DIRECTORY, 'components') + path.sep
 const INLINE_MAP_PREFIX = '//# sourceMappingURL=data:application/json;base64,'
 

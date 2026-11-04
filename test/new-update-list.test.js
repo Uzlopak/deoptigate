@@ -15,8 +15,8 @@ test('every update list is a separate, empty array', () => {
 
 test('update lists start with object elements, so the first push cannot deoptimize', () => {
   const output = execFileSync(process.execPath, [
-      '--allow-natives-syntax'
-    , '-p', `%HasObjectElements(require(${JSON.stringify(require.resolve('../lib/log-processing/new-update-list'))})())`
+    '--allow-natives-syntax',
+    '-p', `%HasObjectElements(require(${JSON.stringify(require.resolve('../lib/log-processing/new-update-list'))})())`
   ], { encoding: 'utf8' })
-  assert.equal(output.trim(), 'true')
+  assert.equal(output.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '').trim(), 'true')
 })

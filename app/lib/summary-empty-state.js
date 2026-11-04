@@ -7,7 +7,7 @@
  * @param {number} visibleCount
  * @returns {string | null}
  */
-function summaryEmptyMessage(locationCount, visibleCount) {
+function summaryEmptyMessage (locationCount, visibleCount) {
   if (locationCount === 0) return 'None'
   if (visibleCount === 0) return 'No events match the current severity filter.'
   return null

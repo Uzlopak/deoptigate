@@ -11,12 +11,12 @@ test('text that never reached a renderer is escaped', (/** @type {import('node:t
 })
 
 test('rendered fragments are inserted as markup', (/** @type {import('node:test').TestContext} */ t) => {
-  const html = renderHighlighted(`${placeholder(1)} ${placeholder(0)}`, [ '<b>first</b>', '<i>second</i>' ])
+  const html = renderHighlighted(`${placeholder(1)} ${placeholder(0)}`, ['<b>first</b>', '<i>second</i>'])
   t.assert.ok(html.includes('<i>second</i> <b>first</b>'))
 })
 
 test('the highlighted code keeps its page structure', (/** @type {import('node:test').TestContext} */ t) => {
-  t.assert.equal(renderHighlighted(placeholder(0), [ '<b>a</b>' ]), [
+  t.assert.equal(renderHighlighted(placeholder(0), ['<b>a</b>']), [
     '<div class="highlight"><pre>',
     '<table>',
     '<td>',
@@ -31,7 +31,7 @@ test('the highlighted code keeps its page structure', (/** @type {import('node:t
 })
 
 test('line numbers include lines inside a fragment', (/** @type {import('node:test').TestContext} */ t) => {
-  const html = renderHighlighted(`${placeholder(0)}\nrun`, [ '<b>/*\n*/</b>' ])
+  const html = renderHighlighted(`${placeholder(0)}\nrun`, ['<b>/*\n*/</b>'])
   t.assert.equal(html.match(/class="lineno"/g)?.length, 3)
 })
 
@@ -47,6 +47,6 @@ test('a placeholder written in the source cannot select an unknown fragment', (/
 })
 
 test('a fragment is not searched for further placeholders', (/** @type {import('node:test').TestContext} */ t) => {
-  const html = renderHighlighted(placeholder(0), [ placeholder(1), '<img>' ])
+  const html = renderHighlighted(placeholder(0), [placeholder(1), '<img>'])
   t.assert.ok(!html.includes('<img>'))
 })

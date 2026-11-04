@@ -14,7 +14,7 @@
  * @param {string | null} s
  * @returns {number | null}
  */
-function parseNum(s) {
+function parseNum (s) {
   if (s == null || s.trim() === '') return null
   const value = Number(s)
   return Number.isSafeInteger(value) ? value : null
@@ -24,21 +24,21 @@ function parseNum(s) {
  * @param {string | null} s
  * @returns {boolean}
  */
-function parseBool(s) {
+function parseBool (s) {
   return s === 'true'
 }
 
 /** @returns {QueryState | null} */
-function stateFromUrl() {
+function stateFromUrl () {
   if (location.search.length < 2) return null
   const query = location.search.slice(1)
   const queryState = new URLSearchParams(query)
   const state = {
-      includeAllSeverities  : parseBool(queryState.get('includeAllSeverities'))
-    , selectedFileIdx       : parseNum(queryState.get('selectedFileIdx'))
-    , selectedLocation      : parseNum(queryState.get('selectedLocation'))
-    , selectedTabIdx        : parseNum(queryState.get('selectedTabIdx'))
-    , selectedSummaryTabIdx : parseNum(queryState.get('selectedSummaryTabIdx'))
+    includeAllSeverities: parseBool(queryState.get('includeAllSeverities')),
+    selectedFileIdx: parseNum(queryState.get('selectedFileIdx')),
+    selectedLocation: parseNum(queryState.get('selectedLocation')),
+    selectedTabIdx: parseNum(queryState.get('selectedTabIdx')),
+    selectedSummaryTabIdx: parseNum(queryState.get('selectedSummaryTabIdx'))
   }
   return state
 }
@@ -51,7 +51,7 @@ function stateFromUrl() {
  * @param {number} defaultValue
  * @returns {number}
  */
-function normalizeIndex(value, validValues, defaultValue) {
+function normalizeIndex (value, validValues, defaultValue) {
   return value != null && validValues.includes(value) ? value : defaultValue
 }
 
@@ -63,7 +63,7 @@ function normalizeIndex(value, validValues, defaultValue) {
  * @param {Partial<T> | null} urlState
  * @returns {T}
  */
-function mergeInitialState(defaults, urlState) {
+function mergeInitialState (defaults, urlState) {
   return Object.assign({}, defaults, urlState)
 }
 
@@ -71,7 +71,7 @@ function mergeInitialState(defaults, urlState) {
  * @param {{[K in keyof QueryState]?: QueryState[K] | undefined}} state
  * @returns {string}
  */
-function urlFromState(state) {
+function urlFromState (state) {
   // An opaque origin such as a file:// page in Firefox serializes to "null".
   const rootUrl = location.origin === 'null' ? '' : location.origin
   const path = location.pathname
@@ -85,8 +85,8 @@ function urlFromState(state) {
 }
 
 module.exports = {
-    stateFromUrl
-  , normalizeIndex
-  , mergeInitialState
-  , urlFromState
+  stateFromUrl,
+  normalizeIndex,
+  mergeInitialState,
+  urlFromState
 }

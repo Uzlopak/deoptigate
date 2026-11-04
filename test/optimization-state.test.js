@@ -2,12 +2,12 @@
 
 const { test } = require('node:test')
 const {
-    OPTIMIZATION_STATE_COMPILED
-  , OPTIMIZATION_STATE_OPTIMIZABLE
-  , OPTIMIZATION_STATE_OPTIMIZED
-  , parseOptimizationState
-  , nameOptimizationState
-  , severityOfOptimizationState
+  OPTIMIZATION_STATE_COMPILED,
+  OPTIMIZATION_STATE_OPTIMIZABLE,
+  OPTIMIZATION_STATE_OPTIMIZED,
+  parseOptimizationState,
+  nameOptimizationState,
+  severityOfOptimizationState
 } = require('../lib/log-processing/optimization-state')
 
 test('optimization states parse, name, and map to severity', (/** @type {import('node:test').TestContext} */ t) => {

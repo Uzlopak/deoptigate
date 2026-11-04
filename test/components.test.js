@@ -97,7 +97,7 @@ const code = (/** @type {number} */ timestamp, /** @type {number} */ severity, s
  * @param {{relativePath?: string, src?: string, deopts?: object[], ics?: object[], codes?: object[]}} [data]
  */
 function group ({ relativePath = 'a.js', src = 'run()', deopts = [], ics = [], codes = [] } = {}) {
-  const located = (/** @type {object[]} */ points) => new Map(points.map((p, index) => [ `key${index}`, p ]))
+  const located = (/** @type {object[]} */ points) => new Map(points.map((p, index) => [`key${index}`, p]))
   const keys = (/** @type {object[]} */ points) => points.map((_, index) => `key${index}`)
   return {
     relativePath,
@@ -121,23 +121,23 @@ viewTest('the file table lists critical files, worst first, with their counts', 
     includeAllSeverities: false,
     selectedFile: '/app/b.js',
     groups: new Map([
-      [ '/app/quiet.js', group({ relativePath: 'quiet.js', deopts: [ point(1, 1, [ deopt(1, 1) ]) ] }) ],
-      [ '/app/a.js', group({ relativePath: 'a.js', deopts: [ point(2, 2, [ deopt(2, 2) ]) ] }) ],
-      [ '/app/b.js', group({ relativePath: 'b.js', deopts: [ point(3, 3, [ deopt(3, 3), deopt(4, 3) ]) ] }) ]
+      ['/app/quiet.js', group({ relativePath: 'quiet.js', deopts: [point(1, 1, [deopt(1, 1)])] })],
+      ['/app/a.js', group({ relativePath: 'a.js', deopts: [point(2, 2, [deopt(2, 2)])] })],
+      ['/app/b.js', group({ relativePath: 'b.js', deopts: [point(3, 3, [deopt(3, 3), deopt(4, 3)])] })]
     ])
   })
 
   const rows = root.byClass('normalrow')
-  t.assert.deepEqual(rows.map(row => row.byTag('a')[0].textContent), [ 'b.js', 'a.js' ], 'hides low severity and sorts by score')
+  t.assert.deepEqual(rows.map(row => row.byTag('a')[0].textContent), ['b.js', 'a.js'], 'hides low severity and sorts by score')
   t.assert.ok(rows[0].className.includes('bg-light-yellow'), 'marks the selected file')
   t.assert.ok(!rows[1].className.includes('bg-light-yellow'))
-  t.assert.deepEqual(rows[0].byTag('td').slice(4, 8).map(cell => cell.textContent), [ '2', '0', '0', '1' ], 'shows total and severities')
+  t.assert.deepEqual(rows[0].byTag('td').slice(4, 8).map(cell => cell.textContent), ['2', '0', '0', '1'], 'shows total and severities')
   t.assert.ok(rows[0].byTag('td')[7].className.includes('red'), 'colours non-zero severities')
   t.assert.ok(rows[0].byTag('td')[5].className.includes('gray'), 'greys zero counts')
 
   const event = fire(root.link('a.js'), 'click')
   t.assert.ok(event.defaultPrevented, 'does not follow the link')
-  t.assert.deepEqual(onfileClicked.calls, [ [ '/app/a.js' ] ])
+  t.assert.deepEqual(onfileClicked.calls, [['/app/a.js']])
 })
 
 viewTest('the file table explains why it is empty', (/** @type {TestContext} */ t, dom) => {
@@ -160,7 +160,7 @@ viewTest('the toolbar reports the low severity toggle', (/** @type {TestContext}
 
   checkbox.checked = false
   fire(checkbox, 'change')
-  t.assert.deepEqual(onincludeAllSeveritiesChanged.calls, [ [ false ] ])
+  t.assert.deepEqual(onincludeAllSeveritiesChanged.calls, [[false]])
 })
 
 /* CodeView */
@@ -237,7 +237,7 @@ viewTest('a click on a code marker selects it', (/** @type {TestContext} */ t, d
   const reachedParent = recorder()
   dom.body.addEventListener('click', reachedParent)
   const event = fire(marker, 'click')
-  t.assert.deepEqual(onmarkerClicked.calls, [ [ 7, 'deopt' ] ])
+  t.assert.deepEqual(onmarkerClicked.calls, [[7, 'deopt']])
   t.assert.ok(event.defaultPrevented)
   t.assert.equal(reachedParent.calls.length, 0, 'stops the event')
 
@@ -254,7 +254,7 @@ viewTest('the code view scrolls to the selected location', (/** @type {TestConte
   dom.body.appendChild(target)
 
   const { update } = mount(dom, views.CodeView, codeProps({ selectedLocation: 3 }))
-  t.assert.deepEqual(scrolled.map(entry => entry.element), [ target ], 'scrolls when mounted')
+  t.assert.deepEqual(scrolled.map(entry => entry.element), [target], 'scrolls when mounted')
   update({ selectedLocation: 4 })
   t.assert.equal(scrolled.length, 1, 'ignores a location missing from the page')
   update({ selectedLocation: 3 })
@@ -266,7 +266,7 @@ viewTest('the code view re-renders only for a visible change', (/** @type {TestC
   const update = views.CodeView.prototype.shouldComponentUpdate.bind({ props })
   t.assert.equal(update({ ...props }), false)
   t.assert.equal(update({ ...props, deopts: new Map() }), false, 'marker data alone is not a change')
-  for (const change of [ { code: 'x' }, { fileName: 'x' }, { selectedLocation: 1 }, { includeAllSeverities: true } ]) {
+  for (const change of [{ code: 'x' }, { fileName: 'x' }, { selectedLocation: 1 }, { includeAllSeverities: true }]) {
     t.assert.equal(update({ ...props, ...change }), true, JSON.stringify(change))
   }
 })
@@ -287,9 +287,9 @@ viewTest('the code view requires a marker handler', (/** @type {TestContext} */ 
  */
 const summaryProps = (overrides = {}) => ({
   ...group({
-    deopts: [ point(1, 3, [ deopt(1000, 3, true), deopt(2000, 1) ]) ],
-    ics: [ point(2, 2, [ ic(2) ]) ],
-    codes: [ point(3, 2, [ code(3000, 2) ]) ]
+    deopts: [point(1, 3, [deopt(1000, 3, true), deopt(2000, 1)])],
+    ics: [point(2, 2, [ic(2)])],
+    codes: [point(3, 2, [code(3000, 2)])]
   }),
   selectedLocation: null,
   includeAllSeverities: false,
@@ -328,7 +328,7 @@ viewTest('summary tabs and locations report clicks', (/** @type {TestContext} */
   const { root } = mount(dom, views.SummaryView, summaryProps({ ontabHeaderClicked, onsummaryClicked }))
 
   t.assert.ok(fire(root.link('Inline Caches'), 'click').defaultPrevented)
-  t.assert.deepEqual(ontabHeaderClicked.calls, [ [ views.SummaryView.ICS_TAB_IDX ] ])
+  t.assert.deepEqual(ontabHeaderClicked.calls, [[views.SummaryView.ICS_TAB_IDX]])
 
   const reachedParent = recorder()
   dom.body.addEventListener('click', reachedParent)
@@ -339,7 +339,7 @@ viewTest('summary tabs and locations report clicks', (/** @type {TestContext} */
 })
 
 viewTest('the summary hides low severities unless they are included', (/** @type {TestContext} */ t, dom) => {
-  const low = { deopts: new Map([ [ 'key0', point(1, 1, [ deopt(1, 1) ]) ] ]), deoptLocations: [ 'key0' ] }
+  const low = { deopts: new Map([['key0', point(1, 1, [deopt(1, 1)])]]), deoptLocations: ['key0'] }
   const hidden = mount(dom, views.SummaryView, summaryProps(low)).root
   t.assert.ok(!hidden.textContent.includes('fn1'))
   t.assert.match(hidden.textContent, /No events match/, 'explains the empty category')
@@ -366,7 +366,7 @@ viewTest('the summary tolerates missing categories and stale locations', (/** @t
   }))
   t.assert.equal(root.byClass('summary-card').length, 0)
 
-  const stale = mount(dom, views.SummaryView, summaryProps({ deoptLocations: [ 'missing', 'key0' ] })).root
+  const stale = mount(dom, views.SummaryView, summaryProps({ deoptLocations: ['missing', 'key0'] })).root
   t.assert.match(stale.textContent, /fn1/)
 })
 
@@ -384,7 +384,7 @@ viewTest('the summary validates its props', (/** @type {TestContext} */ t, dom) 
  * @returns {any}
  */
 const detailProps = (overrides = {}) => ({
-  groups: new Map([ [ '/app/a.js', group({ deopts: [ point(1, 3, [ deopt(1, 3) ]) ] }) ] ]),
+  groups: new Map([['/app/a.js', group({ deopts: [point(1, 3, [deopt(1, 3)])] })]]),
   selectedFile: '/app/a.js',
   selectedLocation: null,
   includeAllSeverities: false,
@@ -412,7 +412,7 @@ viewTest('clicking a marker opens its summary tab', (/** @type {TestContext} */ 
   t.assert.deepEqual(onsummaryTabIdxChanged.calls, [], 'already on the optimization tab')
   click('deopt')
   click('ic')
-  t.assert.deepEqual(onsummaryTabIdxChanged.calls, [ [ views.SummaryView.DEOPT_TAB_IDX ], [ views.SummaryView.ICS_TAB_IDX ] ])
+  t.assert.deepEqual(onsummaryTabIdxChanged.calls, [[views.SummaryView.DEOPT_TAB_IDX], [views.SummaryView.ICS_TAB_IDX]])
   t.assert.equal(onmarkerClicked.calls.length, 3)
 })
 
@@ -420,7 +420,7 @@ viewTest('summary tab clicks reach the file details owner', (/** @type {TestCont
   const onsummaryTabIdxChanged = recorder()
   const { root } = mount(dom, views.FileDetailsView, detailProps({ onsummaryTabIdxChanged }))
   fire(root.link('Deoptimizations'), 'click')
-  t.assert.deepEqual(onsummaryTabIdxChanged.calls, [ [ views.SummaryView.DEOPT_TAB_IDX ] ])
+  t.assert.deepEqual(onsummaryTabIdxChanged.calls, [[views.SummaryView.DEOPT_TAB_IDX]])
 })
 
 viewTest('file details validate their props and data', (/** @type {TestContext} */ t, dom) => {
@@ -433,20 +433,20 @@ viewTest('file details validate their props and data', (/** @type {TestContext} 
 /** @param {string} functionName */
 const rawRecord = functionName => ({ functionName, file: '/app/a.js', line: 1, column: 1 })
 const rawGroups = () => new Map([
-  [ '/app/a.js', {
+  ['/app/a.js', {
     relativePath: 'a.js',
     src: 'run()',
     ics: [],
-    codes: [ { ...rawRecord('compiled'), isScript: false, updates: [ { timestamp: 1, state: 2, severity: 3 } ] } ],
-    deopts: [ { ...rawRecord('run'), updates: [ { timestamp: 2000, bailoutType: 'eager', deoptReason: 'wrong map', inlined: false, severity: 3 } ] } ]
-  } ],
-  [ '/app/b.js', {
+    codes: [{ ...rawRecord('compiled'), isScript: false, updates: [{ timestamp: 1, state: 2, severity: 3 }] }],
+    deopts: [{ ...rawRecord('run'), updates: [{ timestamp: 2000, bailoutType: 'eager', deoptReason: 'wrong map', inlined: false, severity: 3 }] }]
+  }],
+  ['/app/b.js', {
     relativePath: 'b.js',
     src: 'run()',
     ics: [],
     codes: [],
-    deopts: [ { ...rawRecord('other'), file: '/app/b.js', updates: [ { timestamp: 3000, bailoutType: 'eager', deoptReason: 'wrong map', inlined: false, severity: 3 } ] } ]
-  } ]
+    deopts: [{ ...rawRecord('other'), file: '/app/b.js', updates: [{ timestamp: 3000, bailoutType: 'eager', deoptReason: 'wrong map', inlined: false, severity: 3 }] }]
+  }]
 ])
 
 /**
@@ -471,7 +471,7 @@ function goBack (dom, state, url) {
 viewTest('the report starts on the file list with no file selected', async (/** @type {TestContext} */ t, dom) => {
   const app = await renderApp(dom)
   t.assert.ok(app.link('Files').className.includes('tab-active'))
-  t.assert.deepEqual(app.byClass('normalrow').map(row => row.byTag('a')[0].textContent).sort(), [ 'a.js', 'b.js' ])
+  t.assert.deepEqual(app.byClass('normalrow').map(row => row.byTag('a')[0].textContent).sort(), ['a.js', 'b.js'])
   t.assert.match(app.textContent, /No file selected/)
   t.assert.ok(app.byClass('empty-details')[0].className.includes('dn'), 'keeps details hidden')
 })
@@ -483,7 +483,7 @@ viewTest('selecting a file opens its details and records the state', async (/** 
   t.assert.ok(app.link('Details').className.includes('tab-active'))
   t.assert.match(app.textContent, /other at b\.js/)
   t.assert.equal(dom.pushed.length, 1)
-  const [ state, title, url ] = dom.pushed[0]
+  const [state, title, url] = dom.pushed[0]
   t.assert.equal(title, 'deoptigate')
   t.assert.equal(/** @type {{selectedFileIdx: number}} */ (state).selectedFileIdx, 1)
   t.assert.match(String(url), /^http:\/\/report\/index\.html\?.*selectedFileIdx=1/)
@@ -561,6 +561,6 @@ viewTest('going back to the first entry restores the URL state', async (/** @typ
 
 viewTest('a failure while rendering is reported, not thrown', async (/** @type {TestContext} */ t) => {
   const error = t.mock.method(console, 'error', () => {})
-  await views.deoptigateRender(/** @type {any} */ (new Map([ [ '/app/a.js', {} ] ])))
+  await views.deoptigateRender(/** @type {any} */ (new Map([['/app/a.js', {}]])))
   t.assert.equal(error.mock.callCount(), 1)
 })

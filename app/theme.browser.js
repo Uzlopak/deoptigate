@@ -22,11 +22,11 @@ const { classes } = peacock
  * @param {string} s
  * @returns {string}
  */
-function identity(s) { return s }
+function identity (s) { return s }
 
 class ThemeBrowser {
   /** @param {MarkerResolver} markerResolver */
-  constructor(markerResolver) {
+  constructor (markerResolver) {
     /** @type {MarkerResolver} */
     this._markerResolver = markerResolver
     /** @type {string[]} */
@@ -40,7 +40,7 @@ class ThemeBrowser {
    * @param {{jsx: boolean}} options
    * @returns {string}
    */
-  highlight(code, { jsx }) {
+  highlight (code, { jsx }) {
     return renderHighlighted(redeyed(code, this.theme, { jsx }).code, this._fragments)
   }
 
@@ -48,7 +48,7 @@ class ThemeBrowser {
    * @param {string} html
    * @returns {string}
    */
-  _addFragment(html) {
+  _addFragment (html) {
     this._fragments.push(html)
     return placeholder(this._fragments.length - 1)
   }
@@ -57,7 +57,7 @@ class ThemeBrowser {
    * @param {string | ((text: string) => string) | null | undefined} rendererOrClassName
    * @returns {ThemeRenderer}
    */
-  _processToken(rendererOrClassName) {
+  _processToken (rendererOrClassName) {
     const className = typeof rendererOrClassName === 'string' ? rendererOrClassName : ''
     /**
      * @this {ThemeBrowser}
@@ -65,7 +65,7 @@ class ThemeBrowser {
      * @param {TokenInfo} info
      * @returns {string}
      */
-    function mark(s, info) {
+    function mark (s, info) {
       // Peacock passes raw source text, which is inserted into the page as HTML
       const text = escapeHtml(s)
       const element = typeof rendererOrClassName === 'function'
@@ -83,203 +83,203 @@ class ThemeBrowser {
   }
 
   /** @returns {BrowserTheme} */
-  get theme() {
+  get theme () {
     const x = this._processToken.bind(this)
     return {
-      'Boolean': {
-        'true'   :  undefined
-      , 'false'  :  undefined
-      , _default :  x(classes['Keyword.Constant'])
-      }
+      Boolean: {
+        true: undefined,
+        false: undefined,
+        _default: x(classes['Keyword.Constant'])
+      },
 
-    , 'Identifier': {
-        'Date': x(classes['Literal.Date'])
-      , 'Error': x(classes['Generic.Error'])
-      , _default: x(classes['Name.Other'])
-      }
+      Identifier: {
+        Date: x(classes['Literal.Date']),
+        Error: x(classes['Generic.Error']),
+        _default: x(classes['Name.Other'])
+      },
 
-    , 'Null': {
-        _default :  x(classes['Keyword.Constant'])
-      }
+      Null: {
+        _default: x(classes['Keyword.Constant'])
+      },
 
-    , 'Numeric': {
+      Numeric: {
         _default: x(classes.Number)
-      }
+      },
 
-    , 'String': {
+      String: {
         _default: x(classes.String)
-      }
+      },
 
       // Redeyed writes tokens of a type without a renderer to the page raw, so
       // every Esprima token type needs one here.
-    , 'Template': {
+      Template: {
         _default: x(classes.String)
-      }
+      },
 
-    , 'RegularExpression': {
+      RegularExpression: {
         _default: x(classes.String)
-      }
+      },
 
-    , 'Keyword': {
-        'break'       :  undefined
+      Keyword: {
+        break: undefined,
 
-      , 'case'        :  undefined
-      , 'catch'       :  undefined
-      , 'class'       :  undefined
-      , 'const'       :  undefined
-      , 'continue'    :  undefined
+        case: undefined,
+        catch: undefined,
+        class: undefined,
+        const: undefined,
+        continue: undefined,
 
-      , 'debugger'    :  undefined
-      , 'default'     :  undefined
-      , 'delete'      :  undefined
-      , 'do'          :  undefined
+        debugger: undefined,
+        default: undefined,
+        delete: undefined,
+        do: undefined,
 
-      , 'else'        :  undefined
-      , 'enum'        :  undefined
-      , 'export'      :  undefined
-      , 'extends'     :  undefined
+        else: undefined,
+        enum: undefined,
+        export: undefined,
+        extends: undefined,
 
-      , 'finally'     :  undefined
-      , 'for'         :  undefined
-      , 'function'    :  undefined
+        finally: undefined,
+        for: undefined,
+        function: undefined,
 
-      , 'if'          :  undefined
-      , 'implements'  :  undefined
-      , 'import'      :  undefined
-      , 'in'          :  undefined
-      , 'instanceof'  :  undefined
+        if: undefined,
+        implements: undefined,
+        import: undefined,
+        in: undefined,
+        instanceof: undefined,
 
-      , 'new'         :  undefined
+        new: undefined,
 
-      , 'package'     :  undefined
-      , 'private'     :  undefined
-      , 'protected'   :  undefined
-      , 'public'      :  undefined
+        package: undefined,
+        private: undefined,
+        protected: undefined,
+        public: undefined,
 
-      , 'return'      :  undefined
+        return: undefined,
 
-      , 'static'      :  undefined
-      , 'super'       :  undefined
-      , 'switch'      :  undefined
+        static: undefined,
+        super: undefined,
+        switch: undefined,
 
-      , 'this'        :  undefined
-      , 'throw'       :  undefined
-      , 'try'         :  undefined
-      , 'typeof'      :  undefined
+        this: undefined,
+        throw: undefined,
+        try: undefined,
+        typeof: undefined,
 
-      , 'var'         :  undefined
-      , 'void'        :  undefined
+        var: undefined,
+        void: undefined,
 
-      , 'while'       :  undefined
-      , 'with'        :  undefined
-      , 'yield'       :  undefined
-      , _default      :  x(classes.Keyword)
-    }
-    , 'Punctuator': {
-        ';': x(classes.Punctuation)
-      , '.': x(classes.Punctuation)
-      , ',': x(classes.Punctuation)
+        while: undefined,
+        with: undefined,
+        yield: undefined,
+        _default: x(classes.Keyword)
+      },
+      Punctuator: {
+        ';': x(classes.Punctuation),
+        '.': x(classes.Punctuation),
+        ',': x(classes.Punctuation),
 
-      , '{': x(classes.Punctuation)
-      , '}': x(classes.Punctuation)
-      , '(': x(classes.Punctuation)
-      , ')': x(classes.Punctuation)
-      , '[': x(classes.Punctuation)
-      , ']': x(classes.Punctuation)
+        '{': x(classes.Punctuation),
+        '}': x(classes.Punctuation),
+        '(': x(classes.Punctuation),
+        ')': x(classes.Punctuation),
+        '[': x(classes.Punctuation),
+        ']': x(classes.Punctuation),
 
-      , '<': undefined
-      , '>': undefined
-      , '+': undefined
-      , '-': undefined
-      , '*': undefined
-      , '%': undefined
-      , '&': undefined
-      , '|': undefined
-      , '^': undefined
-      , '!': undefined
-      , '~': undefined
-      , '?': undefined
-      , ':': undefined
-      , '=': undefined
+        '<': undefined,
+        '>': undefined,
+        '+': undefined,
+        '-': undefined,
+        '*': undefined,
+        '%': undefined,
+        '&': undefined,
+        '|': undefined,
+        '^': undefined,
+        '!': undefined,
+        '~': undefined,
+        '?': undefined,
+        ':': undefined,
+        '=': undefined,
 
-      , '<=': undefined
-      , '>=': undefined
-      , '==': undefined
-      , '!=': undefined
-      , '++': undefined
-      , '--': undefined
-      , '<<': undefined
-      , '>>': undefined
-      , '&&': undefined
-      , '||': undefined
-      , '+=': undefined
-      , '-=': undefined
-      , '*=': undefined
-      , '%=': undefined
-      , '&=': undefined
-      , '|=': undefined
-      , '^=': undefined
-      , '/=': undefined
-      , '=>': undefined
-      , '**': undefined
+        '<=': undefined,
+        '>=': undefined,
+        '==': undefined,
+        '!=': undefined,
+        '++': undefined,
+        '--': undefined,
+        '<<': undefined,
+        '>>': undefined,
+        '&&': undefined,
+        '||': undefined,
+        '+=': undefined,
+        '-=': undefined,
+        '*=': undefined,
+        '%=': undefined,
+        '&=': undefined,
+        '|=': undefined,
+        '^=': undefined,
+        '/=': undefined,
+        '=>': undefined,
+        '**': undefined,
 
-      , '===': undefined
-      , '!==': undefined
-      , '>>>': undefined
-      , '<<=': undefined
-      , '>>=': undefined
-      , '>>>=': undefined
-      , '...': undefined
-      , '**=': undefined
+        '===': undefined,
+        '!==': undefined,
+        '>>>': undefined,
+        '<<=': undefined,
+        '>>=': undefined,
+        '>>>=': undefined,
+        '...': undefined,
+        '**=': undefined,
 
-      , _default: x(classes.Operator)
-    }
-    , Line: {
+        _default: x(classes.Operator)
+      },
+      Line: {
         _default: x(classes['Comment.Single'])
-      }
+      },
 
-    , Block: {
+      Block: {
         _default: x(classes.Comment)
-      }
+      },
 
       // JSX
-      , JSXAttribute: {
-          _default: x(identity)
-        }
-      , JSXClosingElement: {
-          _default: x(identity)
-        }
-      , JSXElement: {
-          _default: x(identity)
-        }
-      , JSXEmptyExpression: {
-          _default: x(identity)
-        }
-      , JSXExpressionContainer: {
-          _default: x(identity)
-        }
-      , JSXIdentifier: {
-          // many more identifies are possible, div, table, etc.
-            className: x(classes['Name.Class'])
-          , _default: x(classes['Name.Tag'])
-        }
-      , JSXMemberExpression: {
-          _default: x(identity)
-        }
-      , JSXNamespacedName: {
-          _default: x(identity)
-        }
-      , JSXOpeningElement: {
-          _default: x(identity)
-        }
-      , JSXSpreadAttribute: {
-          _default: x(identity)
-        }
-      , JSXText: {
-          _default: x(identity)
-        }
+      JSXAttribute: {
+        _default: x(identity)
+      },
+      JSXClosingElement: {
+        _default: x(identity)
+      },
+      JSXElement: {
+        _default: x(identity)
+      },
+      JSXEmptyExpression: {
+        _default: x(identity)
+      },
+      JSXExpressionContainer: {
+        _default: x(identity)
+      },
+      JSXIdentifier: {
+        // many more identifies are possible, div, table, etc.
+        className: x(classes['Name.Class']),
+        _default: x(classes['Name.Tag'])
+      },
+      JSXMemberExpression: {
+        _default: x(identity)
+      },
+      JSXNamespacedName: {
+        _default: x(identity)
+      },
+      JSXOpeningElement: {
+        _default: x(identity)
+      },
+      JSXSpreadAttribute: {
+        _default: x(identity)
+      },
+      JSXText: {
+        _default: x(identity)
+      },
 
-      , _default: x(identity)
+      _default: x(identity)
     }
   }
 }

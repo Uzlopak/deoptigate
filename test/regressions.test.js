@@ -14,8 +14,8 @@ const groupByFile = require('../lib/grouping/group-by-file')
 const DeoptEntry = require('../lib/log-processing/deopt-entry')
 const { nameIcState } = require('../lib/log-processing/ic-state')
 const {
-    OPTIMIZATION_STATE_OPTIMIZED
-  , parseOptimizationState
+  OPTIMIZATION_STATE_OPTIMIZED,
+  parseOptimizationState
 } = require('../lib/log-processing/optimization-state')
 const markOnly = require('../lib/rendering/mark-only')
 const MarkerResolver = require('../lib/rendering/marker-resolver')
@@ -72,7 +72,7 @@ async function processLines (t, createLines) {
  * @returns {string} Source text with `|` where each marker was placed.
  */
 function renderMarkers (source, locations) {
-  const deopts = new Map(locations.map(([ line, column ], id) => [
+  const deopts = new Map(locations.map(([line, column], id) => [
     `run:${line}:${column}`,
     { id, severity: /** @type {const} */ (3), line, column }
   ]))
@@ -85,7 +85,7 @@ function renderMarkers (source, locations) {
     .trimEnd()
 }
 
-for (const marker of [ '+', "+'", "*'" ]) {
+for (const marker of ['+', "+'", "*'"]) {
   test(`optimized code with V8 tier marker ${marker} is tracked`, async (/** @type {import('node:test').TestContext} */ t) => {
     t.plan(3)
     const { group } = await processLines(t, sourceFile => [
@@ -120,7 +120,7 @@ test('code created at a reused address replaces the previous function', async (/
   t.assert.equal(group?.deopts[0].functionName, 'new', 'the deopt belongs to the live function')
   t.assert.deepEqual(
     group?.codes.map(code => code.functionName).sort(),
-    [ 'new', 'old' ],
+    ['new', 'old'],
     'both functions are reported'
   )
 })
@@ -132,7 +132,7 @@ test('a malformed log record does not stop the records after it', async (/** @ty
     `code-creation,JS,1,11,0x1000,100,run ${sourceFile}:1:10,0x9000,*`
   ])
 
-  t.assert.deepEqual(group?.codes.map(code => code.functionName), [ 'run' ])
+  t.assert.deepEqual(group?.codes.map(code => code.functionName), ['run'])
 })
 
 test('a deopt in code missing from the log keeps its source location', async (/** @type {import('node:test').TestContext} */ t) => {
@@ -210,7 +210,7 @@ test('a token without an end location gets no markers', (/** @type {import('node
   const resolver = { resolve: t.mock.fn(() => ({ insertBefore: '', insertAfter: '' })) }
   const renderer = /** @type {any} */ (new Theme(resolver).theme).Line._default
 
-  t.assert.equal(renderer('// a', { tokens: [ { loc: { end: null } } ], tokenIndex: 0 }), placeholder(0))
+  t.assert.equal(renderer('// a', { tokens: [{ loc: { end: null } }], tokenIndex: 0 }), placeholder(0))
   t.assert.equal(resolver.resolve.mock.callCount(), 0)
 })
 
@@ -268,14 +268,14 @@ test('a hashbang line is escaped in the code view and keeps its colours', (/** @
 
 test('plain marker rendering keeps source text intact with several markers on a line', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
-  t.assert.equal(renderMarkers('abcdef', [ [ 1, 1 ], [ 1, 4 ] ]).replace(/\|/g, ''), 'abcdef')
-  t.assert.equal(renderMarkers('const x = 1', [ [ 1, 7 ], [ 1, 11 ] ]).replace(/\|/g, ''), 'const x = 1')
+  t.assert.equal(renderMarkers('abcdef', [[1, 1], [1, 4]]).replace(/\|/g, ''), 'abcdef')
+  t.assert.equal(renderMarkers('const x = 1', [[1, 7], [1, 11]]).replace(/\|/g, ''), 'const x = 1')
 })
 
 test('plain marker rendering keeps a marker past the line end on its own line', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
-  const [ first, second ] = renderMarkers('ab\ncdefgh', [ [ 1, 2 ], [ 1, 3 ] ]).split('\n')
-  t.assert.deepEqual([ first.split('|').length - 1, second.includes('|') ], [ 2, false ])
+  const [first, second] = renderMarkers('ab\ncdefgh', [[1, 2], [1, 3]]).split('\n')
+  t.assert.deepEqual([first.split('|').length - 1, second.includes('|')], [2, false])
 })
 
 test('a CodeView re-renders when another file has identical source', (/** @type {import('node:test').TestContext} */ t) => {
@@ -286,7 +286,7 @@ test('a CodeView re-renders when another file has identical source', (/** @type 
   }
   const shared = { code: 'same source', selectedLocation: null, includeAllSeverities: false }
   const current = { ...shared, fileName: '/app/a.js', deopts: new Map() }
-  const next = { ...shared, fileName: '/app/b.js', deopts: new Map([ [ 'run:1:1', {} ] ]) }
+  const next = { ...shared, fileName: '/app/b.js', deopts: new Map([['run:1:1', {}]]) }
   t.assert.equal(loadCodeView().prototype.shouldComponentUpdate.call({ props: current }, next), true)
 })
 
@@ -295,7 +295,7 @@ test('the standalone SIGINT preload exits cleanly', async (/** @type {import('no
   const child = spawn(process.execPath, [
     '-r', path.join(ROOT, 'bin/soft-exit.js'),
     '-e', "setInterval(() => {}, 1000); console.log('ready')"
-  ], { stdio: [ 'ignore', 'pipe', 'pipe' ] })
+  ], { stdio: ['ignore', 'pipe', 'pipe'] })
   let stderr = ''
   child.stderr.on('data', chunk => { stderr += chunk })
   child.stdout.once('data', () => child.kill('SIGINT'))
@@ -316,7 +316,7 @@ test('collecting into a path containing a percent sign writes its log there', (/
     })
   `
   // V8 falls back to stdout here, so the child's output has to be captured.
-  const { stderr } = spawnSync(process.execPath, [ '-e', script ], { encoding: 'utf8', maxBuffer: MAX_CHILD_OUTPUT })
+  const { stderr } = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', maxBuffer: MAX_CHILD_OUTPUT })
   t.assert.match(stderr.slice(stderr.lastIndexOf('RESULT')), /v8\.log/)
 })
 
@@ -335,7 +335,7 @@ test('a spawn failure during port detection reaches the collect callback', (/** 
         process.exit(0)
       })
   `
-  const { stdout } = spawnSync(process.execPath, [ '-e', script ], { encoding: 'utf8' })
+  const { stdout } = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8' })
   t.assert.equal(stdout.trim(), 'callback')
 })
 
@@ -351,7 +351,7 @@ test('the CLI does not report a stale log when the profiled process never starts
     `code-creation,JS,1,10,0x1000,100,previousRun ${staleSource}:1:10,0x9000,*\n`
   )
 
-  spawnSync(process.execPath, [ DEOPTIGATE_BIN, '--', 'node', '--not-a-real-node-flag', 'app.js' ], {
+  spawnSync(process.execPath, [DEOPTIGATE_BIN, '--', 'node', '--not-a-real-node-flag', 'app.js'], {
     cwd: directory,
     env: { ...process.env, TMPDIR: directory },
     encoding: 'utf8'
@@ -372,7 +372,7 @@ test('the CLI keeps its log directory private while the profiled process runs', 
     console.log('MODE ' + (statSync(join(require('os').tmpdir(), 'deoptigate')).mode & 0o777).toString(8))
   `)
 
-  const { stdout } = spawnSync(process.execPath, [ DEOPTIGATE_BIN, script ], {
+  const { stdout } = spawnSync(process.execPath, [DEOPTIGATE_BIN, script], {
     cwd: directory,
     env: { ...process.env, TMPDIR: directory },
     encoding: 'utf8'
@@ -386,7 +386,7 @@ test('log selection accepts a corrected choice from piped input', (/** @type {im
   fs.writeFileSync(path.join(directory, 'v8.log'), '')
   fs.writeFileSync(path.join(directory, 'isolate-1-v8.log'), '')
 
-  const { stderr } = spawnSync(process.execPath, [ DEOPTIGATE_BIN ], {
+  const { stderr } = spawnSync(process.execPath, [DEOPTIGATE_BIN], {
     cwd: directory,
     env: { ...process.env, TMPDIR: directory },
     input: 'invalid\n1\n',
@@ -397,7 +397,7 @@ test('log selection accepts a corrected choice from piped input', (/** @type {im
 
 test('deoptimization lookup treats inherited object keys as unknown reasons', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
-  for (const key of [ 'constructor', 'toString', '__proto__' ]) {
+  for (const key of ['constructor', 'toString', '__proto__']) {
     t.assert.equal(lookupDeoptimizationReason(key), null, key)
   }
 })
@@ -414,8 +414,8 @@ test("a user's bin/soft-exit.js stays in the report", (/** @type {import('node:t
   t.plan(1)
   const file = '/project/bin/soft-exit.js'
   const groups = groupByFile(
-    { ics: [], deopts: [ { file } ], codes: [] },
-    new Map([ [ file, { fullPath: file, relativePath: 'bin/soft-exit.js', src: '' } ] ])
+    { ics: [], deopts: [{ file }], codes: [] },
+    new Map([[file, { fullPath: file, relativePath: 'bin/soft-exit.js', src: '' }]])
   )
   t.assert.equal(groups.size, 1)
 })

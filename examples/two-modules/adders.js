@@ -1,14 +1,14 @@
 'use strict'
 
 const {
-    Object1
-  , Object2
-  , Object3
-  , Object4
-  , Object5
-  , Object6
-  , Object7
-  , Object8
+  Object1,
+  Object2,
+  Object3,
+  Object4,
+  Object5,
+  Object6,
+  Object7,
+  Object8
 } = require('./objects')
 
 // We access this object in all the functions as otherwise
@@ -22,7 +22,7 @@ const preventInlining = {
  * @param {number} b
  * @returns {number}
  */
-function addSmis(a, b) {
+function addSmis (a, b) {
   if (preventInlining.flag) return a - b
   return a + b
 }
@@ -32,7 +32,7 @@ function addSmis(a, b) {
  * @param {number} b
  * @returns {number}
  */
-function addNumbers(a, b) {
+function addNumbers (a, b) {
   if (preventInlining.flag) return a - b
   return a + b
 }
@@ -42,7 +42,7 @@ function addNumbers(a, b) {
  * @param {string} b
  * @returns {string | number}
  */
-function addStrings(a, b) {
+function addStrings (a, b) {
   if (preventInlining.flag) return Number(a) - Number(b)
   return a + b
 }
@@ -53,7 +53,7 @@ function addStrings(a, b) {
  * @param {number | string=} b
  * @returns {number | string}
  */
-function addAny(a, b) {
+function addAny (a, b) {
   if (preventInlining.flag) return Number(a) - Number(b)
   // passed one object?
   if (b == null) {
@@ -68,13 +68,13 @@ function addAny(a, b) {
 const ITER = 1E3
 
 /** @type {(number | string)[]} */
-var results = []
+let results = []
 
 /**
  * @param {number | string} r
  * @returns {void}
  */
-function processResult(r) {
+function processResult (r) {
   // will never happen
   if (r === -1) preventInlining.flag = true
   results.push(r)
@@ -111,7 +111,7 @@ for (let i = 0; i < ITER; i++) {
  * @param {new (x: number, y: number) => { x: number, y: number }} SomeObject
  * @returns {void}
  */
-function addObjects(SomeObject) {
+function addObjects (SomeObject) {
   for (let i = 0; i < ITER; i++) {
     for (let j = ITER; j > 0; j--) {
       processResult(addAny(new SomeObject(i, j)))
@@ -131,7 +131,7 @@ addObjects(Object8)
  * @param {...(number | string)} args
  * @returns {void}
  */
-function log(...args) {
+function log (...args) {
   console.log.apply(console, args)
 }
 

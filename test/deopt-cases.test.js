@@ -27,7 +27,7 @@ const severityByBailoutType = {
 }
 
 /** @returns {{ name: string, message: string }[]} */
-function readCatalogReasons() {
+function readCatalogReasons () {
   const contents = fs.readFileSync(catalogPath, 'utf8').split('## Reading the examples')[0]
   const reasons = []
   for (const line of contents.split('\n')) {
@@ -41,7 +41,7 @@ function readCatalogReasons() {
  * @param {string} reason
  * @returns {string}
  */
-function casePathFor(reason) {
+function casePathFor (reason) {
   const filename = reason
     .replace(REASON_NAME_CAPITAL_RX, (letter, index) => `${index ? '-' : ''}${letter.toLowerCase()}`)
     .replace('java-script', 'javascript')
@@ -54,7 +54,7 @@ function casePathFor(reason) {
  * @param {string[]} args
  * @returns {Promise<number | null>}
  */
-function runNode(args) {
+function runNode (args) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { stdio: 'ignore' })
     child.once('error', reject)
@@ -63,7 +63,7 @@ function runNode(args) {
 }
 
 /** @returns {boolean} */
-function runtimeRequiresPrepareBeforeOptimize() {
+function runtimeRequiresPrepareBeforeOptimize () {
   return spawnSync(
     process.execPath,
     [nativeSyntax, '-e', 'function f() {}; %OptimizeFunctionOnNextCall(f); f()'],
@@ -75,7 +75,7 @@ function runtimeRequiresPrepareBeforeOptimize() {
  * @param {string} source
  * @returns {string}
  */
-function prepareOptimizationTargets(source) {
+function prepareOptimizationTargets (source) {
   return source.replace(OPTIMIZATION_INTRINSIC_CALL_RX,
     (...matches) => {
       const [call, target] = matches
@@ -130,14 +130,14 @@ const canUseTurboFanForMaglevCase = new Set([
 ])
 
 /** @returns {boolean | null} */
-function runtimeHasMaglev() {
+function runtimeHasMaglev () {
   const buildSetting = /** @type {typeof process.config.variables & {v8_enable_maglev?: number | string}} */ (process.config.variables).v8_enable_maglev
   if (buildSetting === undefined) return null
   return buildSetting === 1 || buildSetting === '1'
 }
 
 /** @returns {boolean} */
-function runtimeSupportsMaglev() {
+function runtimeSupportsMaglev () {
   const buildSetting = runtimeHasMaglev()
   if (buildSetting !== null) return buildSetting
   // Older Node builds do not expose v8_enable_maglev in process.config.
@@ -149,7 +149,7 @@ function runtimeSupportsMaglev() {
  * @param {string[]} flags
  * @returns {string[]}
  */
-function missingV8Flags(flags) {
+function missingV8Flags (flags) {
   return flags.filter(flag => spawnSync(
     process.execPath,
     [flag, '--version'],
@@ -461,7 +461,7 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
         ? expectedFallback.ids.some(id => update.deoptReasonIds.includes(id))
         : expectedFallback.id
           ? update.deoptReasonIds.includes(expectedFallback.id)
-        : update.deoptReason === expectedFallback.message
+          : update.deoptReason === expectedFallback.message
     )
     if (matching.length === 0 && fallback && fallback.length > 0) {
       t.assert.ok(true, `${reason.name}: ${expectedFallback.detail}`)
@@ -481,5 +481,4 @@ test('live JavaScript cases produce the named deopts in V8 logs deoptigate can p
       `${reason.name}: severity matches the V8 bailout type`
     )
   }
-
 })

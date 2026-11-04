@@ -15,7 +15,7 @@ const sourceFile = path.join(repoRoot, 'examples/simple/adders.js')
  * @param {string[]} lines
  * @returns {AsyncIterable<string>}
  */
-async function * asAsyncIterable(lines) {
+async function * asAsyncIterable (lines) {
   yield * lines
 }
 
@@ -23,7 +23,7 @@ async function * asAsyncIterable(lines) {
  * @param {unknown} value
  * @returns {value is {ics: {updates: unknown[]}[]}}
  */
-function hasInlineCacheUpdates(value) {
+function hasInlineCacheUpdates (value) {
   if (typeof value !== 'object' || value === null || !('ics' in value) || !Array.isArray(value.ics)) return false
   const firstEntry = value.ics[0]
   return typeof firstEntry === 'object' && firstEntry !== null && 'updates' in firstEntry && Array.isArray(firstEntry.updates)
@@ -33,7 +33,7 @@ function hasInlineCacheUpdates(value) {
  * @param {string} contents
  * @returns {{ dir: string, logPath: string }}
  */
-function writeTempLog(contents) {
+function writeTempLog (contents) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'deoptigate-parser-test-'))
   const logPath = path.join(dir, 'v8.log')
   fs.writeFileSync(logPath, contents)
@@ -41,7 +41,7 @@ function writeTempLog(contents) {
 }
 
 /** @param {{ dir: string, logPath: string }} temp */
-function cleanupTempLog({ dir, logPath }) {
+function cleanupTempLog ({ dir, logPath }) {
   fs.unlinkSync(logPath)
   fs.rmdirSync(dir)
 }
@@ -80,7 +80,7 @@ test('legacy and timestamped IC records use their respective field offsets', asy
 test('V8 CSV decoding preserves escaped backslashes in source paths', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const line = 'code-creation,JS,9,1,0x1000,100,run C:\\\\work\\\\x5c.js:1:1,0x2000,~'
-  const processor = await processLogContent(asAsyncIterable([ line ]), repoRoot)
+  const processor = await processLogContent(asAsyncIterable([line]), repoRoot)
   const code = processor.toObject().codes[0]
 
   t.assert.equal(code.functionName, 'run', 'function name is preserved')
@@ -91,7 +91,7 @@ test('parser accepts CRLF-terminated V8 records', async (
   /** @type {import('node:test').TestContext} */ t
 ) => {
   const line = `code-creation,JS,9,1,0x1000,100,run ${sourceFile}:1:1,0x2000,~\r`
-  const processor = await processLogContent(asAsyncIterable([ line ]), repoRoot)
+  const processor = await processLogContent(asAsyncIterable([line]), repoRoot)
   const code = processor.toObject().codes[0]
 
   t.assert.ok(code, 'retains code records with a carriage return at line end')
@@ -178,7 +178,7 @@ test('parser reports a malformed IC row and continues with following records', a
  * @param {Partial<AsyncIterator<string>>} iterator
  * @returns {AsyncIterable<string>}
  */
-function iterableOf(iterator) {
+function iterableOf (iterator) {
   return { [Symbol.asyncIterator]: () => /** @type {AsyncIterator<string>} */ (iterator) }
 }
 
@@ -187,15 +187,15 @@ const UNPARSABLE_LINE = /** @type {string} */ (/** @type {unknown} */ (null))
 
 test('leaves the line source alone once it is exhausted', async (/** @type {import('node:test').TestContext} */ t) => {
   const source = iterableOf({
-      next: async () => ({ done: true, value: undefined })
-    , return: async () => { throw new Error('return() must not run after normal exhaustion') }
+    next: async () => ({ done: true, value: undefined }),
+    return: async () => { throw new Error('return() must not run after normal exhaustion') }
   })
   await t.assert.doesNotReject(processLogContent(source, repoRoot))
 })
 
 test('closes the line source when parsing a line throws', async (/** @type {import('node:test').TestContext} */ t) => {
   let closed = false
-  async function * lines() {
+  async function * lines () {
     try {
       yield UNPARSABLE_LINE
     } finally {
@@ -209,8 +209,8 @@ test('closes the line source when parsing a line throws', async (/** @type {impo
 
 test('reports the parsing failure even if closing the line source fails too', async (/** @type {import('node:test').TestContext} */ t) => {
   const closers = [
-      async () => { throw new Error('close failed') }
-    , () => { throw new Error('close failed') }
+    async () => { throw new Error('close failed') },
+    () => { throw new Error('close failed') }
   ]
   for (const close of closers) {
     const source = iterableOf({ next: async () => ({ done: false, value: UNPARSABLE_LINE }), return: close })
@@ -226,8 +226,8 @@ test('accepts a line source without return()', async (/** @type {import('node:te
 test('does not close a line source that failed by itself', async (/** @type {import('node:test').TestContext} */ t) => {
   let closed = false
   const source = iterableOf({
-      next: async () => { throw new RangeError('read failed') }
-    , return: async () => { closed = true; return { done: true, value: undefined } }
+    next: async () => { throw new RangeError('read failed') },
+    return: async () => { closed = true; return { done: true, value: undefined } }
   })
   await t.assert.rejects(processLogContent(source, repoRoot), RangeError)
   t.assert.equal(closed, false, 'matches for await, which leaves a throwing iterator alone')
@@ -243,7 +243,7 @@ test('releases the file descriptor of a real log when parsing fails', async (/**
   const lineReader = require('../lib/line-reader')
   const log = path.join(repoRoot, 'test/logs/adders.prepared.v8.log')
 
-  async function * unparsableLines() {
+  async function * unparsableLines () {
     for await (const line of lineReader(log, 'utf-8')) yield line && UNPARSABLE_LINE
   }
 

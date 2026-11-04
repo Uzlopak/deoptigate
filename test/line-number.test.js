@@ -7,13 +7,13 @@ test('line-number digit counts change at every decimal threshold', (/** @type {i
   t.plan(19)
   /** @type {[number, number][]} */
   const thresholds = [
-    [ 1, 1 ], [ 9, 1 ], [ 10, 2 ], [ 99, 2 ], [ 100, 3 ],
-    [ 999, 3 ], [ 1000, 4 ], [ 9999, 4 ], [ 10000, 5 ],
-    [ 99999, 5 ], [ 100000, 6 ], [ 999999, 6 ], [ 1000000, 7 ],
-    [ 9999999, 7 ], [ 10000000, 8 ], [ 99999999, 8 ],
-    [ 100000000, 9 ], [ 999999999, 9 ], [ 1000000000, 10 ]
+    [1, 1], [9, 1], [10, 2], [99, 2], [100, 3],
+    [999, 3], [1000, 4], [9999, 4], [10000, 5],
+    [99999, 5], [100000, 6], [999999, 6], [1000000, 7],
+    [9999999, 7], [10000000, 8], [99999999, 8],
+    [100000000, 9], [999999999, 9], [1000000000, 10]
   ]
-  for (const [ value, digits ] of thresholds) {
+  for (const [value, digits] of thresholds) {
     t.assert.equal(getDigits(value), digits, `${value} uses ${digits} digits`)
   }
 })

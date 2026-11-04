@@ -642,7 +642,7 @@ test('source code shows clickable markers at optimization event locations', (/**
   t.assert.deepEqual(markers.map(marker => marker.textContent), ['▼', '▲'], 'shows deoptimization before optimization at their shared column')
   t.assert.deepEqual(
     markers.map(marker => marker.attributes['aria-label']),
-    [ 'Deoptimization at line 2, column 3', 'Optimization at line 2, column 3' ],
+    ['Deoptimization at line 2, column 3', 'Optimization at line 2, column 3'],
     'gives each source marker an accessible event and location name'
   )
   t.assert.deepEqual(markers.map(marker => marker.dataset.severity), ['3', '2'], 'retains severity on each source marker')

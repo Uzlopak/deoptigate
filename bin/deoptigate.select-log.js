@@ -14,7 +14,7 @@ const logFilePattern = /^(?:isolate-.+-)?v8\.log$/
  * @param {string} root
  * @returns {Promise<LogFile[]>}
  */
-async function findLogFiles(root) {
+async function findLogFiles (root) {
   const entries = await fs.promises.readdir(root)
   const files = []
 
@@ -38,7 +38,7 @@ async function findLogFiles(root) {
  * can deliver several answers at once.
  * @returns {{ask: (question: string) => Promise<string>, close: () => void}}
  */
-function createPrompt() {
+function createPrompt () {
   const prompt = readline.createInterface({ input: process.stdin, output: process.stdout })
   /** @type {string[]} */
   const pendingLines = []
@@ -54,7 +54,7 @@ function createPrompt() {
   })
 
   return {
-    ask(question) {
+    ask (question) {
       const pendingLine = pendingLines.shift()
       if (pendingLine != null) return Promise.resolve(pendingLine)
       if (closed) return Promise.reject(closedError())
@@ -66,7 +66,7 @@ function createPrompt() {
         })
       })
     },
-    close() {
+    close () {
       prompt.close()
     }
   }
@@ -78,7 +78,7 @@ function createPrompt() {
  * @param {string} head Command name used in the prompt.
  * @returns {Promise<LogFile>}
  */
-async function selectLogFile(files, head) {
+async function selectLogFile (files, head) {
   if (files.length === 1) return files[0]
 
   console.log(`${head}: please select a v8.log file to open:\n`)
@@ -104,7 +104,7 @@ async function selectLogFile(files, head) {
  * @param {string} head Command name used in messages.
  * @returns {Promise<string | undefined>} Selected path, or undefined if none exists.
  */
-async function selectLog(head) {
+async function selectLog (head) {
   const root = process.cwd()
   const v8logFiles = await findLogFiles(root)
 

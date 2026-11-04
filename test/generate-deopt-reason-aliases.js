@@ -18,7 +18,7 @@ const DEOPT_REASON_MACRO_RX = /V\(\s*([A-Za-z0-9_]+)\s*,\s*"((?:\\.|[^"\\])*)"/
  * @param {string} header
  * @returns {ReasonAliases}
  */
-function parseReasonAliases(header) {
+function parseReasonAliases (header) {
   const aliases = Object.create(null)
   const expression = new RegExp(DEOPT_REASON_MACRO_RX.source, 'g')
   let match
@@ -43,7 +43,7 @@ function parseReasonAliases(header) {
  * @param {string} tag
  * @returns {Promise<string>}
  */
-function fetchHeader(tag) {
+function fetchHeader (tag) {
   const url = `https://raw.githubusercontent.com/v8/v8/refs/tags/${tag}/${headerPath}`
   return new Promise((resolve, reject) => {
     https.get(url, response => {
@@ -61,7 +61,7 @@ function fetchHeader(tag) {
 }
 
 /** @returns {Promise<void>} */
-async function main() {
+async function main () {
   const result = Object.create(null)
 
   for (let major = firstMajor; major <= lastMajor; major++) {

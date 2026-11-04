@@ -178,14 +178,16 @@ test('ClinicDeoptigate invokes its callback once when a child reports error and 
   const childProcess = require('child_process')
   const indexPath = require.resolve('../src')
   const originalSpawn = childProcess.spawn
-  Object.defineProperty(childProcess, 'spawn', { value: () => {
-    const child = new EventEmitter()
-    setImmediate(() => {
-      child.emit('error', new Error('spawn failed'))
-      child.emit('exit', 1, null)
-    })
-    return child
-  } })
+  Object.defineProperty(childProcess, 'spawn', {
+    value: () => {
+      const child = new EventEmitter()
+      setImmediate(() => {
+        child.emit('error', new Error('spawn failed'))
+        child.emit('exit', 1, null)
+      })
+      return child
+    }
+  })
 
   let MockedClinicDeoptigate
   try {
@@ -291,7 +293,7 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
     /** @param {import('node:net').Server} server */
     const listen = async server => {
       appServers.push(server)
-    await waitFor((resolve, reject) => {
+      await waitFor((resolve, reject) => {
         server.once('error', reject)
         server.listen(0, '127.0.0.1', () => resolve())
       })
@@ -323,16 +325,18 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
     t.assert.equal(receivedPorts.length, 1, 'ignores addressless and Unix socket servers')
 
     let connectionErrorEmitted = false
-    Object.defineProperty(net, 'createConnection', { value: () => {
-      const client = new EventEmitter()
-      const emit = client.emit
-      client.emit = function (event, ...args) {
-        if (event === 'error') connectionErrorEmitted = true
-        return emit.call(this, event, ...args)
+    Object.defineProperty(net, 'createConnection', {
+      value: () => {
+        const client = new EventEmitter()
+        const emit = client.emit
+        client.emit = function (event, ...args) {
+          if (event === 'error') connectionErrorEmitted = true
+          return emit.call(this, event, ...args)
+        }
+        process.nextTick(() => client.emit('error', new Error('synthetic connection failure')))
+        return client
       }
-      process.nextTick(() => client.emit('error', new Error('synthetic connection failure')))
-      return client
-    } })
+    })
     net.Server.prototype.listen = originalListen
     delete require.cache[injectPath]
     require(injectPath)
@@ -350,7 +354,6 @@ test('detect-port reports the first TCP listener and ignores non-TCP addresses',
     })))
     await waitFor(resolve => clinicServer.close(resolve))
   }
-
 })
 
 test('stopViaIPC sends SIGINT only to a live profiled process', (/** @type {import('node:test').TestContext} */ t) => {

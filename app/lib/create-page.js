@@ -17,11 +17,11 @@ const SCRIPT_DATA_ESCAPES = {
  * @param {string} [title='deoptigate'] Page title.
  * @returns {string} Complete HTML document.
  */
-function createPage(renderData, title = 'deoptigate') {
-const render = renderData == null
-  ? '<script async src="deoptigate.render-data.js"></script>'
-  : `<script>deoptigateRender(${renderData.replace(/[<\u2028\u2029]/g, char => SCRIPT_DATA_ESCAPES[char])})</script>`
-return `
+function createPage (renderData, title = 'deoptigate') {
+  const render = renderData == null
+    ? '<script async src="deoptigate.render-data.js"></script>'
+    : `<script>deoptigateRender(${renderData.replace(/[<\u2028\u2029]/g, char => SCRIPT_DATA_ESCAPES[char])})</script>`
+  return `
 <!DOCTYPE html>
 <html>
   <head>

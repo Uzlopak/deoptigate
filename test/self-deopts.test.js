@@ -15,7 +15,7 @@ const major = process.versions.node.split('.')[0]
 // Deopts depend on the V8 version, so a clean result is only claimed where it was
 // measured. Pretenuring deopts depend on GC timing: on Node.js 26 a site that
 // flips them only shows up in about a quarter of runs.
-const CLEAN_MAJORS = new Set([ '22', '24', '26' ])
+const CLEAN_MAJORS = new Set(['22', '24', '26'])
 
 /**
  * @typedef {object} FileReport
@@ -28,15 +28,15 @@ const CLEAN_MAJORS = new Set([ '22', '24', '26' ])
  * @param {string} program Path to the script to run.
  * @returns {Promise<string[]>} One `file function: reason` row per deopt.
  */
-async function profileDeopts(program) {
+async function profileDeopts (program) {
   const dir = await mkdtemp(path.join(tmpdir(), 'deoptigate-self-'))
   try {
     // Coverage collection changes what V8 optimizes, so the child must not inherit it.
     const { NODE_V8_COVERAGE, ...env } = process.env
     await run(process.execPath, [
-        path.join(root, 'bin/deoptigate')
-      , '--format', 'jsonl', '--filter-type', 'deopt'
-      , '--', process.execPath, program
+      path.join(root, 'bin/deoptigate'),
+      '--format', 'jsonl', '--filter-type', 'deopt',
+      '--', process.execPath, program
     ], { cwd: root, env: { ...env, TMPDIR: dir, TEMP: dir, TMP: dir } })
 
     const report = await readFile(path.join(dir, 'deoptigate', 'deoptigate.jsonl'), 'utf8')

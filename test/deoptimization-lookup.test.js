@@ -69,7 +69,7 @@ test('Deoptigate provides a meaning-only lookup tool for Clinic to register', (/
   if (structuredContent == null) throw new Error('Expected structured deoptimization reason output')
 
   t.assert.equal(tool.name, 'lookup_deoptimization_reason', 'declares a stable MCP tool name')
-  t.assert.deepEqual(Object.keys(tool.config.outputSchema.fields).sort(), [ 'code', 'meaning' ], 'limits the output schema to the reason code and meaning')
+  t.assert.deepEqual(Object.keys(tool.config.outputSchema.fields).sort(), ['code', 'meaning'], 'limits the output schema to the reason code and meaning')
   t.assert.equal(structuredContent.code, 'Hole', 'returns the reason code alongside its meaning')
   t.assert.match(structuredContent.meaning, /missing array element/, 'returns the actionable explanation')
   t.assert.equal(tool.handler({ reason_code: 'NotAReason' }).isError, true, 'reports unknown reason codes')

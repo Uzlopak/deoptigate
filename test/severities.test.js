@@ -11,7 +11,7 @@ const {
 test('severity constants and colors', (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   t.assert.equal(MIN_SEVERITY, 1, 'minimum severity starts at one')
-  t.assert.deepEqual(severityColors, [ 'green', 'blue', 'dark-red' ], 'colors map to severity levels')
+  t.assert.deepEqual(severityColors, ['green', 'blue', 'dark-red'], 'colors map to severity levels')
 })
 
 test('highestSeverity returns the greatest severity or its empty-list default', (/** @type {import('node:test').TestContext} */ t) => {

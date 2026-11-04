@@ -4,7 +4,7 @@ const { Bench } = require('tinybench')
 const CsvParser = require('../lib/v8-tools-core/csvparser')
 
 /** Run the CSV field escaping microbenchmarks. @returns {Promise<void>} */
-async function main() {
+async function main () {
   const parser = new CsvParser()
   const bench = new Bench({ time: 1000 })
   /** @type {string[]} */

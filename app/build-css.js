@@ -20,12 +20,12 @@ const OUTPUT = 'build/deoptigate.css'
  * @param {string} content
  * @returns {string[]}
  */
-function extractClasses(content) {
+function extractClasses (content) {
   return content.match(/[\w-/:]+(?<!:)/g) || []
 }
 
 /** Build and write the purged, minified application stylesheet. @returns {Promise<void>} */
-async function buildCss() {
+async function buildCss () {
   const css = await fs.readFile(SOURCE, 'utf8')
   const imported = await postcss([postcssImport()]).process(css, { from: SOURCE })
   const beforePurge = Buffer.byteLength(imported.css)

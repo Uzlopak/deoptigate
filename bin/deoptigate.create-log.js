@@ -14,42 +14,42 @@ const softExitPreload = require.resolve('./soft-exit')
 const { brightBlack } = require('./ansi')
 
 const NODE_OPTIONS_WITH_VALUES = new Set([
-    '-r'
-  , '-e'
-  , '-p'
-  , '-pe'
-  , '--eval'
-  , '--print'
-  , '--require'
-  , '--import'
-  , '--loader'
-  , '--experimental-loader'
-  , '-C'
-  , '--conditions'
-  , '--env-file'
-  , '--env-file-if-exists'
-  , '--icu-data-dir'
-  , '--inspect-port'
-  , '--max-http-header-size'
-  , '--redirect-warnings'
-  , '--diagnostic-dir'
-  , '--title'
-  , '--input-type'
-  , '--disable-warning'
-  , '--stack-trace-limit'
-  , '--trace-event-categories'
-  , '--trace-event-file-pattern'
-  , '--unhandled-rejections'
-  , '--watch-path'
-  , '--cpu-prof-dir'
-  , '--cpu-prof-interval'
-  , '--heap-prof-dir'
-  , '--heap-prof-interval'
-  , '--test-name-pattern'
-  , '--test-reporter'
-  , '--test-reporter-destination'
-  , '--test-shard'
-  , '--test-timeout'
+  '-r',
+  '-e',
+  '-p',
+  '-pe',
+  '--eval',
+  '--print',
+  '--require',
+  '--import',
+  '--loader',
+  '--experimental-loader',
+  '-C',
+  '--conditions',
+  '--env-file',
+  '--env-file-if-exists',
+  '--icu-data-dir',
+  '--inspect-port',
+  '--max-http-header-size',
+  '--redirect-warnings',
+  '--diagnostic-dir',
+  '--title',
+  '--input-type',
+  '--disable-warning',
+  '--stack-trace-limit',
+  '--trace-event-categories',
+  '--trace-event-file-pattern',
+  '--unhandled-rejections',
+  '--watch-path',
+  '--cpu-prof-dir',
+  '--cpu-prof-interval',
+  '--heap-prof-dir',
+  '--heap-prof-interval',
+  '--test-name-pattern',
+  '--test-reporter',
+  '--test-reporter-destination',
+  '--test-shard',
+  '--test-timeout'
 ])
 
 /**
@@ -57,7 +57,7 @@ const NODE_OPTIONS_WITH_VALUES = new Set([
  * @param {string[]} args Command-line arguments after the CLI name.
  * @returns {{argv: string[], extraExecArgv: string[], nodeExecutable?: string}}
  */
-function determineArgs(args) {
+function determineArgs (args) {
   // Only a leading separator is ours; a later one belongs to the application.
   if (args[0] !== '--') {
     return { argv: args, extraExecArgv: [] }
@@ -105,8 +105,8 @@ function determineArgs(args) {
 
   return (
     first === 'node'
-    ? { argv, extraExecArgv }
-    : { argv, extraExecArgv, nodeExecutable: first }
+      ? { argv, extraExecArgv }
+      : { argv, extraExecArgv, nodeExecutable: first }
   )
 }
 
@@ -117,8 +117,8 @@ function determineArgs(args) {
  * @param {string} simpleHead Message prefix for the log file path.
  * @returns {Promise<string>} Path to the generated V8 log.
  */
-async function createLog(args, head, simpleHead) {
-  const { extraExecArgv, argv,  nodeExecutable } = determineArgs(args)
+async function createLog (args, head, simpleHead) {
+  const { extraExecArgv, argv, nodeExecutable } = determineArgs(args)
 
   const logDir = `${tmpdir()}/deoptigate`
   try {
@@ -143,17 +143,17 @@ async function createLog(args, head, simpleHead) {
   const inlineCacheArg = nodeMajorVersion > 15 ? '--log-ic' : '--trace-ic'
 
   const execArgv = [
-      inlineCacheArg
-    , '--log-deopt'
+    inlineCacheArg,
+    '--log-deopt',
     // V8 expands % in this path, and %% is its escape for a literal %.
-    , `--logfile=${logFile.replace(/%/g, '%%')}`
-    , '--no-logfile-per-isolate'
+     `--logfile=${logFile.replace(/%/g, '%%')}`,
+     '--no-logfile-per-isolate'
   ].concat(extraExecArgv)
 
   const child = spawn(
     nodeExecutable || processInfo.execPath,
-    execArgv.concat([ '-r', softExitPreload ], argv),
-    { stdio: [ 'ignore', 'inherit', 'inherit' ] }
+    execArgv.concat(['-r', softExitPreload], argv),
+    { stdio: ['ignore', 'inherit', 'inherit'] }
   )
   const code = await new Promise((resolve, reject) => {
     /** @type {NodeJS.Timeout | undefined} */

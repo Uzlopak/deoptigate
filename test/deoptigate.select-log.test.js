@@ -27,7 +27,7 @@ const generateReportPath = path.join(__dirname, '../bin/deoptigate.generate-repo
  * @param {string[] | null} [pipedLines] Lines delivered with an answer, followed by end of input.
  * @returns {SelectLogState}
  */
-function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
+function loadSelectLog (files, answers = ['1'], pipedLines = null) {
   /** @type {SelectLogState} */
   const state = {
     root: null,
@@ -47,18 +47,18 @@ function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
   const fakeFs = {
     constants: { R_OK: 4 },
     promises: {
-      async readdir(root) {
+      async readdir (root) {
         state.root = root
         return files.map(file => path.basename(file.fullPath))
       },
-      async access(filePath) {
+      async access (filePath) {
         const file = files.find(candidate => candidate.fullPath === filePath)
         if (file == null || file.readable === false) {
           const err = Object.assign(new Error('not readable'), { code: 'EACCES' })
           throw err
         }
       },
-      async stat(filePath) {
+      async stat (filePath) {
         const file = files.find(candidate => candidate.fullPath === filePath)
         if (file == null) throw new Error(`missing fixture for ${filePath}`)
         return { isFile: () => file.isFile !== false }
@@ -69,7 +69,7 @@ function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
     if (request === 'fs') return fakeFs
     if (request === 'readline') {
       return {
-        createInterface() {
+        createInterface () {
           const prompt = /**
            * @type {EventEmitter & {
            *   question(prompt: string, callback: (answer: string) => void): void,
@@ -104,7 +104,7 @@ function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
   try {
     state.selectLog = require(selectLogPath)
   } finally {
-  moduleLoader._load = originalLoad
+    moduleLoader._load = originalLoad
   }
   console.log = (...args) => state.logs.push(args.join(' '))
   console.error = (...args) => state.errors.push(args.join(' '))
@@ -119,15 +119,15 @@ function loadSelectLog(files, answers = [ '1' ], pipedLines = null) {
  * @param {Map<string, FakeReportFile>} [report]
  * @returns {GenerateReportState}
  */
-function loadGenerateReport(report = new Map([
-  [ '/tmp/fake-deoptigate/app.js', {
+function loadGenerateReport (report = new Map([
+  ['/tmp/fake-deoptigate/app.js', {
     fullPath: '/tmp/fake-deoptigate/app.js',
     relativePath: 'app.js',
     src: 'function run () {}',
     ics: [],
     deopts: [],
     codes: []
-  } ]
+  }]
 ])) {
   /** @type {GenerateReportState} */
   const state = {
@@ -151,8 +151,8 @@ function loadGenerateReport(report = new Map([
          * @param {{root: string}} options
         * @returns {Promise<Map<string, FakeReportFile>>}
          */
-        async processLog(file, options) {
-          state.logCalls.push([ file, options ])
+        async processLog (file, options) {
+          state.logCalls.push([file, options])
           return report
         }
       }
@@ -166,7 +166,7 @@ function loadGenerateReport(report = new Map([
          * @param {string} html
          * @returns {string}
          */
-        savePage(html) {
+        savePage (html) {
           state.pages.push(html)
           return '/tmp/fake-deoptigate/index.html'
         },
@@ -174,7 +174,7 @@ function loadGenerateReport(report = new Map([
          * @param {string} json
          * @returns {string}
          */
-        saveEntry(json) {
+        saveEntry (json) {
           state.entries.push(json)
           return '/tmp/fake-deoptigate/deoptigate.render-data.js'
         },
@@ -183,7 +183,7 @@ function loadGenerateReport(report = new Map([
          * @param {'json' | 'compact_json' | 'jsonl'} [format]
          * @returns {string}
          */
-        saveJson(json, format) {
+        saveJson (json, format) {
           state.jsonFiles.push(json)
           const filename = format === 'compact_json'
             ? 'deoptigate.compact.json'
@@ -200,7 +200,7 @@ function loadGenerateReport(report = new Map([
   try {
     state.generateReport = require(generateReportPath)
   } finally {
-  moduleLoader._load = originalLoad
+    moduleLoader._load = originalLoad
   }
   console.log = () => {}
   console.error = (...args) => state.errors.push(args.join(' '))
@@ -230,7 +230,7 @@ test('select-log prompts when multiple logs are present', async (/** @type {impo
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
-  ], [ '2' ])
+  ], ['2'])
   try {
     const result = await state.selectLog('deoptigate')
     t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected path')
@@ -238,7 +238,7 @@ test('select-log prompts when multiple logs are present', async (/** @type {impo
     t.assert.ok(state.logs.some(log => log.includes(path.join(process.cwd(), 'isolate-other-v8.log'))), 'reports the selected log path')
     t.assert.ok(state.logs.some(log => log.includes('1:  v8.log')), 'lists the first matching log')
     t.assert.ok(state.logs.some(log => log.includes('2:  isolate-other-v8.log')), 'lists the second matching log')
-    t.assert.deepEqual(state.questions, [ '\n\nYour choice: ' ], 'prompts for a selection')
+    t.assert.deepEqual(state.questions, ['\n\nYour choice: '], 'prompts for a selection')
     t.assert.equal(state.closeCount, 1, 'closes the prompt after selection')
     t.diagnostic('Simulated input: 2')
     state.logs.forEach(line => t.diagnostic(line))
@@ -289,7 +289,7 @@ test('select-log reports invalid choices and accepts a later valid choice', asyn
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
-  ], [ '', 'not a number', '3', '2' ])
+  ], ['', 'not a number', '3', '2'])
   try {
     const result = await state.selectLog('deoptigate')
     t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the selected second path')
@@ -306,7 +306,7 @@ test('select-log uses a choice piped together with an invalid one', async (/** @
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
-  ], [ 'invalid' ], [ '2' ])
+  ], ['invalid'], ['2'])
   try {
     const result = await state.selectLog('deoptigate')
     t.assert.equal(result, path.join(process.cwd(), 'isolate-other-v8.log'), 'returns the piped choice')
@@ -321,7 +321,7 @@ test('select-log fails when input ends before a valid choice', async (/** @type 
   const state = loadSelectLog([
     { fullPath: path.join(process.cwd(), 'v8.log') },
     { fullPath: path.join(process.cwd(), 'isolate-other-v8.log') }
-  ], [ 'invalid' ], [])
+  ], ['invalid'], [])
   try {
     await t.assert.rejects(state.selectLog('deoptigate'), /closed before a choice/)
   } finally {
@@ -334,8 +334,8 @@ test('generate-report saves output and reports the generated page path', async (
   const state = loadGenerateReport()
   try {
     await state.generateReport('/logs/v8.log', 'deoptigate')
-    t.assert.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log in the current root')
-    t.assert.deepEqual(state.pages, [ '<html>fake page</html>' ], 'saves the generated HTML page')
+    t.assert.deepEqual(state.logCalls, [['/logs/v8.log', { root: process.cwd() }]], 'parses the requested log in the current root')
+    t.assert.deepEqual(state.pages, ['<html>fake page</html>'], 'saves the generated HTML page')
     t.assert.equal(JSON.parse(state.entries[0])[0][0], '/tmp/fake-deoptigate/app.js', 'saves parsed render data')
     t.assert.ok(state.errors[0].includes('Successfully generated deoptimization visualization'), 'reports successful generation')
     t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/index.html'), 'prints the generated page path')
@@ -350,7 +350,7 @@ test('generate-report writes standalone JSON when requested', async (/** @type {
   const state = loadGenerateReport()
   try {
     await state.generateReport('/logs/v8.log', 'deoptigate', 'json')
-    t.assert.deepEqual(state.logCalls, [ [ '/logs/v8.log', { root: process.cwd() } ] ], 'parses the requested log')
+    t.assert.deepEqual(state.logCalls, [['/logs/v8.log', { root: process.cwd() }]], 'parses the requested log')
     t.assert.equal(JSON.parse(state.jsonFiles[0])[0][0], '/tmp/fake-deoptigate/app.js', 'saves the serialized report data')
     t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
     t.assert.deepEqual(state.entries, [], 'does not save a browser script')
@@ -366,7 +366,7 @@ test('generate-report writes compact JSON when requested', async (/** @type {imp
   const state = loadGenerateReport()
   try {
     await state.generateReport('/logs/v8.log', 'deoptigate', 'compact_json')
-    t.assert.deepEqual(state.jsonFiles, [ '[["/tmp/fake-deoptigate/app.js",[],[],[]]]' ], 'saves the compact report data')
+    t.assert.deepEqual(state.jsonFiles, ['[["/tmp/fake-deoptigate/app.js",[],[],[]]]'], 'saves the compact report data')
     t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
     t.assert.deepEqual(state.entries, [], 'does not save a browser script')
     t.assert.ok(state.errors[0].includes('Successfully generated compact deoptimization data'), 'reports compact JSON generation')
@@ -397,12 +397,12 @@ test('generate-report writes JSON Lines when requested', async (/** @type {impor
 test('generate-report filters files by filename or path substring', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   const report = new Map([
-      [ '/tmp/project/src/keep.js', {
-        fullPath: '/tmp/project/src/keep.js', relativePath: 'src/keep.js', src: '', ics: [], deopts: [], codes: []
-      } ]
-    , [ '/tmp/project/lib/skip.js', {
-        fullPath: '/tmp/project/lib/skip.js', relativePath: 'lib/skip.js', src: '', ics: [], deopts: [], codes: []
-      } ]
+    ['/tmp/project/src/keep.js', {
+      fullPath: '/tmp/project/src/keep.js', relativePath: 'src/keep.js', src: '', ics: [], deopts: [], codes: []
+    }],
+    ['/tmp/project/lib/skip.js', {
+      fullPath: '/tmp/project/lib/skip.js', relativePath: 'lib/skip.js', src: '', ics: [], deopts: [], codes: []
+    }]
   ])
   const state = loadGenerateReport(report)
   try {
@@ -420,25 +420,36 @@ test('generate-report filters files by filename or path substring', async (/** @
 test('generate-report filters updates by selected severities', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const report = new Map([
-    [ '/tmp/project/app.js', {
-      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+    ['/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js',
+      relativePath: 'app.js',
+      src: '',
       ics: [{
-        functionName: 'run', file: '/tmp/project/app.js', line: 1, column: 1,
+        functionName: 'run',
+        file: '/tmp/project/app.js',
+        line: 1,
+        column: 1,
         updates: [{ severity: 1 }, { severity: 2 }]
       }],
       deopts: [{
-        functionName: 'run', file: '/tmp/project/app.js', line: 2, column: 1,
+        functionName: 'run',
+        file: '/tmp/project/app.js',
+        line: 2,
+        column: 1,
         updates: [{ severity: 3 }]
       }],
       codes: [{
-        functionName: 'run', file: '/tmp/project/app.js', line: 3, column: 1,
+        functionName: 'run',
+        file: '/tmp/project/app.js',
+        line: 3,
+        column: 1,
         updates: [{ severity: 2 }]
       }]
-    } ]
+    }]
   ])
   const state = loadGenerateReport(report)
   try {
-    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [ 1, 3 ])
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [1, 3])
     const entries = JSON.parse(state.jsonFiles[0])
     const info = entries[0][1]
     t.assert.equal(info.ics[0].updates.length, 1, 'keeps only matching updates within an event')
@@ -453,16 +464,18 @@ test('generate-report filters updates by selected severities', async (/** @type 
 test('generate-report keeps combinations of selected event types', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   const report = new Map([
-    [ '/tmp/project/app.js', {
-      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+    ['/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js',
+      relativePath: 'app.js',
+      src: '',
       ics: [{ updates: [{ severity: 1 }] }],
       deopts: [{ updates: [{ severity: 2 }] }],
       codes: [{ updates: [{ severity: 3 }] }]
-    } ]
+    }]
   ])
   const state = loadGenerateReport(report)
   try {
-    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, [ 'opt', 'deopt' ])
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, ['opt', 'deopt'])
     const entries = JSON.parse(state.jsonFiles[0])
     const info = entries[0][1]
     t.assert.deepEqual(info.ics, [], 'removes IC events not selected')
@@ -476,19 +489,21 @@ test('generate-report keeps combinations of selected event types', async (/** @t
 test('generate-report keeps only inline-cache events when requested', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const report = new Map([
-    [ '/tmp/project/app.js', {
-      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
+    ['/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js',
+      relativePath: 'app.js',
+      src: '',
       ics: [{ updates: [{ severity: 1 }] }],
       deopts: [{ updates: [{ severity: 2 }] }],
       codes: [{ updates: [{ severity: 3 }] }]
-    } ]
+    }]
   ])
   const state = loadGenerateReport(report)
   try {
-    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, [ 'ic' ])
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, undefined, ['ic'])
     const info = JSON.parse(state.jsonFiles[0])[0][1]
     t.assert.equal(info.ics.length, 1, 'keeps inline-cache events')
-    t.assert.deepEqual([ info.deopts, info.codes ], [ [], [] ], 'removes optimization and deoptimization events')
+    t.assert.deepEqual([info.deopts, info.codes], [[], []], 'removes optimization and deoptimization events')
   } finally {
     state.restore()
   }
@@ -497,14 +512,18 @@ test('generate-report keeps only inline-cache events when requested', async (/**
 test('generate-report omits files with no events at selected severities', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const report = new Map([
-    [ '/tmp/project/app.js', {
-      fullPath: '/tmp/project/app.js', relativePath: 'app.js', src: '',
-      ics: [], deopts: [], codes: [{ updates: [{ severity: 2 }] }]
-    } ]
+    ['/tmp/project/app.js', {
+      fullPath: '/tmp/project/app.js',
+      relativePath: 'app.js',
+      src: '',
+      ics: [],
+      deopts: [],
+      codes: [{ updates: [{ severity: 2 }] }]
+    }]
   ])
   const state = loadGenerateReport(report)
   try {
-    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [ 1 ])
+    await state.generateReport('/logs/v8.log', 'deoptigate', 'json', undefined, [1])
     t.assert.deepEqual(JSON.parse(state.jsonFiles[0]), [], 'drops the now-empty file group')
   } finally {
     state.restore()

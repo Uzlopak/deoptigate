@@ -49,7 +49,7 @@ const createLogPath = path.join(__dirname, '../bin/deoptigate.create-log.js')
  * @param {CreateLogTestOptions} [options]
  * @returns {CreateLogTestState}
  */
-function loadCreateLog(options = {}) {
+function loadCreateLog (options = {}) {
   /** @type {CreateLogTestState} */
   const state = Object.assign({
     exists: false,
@@ -79,8 +79,8 @@ function loadCreateLog(options = {}) {
      * @param {number} mode
      * @param {(error: NodeJS.ErrnoException | null) => void} callback
      */
-    access(file, mode, callback) {
-      state.accessCalls.push([ file, mode ])
+    access (file, mode, callback) {
+      state.accessCalls.push([file, mode])
       if (state.exists) return callback(null)
       callback(Object.assign(new Error('not found'), { code: 'ENOENT' }))
     },
@@ -89,7 +89,7 @@ function loadCreateLog(options = {}) {
      * @param {{recursive?: boolean, mode?: number}} options
      * @param {(error: NodeJS.ErrnoException | null) => void} callback
      */
-    mkdir(file, options, callback) {
+    mkdir (file, options, callback) {
       state.mkdirCalls.push(file)
       state.mkdirOptions.push(options)
       callback(null)
@@ -99,15 +99,15 @@ function loadCreateLog(options = {}) {
      * @param {number} mode
      * @param {(error: NodeJS.ErrnoException | null) => void} callback
      */
-    chmod(file, mode, callback) {
-      state.chmodCalls.push([ file, mode ])
+    chmod (file, mode, callback) {
+      state.chmodCalls.push([file, mode])
       callback(null)
     },
     /**
      * @param {string} file
      * @param {(error: NodeJS.ErrnoException | null) => void} callback
      */
-    unlink(file, callback) {
+    unlink (file, callback) {
       state.unlinkCalls.push(file)
       callback(state.unlinkError || Object.assign(new Error('not found'), { code: 'ENOENT' }))
     },
@@ -115,7 +115,7 @@ function loadCreateLog(options = {}) {
      * @param {string} file
      * @param {(error: NodeJS.ErrnoException | null, stats?: {isDirectory: () => boolean}) => void} callback
      */
-    stat(file, callback) {
+    stat (file, callback) {
       state.statCalls.push(file)
       if (state.statError) return callback(/** @type {NodeJS.ErrnoException} */ (state.statError))
       if (!state.exists) {
@@ -140,17 +140,17 @@ function loadCreateLog(options = {}) {
          * @param {(string | undefined)[]} args
          * @param {{stdio: string[]}} spawnOptions
          */
-        spawn(node, args, spawnOptions) {
+        spawn (node, args, spawnOptions) {
           state.spawnCalls.push({ node, args, spawnOptions })
           /** @type {EventEmitter & {exitCode: number | null, kill: (signal: string) => boolean}} */
           const childProcess = Object.assign(new EventEmitter(), {
             exitCode: null,
             kill: (/** @type {string} */ signal) => {
-            state.killSignals.push(signal)
-            if (!(state.ignoreSigterm && signal === 'SIGTERM')) {
-              process.nextTick(() => childProcess.emit('exit', null))
-            }
-            return true
+              state.killSignals.push(signal)
+              if (!(state.ignoreSigterm && signal === 'SIGTERM')) {
+                process.nextTick(() => childProcess.emit('exit', null))
+              }
+              return true
             }
           })
           if (state.spawnError) {
@@ -187,16 +187,16 @@ function loadCreateLog(options = {}) {
 test('create-log creates missing log directory and spawns the requested script', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(7)
   const state = loadCreateLog()
-  const logPath = await state.createLog([ 'script.js', '--example' ], 'head', 'simple')
+  const logPath = await state.createLog(['script.js', '--example'], 'head', 'simple')
 
   t.assert.equal(logPath, `${state.logDir}/deoptigate/v8.log`, 'returns the v8 log path')
-  t.assert.deepEqual(state.mkdirCalls, [ `${state.logDir}/deoptigate` ], 'creates a missing log directory')
-  t.assert.deepEqual(state.spawnCalls[0].args.slice(-2), [ 'script.js', '--example' ], 'passes app arguments through')
+  t.assert.deepEqual(state.mkdirCalls, [`${state.logDir}/deoptigate`], 'creates a missing log directory')
+  t.assert.deepEqual(state.spawnCalls[0].args.slice(-2), ['script.js', '--example'], 'passes app arguments through')
   t.assert.equal(state.spawnCalls[0].args[0], '--log-ic', 'enables inline cache logging on supported Node')
   t.assert.equal(state.spawnCalls[0].args[1], '--log-deopt', 'enables deoptimization logging')
   const preloadIndex = state.spawnCalls[0].args.indexOf('-r')
   t.assert.equal(state.spawnCalls[0].args[preloadIndex + 1], path.join(__dirname, '../bin/soft-exit.js'), 'preloads the child SIGINT handler')
-  t.assert.deepEqual(state.spawnCalls[0].spawnOptions.stdio, [ 'ignore', 'inherit', 'inherit' ], 'inherits child output')
+  t.assert.deepEqual(state.spawnCalls[0].spawnOptions.stdio, ['ignore', 'inherit', 'inherit'], 'inherits child output')
 })
 
 test('create-log preserves a nonzero profiled process exit code', async (
@@ -204,7 +204,7 @@ test('create-log preserves a nonzero profiled process exit code', async (
 ) => {
   t.plan(2)
   const state = loadCreateLog({ exitCode: 7 })
-  const logPath = await state.createLog([ 'script.js' ], 'head', 'simple')
+  const logPath = await state.createLog(['script.js'], 'head', 'simple')
 
   t.assert.equal(logPath, `${state.logDir}/deoptigate/v8.log`, 'still returns the generated V8 log path')
   t.assert.equal(state.processInfo.exitCode, 7, 'lets the CLI report the profiled process failure to its caller')
@@ -220,9 +220,9 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
 
   t.assert.equal(logPath, `${state.logDir}/deoptigate/v8.log`, 'returns the generated log path')
   t.assert.equal(state.mkdirCalls.length, 0, 'does not recreate an existing directory')
-  t.assert.deepEqual(state.statCalls, [ `${state.logDir}/deoptigate` ], 'checks that existing log path is a directory')
+  t.assert.deepEqual(state.statCalls, [`${state.logDir}/deoptigate`], 'checks that existing log path is a directory')
   t.assert.equal(state.spawnCalls[0].node, '/custom/node', 'uses the requested Node executable')
-  t.assert.deepEqual(state.spawnCalls[0].args.slice(-2), [ 'app.js', '--app-flag' ], 'passes only app arguments')
+  t.assert.deepEqual(state.spawnCalls[0].args.slice(-2), ['app.js', '--app-flag'], 'passes only app arguments')
   t.assert.ok(state.spawnCalls[0].args.includes('--allow-natives-syntax'), 'passes Node flags')
   t.assert.ok(state.spawnCalls[0].args.indexOf('app.js') < state.spawnCalls[0].args.indexOf('--app-flag'), 'keeps app flags after the app path')
 })
@@ -230,38 +230,38 @@ test('create-log parses node flags, app args, and a custom Node executable', asy
 test('create-log removes the previous log and keeps its directory private', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(3)
   const state = loadCreateLog()
-  await state.createLog([ 'app.js' ], 'head', 'simple')
-  t.assert.deepEqual(state.unlinkCalls, [ `${state.logDir}/deoptigate/v8.log` ], 'removes the previous log')
+  await state.createLog(['app.js'], 'head', 'simple')
+  t.assert.deepEqual(state.unlinkCalls, [`${state.logDir}/deoptigate/v8.log`], 'removes the previous log')
   t.assert.equal(state.mkdirOptions[0].mode, 0o700, 'creates the directory privately')
-  t.assert.deepEqual(state.chmodCalls, [ [ `${state.logDir}/deoptigate`, 0o700 ] ], 'tightens an existing directory')
+  t.assert.deepEqual(state.chmodCalls, [[`${state.logDir}/deoptigate`, 0o700]], 'tightens an existing directory')
 })
 
 test('create-log rethrows unexpected errors removing the previous log', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const unlinkError = Object.assign(new Error('denied'), { code: 'EACCES' })
   const state = loadCreateLog({ unlinkError })
-  await t.assert.rejects(state.createLog([ 'app.js' ], 'head', 'simple'), unlinkError)
+  await t.assert.rejects(state.createLog(['app.js'], 'head', 'simple'), unlinkError)
   t.assert.equal(state.spawnCalls.length, 0, 'does not start the process')
 })
 
 test('create-log escapes percent signs in the V8 log path', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog({ logDir: '/tmp/100%p' })
-  await state.createLog([ 'app.js' ], 'head', 'simple')
+  await state.createLog(['app.js'], 'head', 'simple')
   t.assert.ok(state.spawnCalls[0].args.includes('--logfile=/tmp/100%%p/deoptigate/v8.log'))
 })
 
 test('create-log forwards a separator that belongs to the app', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog()
-  await state.createLog([ 'app.js', '--', '--port', '3000' ], 'head', 'simple')
-  t.assert.deepEqual(state.spawnCalls[0].args.slice(-4), [ 'app.js', '--', '--port', '3000' ])
+  await state.createLog(['app.js', '--', '--port', '3000'], 'head', 'simple')
+  t.assert.deepEqual(state.spawnCalls[0].args.slice(-4), ['app.js', '--', '--port', '3000'])
 })
 
 test('create-log keeps node -e and its source together', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog()
-  await state.createLog([ '--', 'node', '-e', 'console.log(1)' ], 'head', 'simple')
+  await state.createLog(['--', 'node', '-e', 'console.log(1)'], 'head', 'simple')
   const { args } = state.spawnCalls[0]
   t.assert.equal(args[args.indexOf('-e') + 1], 'console.log(1)')
 })
@@ -269,7 +269,7 @@ test('create-log keeps node -e and its source together', async (/** @type {impor
 test('create-log does not mistake a node flag value for the app', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog()
-  await state.createLog([ '--', 'node', '--trace-event-categories', 'v8', 'app.js' ], 'head', 'simple')
+  await state.createLog(['--', 'node', '--trace-event-categories', 'v8', 'app.js'], 'head', 'simple')
   const { args } = state.spawnCalls[0]
   t.assert.equal(args[args.indexOf('--trace-event-categories') + 1], 'v8')
 })
@@ -277,9 +277,9 @@ test('create-log does not mistake a node flag value for the app', async (/** @ty
 test('create-log supports the node executable and legacy IC flag', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(4)
   const state = loadCreateLog({ nodeVersion: '15.0.0' })
-  await state.createLog([ '--', 'node', '--trace-warnings', 'app.js' ], 'head', 'simple')
+  await state.createLog(['--', 'node', '--trace-warnings', 'app.js'], 'head', 'simple')
   t.assert.equal(state.spawnCalls[0].node, process.execPath, 'uses the default Node executable')
-  t.assert.deepEqual(state.spawnCalls[0].args.slice(-1), [ 'app.js' ], 'passes app arguments after Node flags')
+  t.assert.deepEqual(state.spawnCalls[0].args.slice(-1), ['app.js'], 'passes app arguments after Node flags')
   t.assert.equal(state.spawnCalls[0].args[0], '--trace-ic', 'uses the legacy inline-cache flag')
   t.assert.ok(state.spawnCalls[0].args.includes('--trace-warnings'), 'passes Node flags through')
 })
@@ -294,8 +294,8 @@ test('create-log keeps separate Node flag values before the application script',
 
   const args = state.spawnCalls[0].args
   const requireIndex = args.indexOf('--require')
-  t.assert.deepEqual(args.slice(requireIndex, requireIndex + 2), [ '--require', './preload.js' ], 'keeps the preload value with its Node flag')
-  t.assert.deepEqual(args.slice(-2), [ 'app.js', '--app-flag' ], 'keeps the application and its arguments after Node flags')
+  t.assert.deepEqual(args.slice(requireIndex, requireIndex + 2), ['--require', './preload.js'], 'keeps the preload value with its Node flag')
+  t.assert.deepEqual(args.slice(-2), ['app.js', '--app-flag'], 'keeps the application and its arguments after Node flags')
 })
 
 test('create-log rejects Node flags that are missing their value', async (
@@ -306,7 +306,7 @@ test('create-log rejects Node flags that are missing their value', async (
   let error
 
   try {
-    await state.createLog([ '--', 'node', '--require' ], 'head', 'simple')
+    await state.createLog(['--', 'node', '--require'], 'head', 'simple')
   } catch (caught) {
     if (caught instanceof Error) error = caught
     else throw caught
@@ -323,7 +323,7 @@ test('create-log rejects flags where a Node executable is required', async (/** 
   /** @type {Error | undefined} */
   let err
   try {
-    await state.createLog([ '--', '--allow-natives-syntax', 'app.js' ], 'head', 'simple')
+    await state.createLog(['--', '--allow-natives-syntax', 'app.js'], 'head', 'simple')
   } catch (error) {
     if (error instanceof Error) err = error
     else throw error
@@ -339,7 +339,7 @@ test('create-log rejects an existing path that is not a directory', async (/** @
   /** @type {Error | undefined} */
   let err
   try {
-    await state.createLog([ 'app.js' ], 'head', 'simple')
+    await state.createLog(['app.js'], 'head', 'simple')
   } catch (error) {
     if (error instanceof Error) err = error
     else throw error
@@ -354,7 +354,7 @@ test('create-log rethrows unexpected log-directory stat errors', async (/** @typ
   /** @type {Error | undefined} */
   let err
   try {
-    await state.createLog([ 'app.js' ], 'head', 'simple')
+    await state.createLog(['app.js'], 'head', 'simple')
   } catch (error) {
     if (error instanceof Error) err = error
     else throw error
@@ -366,7 +366,7 @@ test('create-log rethrows unexpected log-directory stat errors', async (/** @typ
 test('create-log handles a missing node executable argument after the separator', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(2)
   const state = loadCreateLog()
-  await state.createLog([ '--' ], 'head', 'simple')
+  await state.createLog(['--'], 'head', 'simple')
   t.assert.equal(state.spawnCalls.length, 1, 'continues through the no-executable argument branch')
   t.assert.ok(!state.spawnCalls[0].args.includes(undefined), 'does not pass an undefined child argument')
 })
@@ -374,8 +374,8 @@ test('create-log handles a missing node executable argument after the separator'
 test('create-log terminates the child when interrupted', async (/** @type {import('node:test').TestContext} */ t) => {
   t.plan(1)
   const state = loadCreateLog({ interruptChild: true })
-  await state.createLog([ 'app.js' ], 'head', 'simple')
-  t.assert.deepEqual(state.killSignals, [ 'SIGTERM' ], 'asks the child to exit gracefully on SIGINT')
+  await state.createLog(['app.js'], 'head', 'simple')
+  t.assert.deepEqual(state.killSignals, ['SIGTERM'], 'asks the child to exit gracefully on SIGINT')
 })
 
 test('create-log force kills a child that ignores SIGTERM', async (/** @type {import('node:test').TestContext} */ t) => {
@@ -383,11 +383,11 @@ test('create-log force kills a child that ignores SIGTERM', async (/** @type {im
   const state = loadCreateLog({ interruptChild: true, ignoreSigterm: true })
   const keepAlive = setInterval(() => {}, 1000)
   try {
-    await state.createLog([ 'app.js' ], 'head', 'simple')
+    await state.createLog(['app.js'], 'head', 'simple')
   } finally {
     clearInterval(keepAlive)
   }
-  t.assert.deepEqual(state.killSignals, [ 'SIGTERM', 'SIGKILL' ], 'forces exit after the grace period')
+  t.assert.deepEqual(state.killSignals, ['SIGTERM', 'SIGKILL'], 'forces exit after the grace period')
 })
 
 test('create-log rejects spawn errors and removes its signal handler', async (/** @type {import('node:test').TestContext} */ t) => {
@@ -396,7 +396,7 @@ test('create-log rejects spawn errors and removes its signal handler', async (/*
   /** @type {Error | undefined} */
   let err
   try {
-    await state.createLog([ 'app.js' ], 'head', 'simple')
+    await state.createLog(['app.js'], 'head', 'simple')
   } catch (error) {
     if (error instanceof Error) err = error
     else throw error

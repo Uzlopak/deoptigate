@@ -6,7 +6,7 @@
  * @param {string} text Text to colorize.
  * @returns {string}
  */
-function color(code, text) {
+function color (code, text) {
   return `\u001b[${code}m${text}\u001b[39m`
 }
 

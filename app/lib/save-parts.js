@@ -12,7 +12,7 @@ const deoptigateDir = path.join(tmpdir, 'deoptigate')
  * @param {string} html Complete HTML document.
  * @returns {string} Path to the saved page.
  */
-function savePage(html) {
+function savePage (html) {
   fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
   fs.chmodSync(deoptigateDir, 0o700)
   const dest = path.join(deoptigateDir, 'index.html')
@@ -26,7 +26,7 @@ function savePage(html) {
  * @param {string} json Serialized report data.
  * @returns {string} Path to the saved render-data script.
  */
-function saveEntry(json) {
+function saveEntry (json) {
   fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
   fs.chmodSync(deoptigateDir, 0o700)
   const entryDest = path.join(deoptigateDir, 'deoptigate.render-data.js')
@@ -48,7 +48,7 @@ function saveEntry(json) {
  * @param {'json' | 'compact_json' | 'jsonl'} [format='json'] JSON format.
  * @returns {string} Path to the saved JSON file.
  */
-function saveJson(json, format = 'json') {
+function saveJson (json, format = 'json') {
   fs.mkdirSync(deoptigateDir, { recursive: true, mode: 0o700 })
   fs.chmodSync(deoptigateDir, 0o700)
   const filename = format === 'compact_json'

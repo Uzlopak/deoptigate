@@ -8,13 +8,13 @@ const escapeHtml = require('../lib/rendering/escape-html')
  * @param {Array<{id: string, line: number, column: number}>} markers
  * @returns {{nextLocation: () => {line: number, column: number} | null, resolve: () => {insertBefore: string, insertAfter: string}}}
  */
-function resolverFor(markers) {
+function resolverFor (markers) {
   let idx = 0
   return {
-    nextLocation() {
+    nextLocation () {
       return markers[idx] || null
     },
-    resolve() {
+    resolve () {
       const marker = markers[idx++]
       return {
         insertBefore: `<a data-marker="${marker.id}">`,
@@ -28,11 +28,11 @@ test('markOnly escapes source text and leaves generated markers as HTML', (/** @
   t.plan(4)
   let calls = 0
   const markerResolver = {
-    nextLocation() {
+    nextLocation () {
       calls++
       return calls === 1 ? { line: 1, column: 1 } : null
     },
-    resolve() {
+    resolve () {
       return { insertBefore: '<a class="marker">', insertAfter: '</a>' }
     }
   }
@@ -58,7 +58,7 @@ test('markOnly renders unmarked full lines', (/** @type {import('node:test').Tes
   const html = markOnly('alpha\nbeta', resolverFor([]))
   t.assert.equal(
     html,
-    `<div class="pre"><span>1: </span><span>alpha</span><br><span>2: </span><span>beta</span><br></div>`,
+    '<div class="pre"><span>1: </span><span>alpha</span><br><span>2: </span><span>beta</span><br></div>',
     'preserves full source lines when there are no markers'
   )
 })
