@@ -6,7 +6,7 @@ const toJsonl = require('../lib/jsonl')
 test('JSONL keeps readable event details without source or repeated file paths', (
   /** @type {import('node:test').TestContext} */ t
 ) => {
-  t.plan(7)
+  t.plan(9)
   const fullPath = '/project/src/app.js'
   const report = new Map([[ fullPath, {
     fullPath,
@@ -26,7 +26,9 @@ test('JSONL keeps readable event details without source or repeated file paths',
     }]
   }]])
 
-  const lines = toJsonl(report).split('\n')
+  const jsonl = toJsonl(report)
+  const lines = jsonl.trimEnd().split('\n')
+  t.assert.ok(jsonl.endsWith('\n'), 'ends nonempty JSONL output with a newline')
   t.assert.equal(lines.length, 1, 'writes one JSON object per source file')
   const record = JSON.parse(lines[0])
   t.assert.deepEqual([ record.file, record.relativePath ], [ fullPath, 'src/app.js' ], 'keeps unambiguous file identity')
@@ -43,4 +45,11 @@ test('JSONL keeps readable event details without source or repeated file paths',
   }, 'keeps optimization details')
   t.assert.equal((lines[0].match(/"file":"\/project\/src\/app\.js"/g) || []).length, 1, 'writes the full path once')
   t.assert.ok(!lines[0].includes('large source omitted'), 'omits source text')
+  const concatenatedLines = (jsonl + jsonl).trimEnd().split('\n')
+  t.assert.equal(concatenatedLines.map(line => JSON.parse(line).file).length, 2, 'keeps records parseable when reports are concatenated')
+})
+
+test('JSONL output for an empty report is empty', (/** @type {import('node:test').TestContext} */ t) => {
+  t.plan(1)
+  t.assert.equal(toJsonl(new Map()), '', 'does not emit a standalone blank record')
 })

@@ -378,13 +378,14 @@ test('generate-report writes compact JSON when requested', async (/** @type {imp
 })
 
 test('generate-report writes JSON Lines when requested', async (/** @type {import('node:test').TestContext} */ t) => {
-  t.plan(5)
+  t.plan(6)
   const state = loadGenerateReport()
   try {
     await state.generateReport('/logs/v8.log', 'deoptigate', 'jsonl')
     const line = state.jsonFiles[0]
-    t.assert.equal(line.split('\n').length, 1, 'writes one record per source file')
-    t.assert.equal(JSON.parse(line).file, '/tmp/fake-deoptigate/app.js', 'keeps the file identity')
+    t.assert.ok(line.endsWith('\n'), 'terminates JSON Lines output with a newline')
+    t.assert.equal(line.trimEnd().split('\n').length, 1, 'writes one record per source file')
+    t.assert.equal(JSON.parse(line.trimEnd()).file, '/tmp/fake-deoptigate/app.js', 'keeps the file identity')
     t.assert.deepEqual(state.pages, [], 'does not save an HTML page')
     t.assert.ok(state.errors[0].includes('Successfully generated deoptimization data as JSONL'), 'reports JSONL generation')
     t.assert.ok(state.errors[0].includes('/tmp/fake-deoptigate/deoptigate.jsonl'), 'prints the JSONL path')

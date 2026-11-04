@@ -173,3 +173,80 @@ test('parser reports a malformed IC row and continues with following records', a
   t.assert.ok(validEntry, 'the following valid IC row is processed')
   t.assert.equal(validEntry.updates[0].key, 'validKey', 'the valid record survives after the bad row')
 })
+
+/**
+ * @param {Partial<AsyncIterator<string>>} iterator
+ * @returns {AsyncIterable<string>}
+ */
+function iterableOf(iterator) {
+  return { [Symbol.asyncIterator]: () => /** @type {AsyncIterator<string>} */ (iterator) }
+}
+
+// A line that isn't a string fails outside the reader's per-row error handling.
+const UNPARSABLE_LINE = /** @type {string} */ (/** @type {unknown} */ (null))
+
+test('leaves the line source alone once it is exhausted', async (/** @type {import('node:test').TestContext} */ t) => {
+  const source = iterableOf({
+      next: async () => ({ done: true, value: undefined })
+    , return: async () => { throw new Error('return() must not run after normal exhaustion') }
+  })
+  await t.assert.doesNotReject(processLogContent(source, repoRoot))
+})
+
+test('closes the line source when parsing a line throws', async (/** @type {import('node:test').TestContext} */ t) => {
+  let closed = false
+  async function * lines() {
+    try {
+      yield UNPARSABLE_LINE
+    } finally {
+      closed = true
+    }
+  }
+
+  await t.assert.rejects(processLogContent(lines(), repoRoot), TypeError)
+  t.assert.ok(closed, 'return() ran on the source')
+})
+
+test('reports the parsing failure even if closing the line source fails too', async (/** @type {import('node:test').TestContext} */ t) => {
+  const closers = [
+      async () => { throw new Error('close failed') }
+    , () => { throw new Error('close failed') }
+  ]
+  for (const close of closers) {
+    const source = iterableOf({ next: async () => ({ done: false, value: UNPARSABLE_LINE }), return: close })
+    await t.assert.rejects(processLogContent(source, repoRoot), TypeError)
+  }
+})
+
+test('accepts a line source without return()', async (/** @type {import('node:test').TestContext} */ t) => {
+  const source = iterableOf({ next: async () => ({ done: false, value: UNPARSABLE_LINE }) })
+  await t.assert.rejects(processLogContent(source, repoRoot), TypeError)
+})
+
+test('does not close a line source that failed by itself', async (/** @type {import('node:test').TestContext} */ t) => {
+  let closed = false
+  const source = iterableOf({
+      next: async () => { throw new RangeError('read failed') }
+    , return: async () => { closed = true; return { done: true, value: undefined } }
+  })
+  await t.assert.rejects(processLogContent(source, repoRoot), RangeError)
+  t.assert.equal(closed, false, 'matches for await, which leaves a throwing iterator alone')
+})
+
+test('releases the file descriptor of a real log when parsing fails', async (/** @type {import('node:test').TestContext} */ t) => {
+  const close = t.mock.method(fs, 'close')
+  const lineReaderPath = require.resolve('../lib/line-reader')
+  const cached = require.cache[lineReaderPath]
+  delete require.cache[lineReaderPath]
+  t.after(() => { require.cache[lineReaderPath] = cached })
+  // The reader binds fs.close on load, so it has to load after the spy.
+  const lineReader = require('../lib/line-reader')
+  const log = path.join(repoRoot, 'test/logs/adders.prepared.v8.log')
+
+  async function * unparsableLines() {
+    for await (const line of lineReader(log, 'utf-8')) yield line && UNPARSABLE_LINE
+  }
+
+  await t.assert.rejects(processLogContent(unparsableLines(), repoRoot), TypeError)
+  t.assert.equal(close.mock.callCount(), 1)
+})

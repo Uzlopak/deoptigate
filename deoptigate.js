@@ -111,7 +111,7 @@ const propertyICParser = /** @type {const} */ ([ 'var-args' ])
 /**
  * @typedef {object} LogReaderInstance
  * @property {ProcessLogLine} processLogLine
- * @property {Record<string, unknown>} dispatchTable_
+ * @property {Map<string, unknown>} dispatchTable_
  */
 
 /**
@@ -195,7 +195,7 @@ class DeoptProcessor extends LogReaderBase {
 
     // passing dispatch table that references `this` before invoking super
     // doesn't work, so we set it afterwards
-    this.dispatchTable_ = {
+    this.dispatchTable_ = new Map(Object.entries({
 
         // Collect info about CRUD of code
         'code-creation': {
@@ -246,7 +246,7 @@ class DeoptProcessor extends LogReaderBase {
             parsers : propertyICParser
           , processor: this._processPropertyIC.bind(this, 'StoreInArrayLiteralIC')
         }
-    }
+    }))
 
     this._profile = new ProfileConstructor()
 
@@ -469,17 +469,76 @@ class DeoptProcessor extends LogReaderBase {
   }
 }
 
+// Code addresses arrive mostly ascending and builtins come first, so V8 optimizes
+// the parser before it has seen a descending address, function code or an escape
+// in a field. No code shape avoids that: reaching such a branch deoptimizes.
+// Running a small log with all of those through a throwaway processor first
+// gives V8 the feedback up front. The row count has a window: on Node.js 24 10
+// rows don't allocate every feedback vector, and 400 reach optimization, which
+// brings deopts back. test/self-deopts.test.js notices if that window moves.
+const WARM_UP_ROWS = 60
+
+/**
+ * @param {number} row
+ * @returns {string[]} Log lines that together take the branches a real log only reaches late.
+ */
+function warmUpLines(row) {
+  // Stepping through 64 slots out of order revisits and reuses addresses.
+  const address = (/** @type {number} */ offset) =>
+    '0x' + (0x100000 + (row * 37 + offset) % 64 * 0x40).toString(16)
+  return [
+      `code-creation,Builtin,2,${row},${address(0)},32,warm\\x2Cup\\u0041\\n\\\\\\q tail`
+    , `code-creation,JS,9,${row},${address(1)},32, warmUp /warm-up.js:1:${row},${address(2)},~`
+    , `code-creation,Builtin,2,${row},${address(0)},8,overlaps`
+    , `code-move,${address(3)},${address(4)}`
+    , `sfi-move,${address(5)},${address(6)}`
+    , `code-delete,${address(7)}`
+  ]
+}
+
+let isWarmedUp = false
+
+/** @returns {void} */
+function warmUp() {
+  if (isWarmedUp) return
+  isWarmedUp = true
+  const processor = new DeoptProcessor('')
+  for (let row = 0; row < WARM_UP_ROWS; row++) {
+    for (const line of warmUpLines(row)) processor.processLogLine(line)
+  }
+}
+
+/**
+ * Kept apart from `processLogContent`, and handed a ready iterator, so that V8
+ * optimizing this long loop doesn't take along setup that only ran once.
+ * @param {DeoptProcessor} deoptProcessor
+ * @param {AsyncIterator<string>} lines
+ * @returns {Promise<void>}
+ */
+async function processLines(deoptProcessor, lines) {
+  let next
+  while (!(next = await lines.next()).done) {
+    try {
+      deoptProcessor.processLogLine(next.value)
+    } catch (err) {
+      // What `for await` does: a failed close must not hide the actual error.
+      try {
+        await lines.return?.()
+      } catch {}
+      throw err
+    }
+  }
+}
+
 /**
  * @param {AsyncIterable<string>} lines
  * @param {string} root
  * @returns {Promise<DeoptProcessor>}
  */
 async function processLogContent(lines, root) {
+  warmUp()
   const deoptProcessor = new DeoptProcessor(root)
-  for await (const line of lines) {
-    deoptProcessor.processLogLine(line)
-  }
-
+  await processLines(deoptProcessor, lines[Symbol.asyncIterator]())
   return deoptProcessor
 }
 

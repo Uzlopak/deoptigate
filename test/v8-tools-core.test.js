@@ -10,7 +10,7 @@ const { OPTIMIZATION_STATE_OPTIMIZED } = require('../lib/log-processing/optimiza
 /** @typedef {{parsers: Array<((field: string) => unknown) | null>, processor: (...args: never[]) => void}} TestDispatch */
 /**
  * @typedef {object} TestLogReader
- * @property {Record<string, TestDispatch | null>} dispatchTable_
+ * @property {Map<string, TestDispatch | null>} dispatchTable_
  * @property {{parseLine(line: string): string[]}} csvParser_
  * @property {(chunk: string) => void} processLogChunk
  * @property {() => void} processLogEnd
@@ -20,7 +20,7 @@ const { OPTIMIZATION_STATE_OPTIMIZED } = require('../lib/log-processing/optimiza
 /** @typedef {{key: number, value: unknown}} TestSplayNode */
 /** @typedef {{insert(key: number, value: unknown): void, find(key: number): TestSplayNode | null, findGreatestLessThan(key: number): TestSplayNode | null, exportKeysAndValues(): Array<[number, unknown]>, remove(key: number): TestSplayNode}} TestSplayTree */
 /** @typedef {new () => TestSplayTree} TestSplayTreeConstructor */
-/** @typedef {{addCode(start: number, entry: {size: number, name: string, type: string}): void, moveCode(from: number, to: number): void, deleteCode(start: number): unknown, findEntry(addr: number): {size: number, name: string, type: string} | null}} TestCodeMap */
+/** @typedef {{addCode(start: number, entry: {size: number, name: string, type: string}): void, moveCode(from: number, to: number): void, deleteCode(start: number): {key: number, value: unknown}, findDynamicEntryByStartAddress(addr: number): unknown, findEntry(addr: number): {size: number, name: string, type: string} | null}} TestCodeMap */
 /** @typedef {new () => TestCodeMap} TestCodeMapConstructor */
 /** @typedef {new (size: number, name?: string, type?: string) => {size: number, name: string, type: string}} TestCodeEntryConstructor */
 /** @typedef {{getName(): string}} TestFunctionEntry */
@@ -66,7 +66,7 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
   class Reader extends TestLogReaderBase {
     constructor() {
       super()
-      this.dispatchTable_ = {
+      this.dispatchTable_ = new Map(Object.entries({
         record: {
           parsers: [ parseInt, null ]
         , processor: (/** @type {number} */ n, /** @type {string} */ value) => {
@@ -74,7 +74,7 @@ test('LogReader dispatches parsed records and reports malformed rows without sto
             calls.push([ n, value ])
           }
         }
-      }
+      }))
     }
 
     printError(/** @type {string} */ message) { errors.push(message) }
@@ -101,12 +101,12 @@ test('LogReader joins records split across input chunks', (/** @type {import('no
   class Reader extends TestLogReaderBase {
     constructor() {
       super()
-      this.dispatchTable_ = {
+      this.dispatchTable_ = new Map(Object.entries({
         record: {
           parsers: [ null ],
           processor: (/** @type {string} */ value) => values.push(value)
         }
-      }
+      }))
     }
   }
 
@@ -118,6 +118,24 @@ test('LogReader joins records split across input chunks', (/** @type {import('no
   reader.processLogEnd()
 })
 
+test('CodeMap resolves addresses on either side of the Smi range', (/** @type {import('node:test').TestContext} */ t) => {
+  const map = new TestCodeMapClass()
+  const low = new TestCodeEntryClass(16, 'low', 'JS')
+  const high = new TestCodeEntryClass(16, 'high', 'JS')
+  map.addCode(0, low)
+  map.addCode(0x7f0000000000, high)
+  t.assert.equal(map.findEntry(15), low)
+  t.assert.equal(map.findEntry(16), null, 'the range end is exclusive')
+  t.assert.equal(map.findEntry(0x7f000000000f), high)
+  t.assert.equal(map.findDynamicEntryByStartAddress(0), low)
+  map.moveCode(0, 0x7f0000000100)
+  t.assert.equal(map.findEntry(0x7f0000000104), low, 'moves across the range')
+  const removed = map.deleteCode(0x7f0000000100)
+  t.assert.equal(removed.value, low, 'returns the removed entry')
+  t.assert.equal(removed.key, 0x7f0000000100, 'at the address it was stored under')
+  t.assert.equal(map.findEntry(0x7f0000000104), null)
+})
+
 test('LogReader ignores unknown commands that match Object prototype properties', (
   /** @type {import('node:test').TestContext} */ t
 ) => {
@@ -126,7 +144,7 @@ test('LogReader ignores unknown commands that match Object prototype properties'
   class Reader extends TestLogReaderBase {
     constructor() {
       super()
-      this.dispatchTable_ = {}
+      this.dispatchTable_ = new Map()
     }
 
     printError(/** @type {string} */ message) {
@@ -189,7 +207,7 @@ test('Profile associates optimized code with functions through moves and deletes
   t.assert.equal(profile.findEntry(210), null, 'deletes code address ranges')
 })
 
-/** @typedef {{dispatchTable_: Record<string, unknown>, processLogLine(line: string): void, processStack(pc: number, func: number, stack: string[]): number[], printError(message: string): void, skipDispatch(dispatch: unknown): boolean}} TimedLogReader */
+/** @typedef {{dispatchTable_: Map<string, unknown>, processLogLine(line: string): void, processStack(pc: number, func: number, stack: string[]): number[], printError(message: string): void, skipDispatch(dispatch: unknown): boolean}} TimedLogReader */
 
 /**
  * Build a reader that records the first field of each dispatched row.
@@ -203,7 +221,8 @@ function timedReader (timed, pairwise) {
   const seen = []
   const Reader = /** @type {new (table: object, timed?: boolean, pairwise?: boolean) => TimedLogReader} */ (/** @type {unknown} */ (LogReader))
   const dispatch = { parsers: [ null ], processor: (/** @type {string} */ value) => { seen.push(value) } }
-  const reader = new Reader({ row: dispatch, tick: dispatch, 'current-time': dispatch, ignored: null }, timed, pairwise)
+  const table = new Map(Object.entries({ row: dispatch, tick: dispatch, 'current-time': dispatch, ignored: null }))
+  const reader = new Reader(table, timed, pairwise)
   return { reader, seen }
 }
 
