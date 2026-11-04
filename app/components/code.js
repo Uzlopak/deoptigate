@@ -1,5 +1,7 @@
 'use strict'
 
+/* global HTMLElement */
+
 const Preact = require('preact')
 const { Component } = Preact
 const assert = require('../../lib/assert')
@@ -47,7 +49,7 @@ const MAX_HIGHLIGHT_LEN = 1E5
 /** @extends {Component<CodeViewProps>} */
 class CodeView extends Component {
   /** @param {CodeViewProps} props */
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     const { onmarkerClicked } = props
@@ -58,12 +60,12 @@ class CodeView extends Component {
   }
 
   /** @returns {void} */
-  _bind() {
+  _bind () {
     this._onmarkerClicked = this._onmarkerClicked.bind(this)
   }
 
   /** @returns {void} */
-  _maybeScrollIntoView() {
+  _maybeScrollIntoView () {
     const { selectedLocation } = this.props
     if (selectedLocation == null) return
     const code = document.getElementById(`code-location-${selectedLocation}`)
@@ -75,7 +77,7 @@ class CodeView extends Component {
    * @override
    * @returns {void}
    */
-  componentDidMount() {
+  componentDidMount () {
     const rootEl = this._rootRef.current
     if (rootEl == null) return
     rootEl.addEventListener('click', event => {
@@ -94,7 +96,7 @@ class CodeView extends Component {
    * @override
    * @returns {void}
    */
-  componentDidUpdate() {
+  componentDidUpdate () {
     this._maybeScrollIntoView()
   }
 
@@ -103,13 +105,13 @@ class CodeView extends Component {
    * @param {CodeViewProps} nextProps
    * @returns {boolean}
    */
-  shouldComponentUpdate(nextProps) {
+  shouldComponentUpdate (nextProps) {
     const props = this.props
     return (
-         props.code !== nextProps.code
-      || props.fileName !== nextProps.fileName
-      || props.selectedLocation !== nextProps.selectedLocation
-      || props.includeAllSeverities !== nextProps.includeAllSeverities
+      props.code !== nextProps.code ||
+      props.fileName !== nextProps.fileName ||
+      props.selectedLocation !== nextProps.selectedLocation ||
+      props.includeAllSeverities !== nextProps.includeAllSeverities
     )
   }
 
@@ -117,35 +119,35 @@ class CodeView extends Component {
    * @override
    * @returns {import('preact').JSX.Element}
    */
-  render() {
+  render () {
     const {
-        className = ''
-      , ics
-      , deopts
-      , codes
-      , icLocations
-      , deoptLocations
-      , codeLocations
-      , selectedLocation
-      , includeAllSeverities
+      className = '',
+      ics,
+      deopts,
+      codes,
+      icLocations,
+      deoptLocations,
+      codeLocations,
+      selectedLocation,
+      includeAllSeverities
     } = this.props
 
     const markerResolver = new MarkerResolver({
-        deopts
-      , deoptLocations
-      , ics
-      , icLocations
-      , codes
-      , codeLocations
-      , selectedLocation
-      , includeAllSeverities
+      deopts,
+      deoptLocations,
+      ics,
+      icLocations,
+      codes,
+      codeLocations,
+      selectedLocation,
+      includeAllSeverities
     })
 
     const theme = new Theme(markerResolver)
     const highlightedCode = this._tryHighlightCode(theme, markerResolver)
     return (
       <div ref={this._rootRef} className={className}>
-        <div dangerouslySetInnerHTML={{__html: highlightedCode}} />
+        <div dangerouslySetInnerHTML={{ __html: highlightedCode }} />
       </div>
     )
   }
@@ -155,7 +157,7 @@ class CodeView extends Component {
    * @param {InstanceType<typeof MarkerResolver>} markerResolver
    * @returns {string}
    */
-  _tryHighlightCode(theme, markerResolver) {
+  _tryHighlightCode (theme, markerResolver) {
     const { fileName, code } = this.props
     const nohighlight = code.length > MAX_HIGHLIGHT_LEN
     if (nohighlight) return markOnly(code, markerResolver)
@@ -188,7 +190,7 @@ class CodeView extends Component {
    * @param {string | undefined} type
    * @returns {void}
    */
-  _onmarkerClicked(id, type) {
+  _onmarkerClicked (id, type) {
     const { onmarkerClicked } = this.props
     onmarkerClicked(id, type)
   }

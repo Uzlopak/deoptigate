@@ -6,9 +6,9 @@ const summarizeFile = require('../../lib/grouping/summarize-file')
 const assert = require('../../lib/assert')
 
 const severityClassNames = /** @type {const} */ ([
-    'green i tc'
-  , 'blue tc'
-  , 'red b tc'
+  'green i tc',
+  'blue tc',
+  'red b tc'
 ])
 
 const underlineTdClass = ' pl2 pr2 underlined '
@@ -41,7 +41,7 @@ const underlineTdClass = ' pl2 pr2 underlined '
  * @param {number[]} arr
  * @returns {import('preact').ComponentChildren[]}
  */
-function coloredTds(arr) {
+function coloredTds (arr) {
   return arr.map((x, idx) => {
     const className = x > 0
       ? severityClassNames[idx] + ' tr' + underlineTdClass
@@ -56,26 +56,26 @@ function coloredTds(arr) {
  * @param {{file: string, summary: {severityScore: number}}} b
  * @returns {number}
  */
-function bySeverityScoreDesc({ summary: s1 }, { summary: s2 }) {
+function bySeverityScoreDesc ({ summary: s1 }, { summary: s2 }) {
   return s1.severityScore < s2.severityScore ? 1 : -1
 }
 
 /** @extends {Component<FilesViewProps>} */
 class FilesView extends Component {
   /** @param {FilesViewProps} props */
-  constructor(props) {
+  constructor (props) {
     super(props)
     const { onfileClicked } = props
     assert.equal(typeof onfileClicked, 'function', 'need to pass onfileClicked function')
   }
 
   /** @returns {import('preact').JSX.Element} */
-  render() {
+  render () {
     const { groups, includeAllSeverities, className = '' } = this.props
     const tableHeader = this._renderTableHeader()
     const rows = []
     const filesSeverities = Array.from(groups)
-      .map(([ file, info ]) => {
+      .map(([file, info]) => {
         const { deopts, ics, codes, relativePath } = info
         const summary = summarizeFile({ ics, deopts, codes })
         return { file, relativePath, summary }
@@ -86,12 +86,12 @@ class FilesView extends Component {
     for (const { file, relativePath, summary } of filesSeverities) {
       const { icSeverities, deoptSeverities, deoptCount, codeStates } = summary
       const rendered = this._renderFile({
-          file
-        , relativePath
-        , icSeverities
-        , deoptSeverities
-        , deoptCount
-        , codeStates
+        file,
+        relativePath,
+        icSeverities,
+        deoptSeverities,
+        deoptCount,
+        codeStates
       })
       rows.push(rendered)
     }
@@ -122,7 +122,7 @@ class FilesView extends Component {
   }
 
   /** @returns {import('preact').JSX.Element} */
-  _renderTableHeader() {
+  _renderTableHeader () {
     const topHeaderClass = 'tc header-row pt2 pb1 '
     const subHeaderClass = 'pa1 pl2 pr2 subhead'
     return (
@@ -154,7 +154,7 @@ class FilesView extends Component {
    * @param {{file: string, relativePath: string, deoptSeverities: number[], deoptCount: number, icSeverities: number[], codeStates: number[]}} data
    * @returns {import('preact').ComponentChildren}
    */
-  _renderFile({ file, relativePath, deoptSeverities, deoptCount, icSeverities, codeStates }) {
+  _renderFile ({ file, relativePath, deoptSeverities, deoptCount, icSeverities, codeStates }) {
     const { selectedFile } = this.props
 
     // Optimized = 3, Compile = 0, but we show them in order of serverity, so we reverse
@@ -167,13 +167,15 @@ class FilesView extends Component {
     return (
       <tr key={relativePath} className={'normalrow ' + selectedClass}>
         <td class='underlined'>
-          <a className={'items pl2 pr2'}
+          <a
+            className='items pl2 pr2'
             href='#'
             title={relativePath}
             onClick={/** @param {import('preact').TargetedMouseEvent<HTMLAnchorElement>} e */ e => {
               e.preventDefault()
               onfileClicked()
-            }}>
+            }}
+          >
             {relativePath}
           </a>
         </td>
@@ -189,7 +191,7 @@ class FilesView extends Component {
    * @param {string} file
    * @returns {void}
    */
-  _onfileClicked(file) {
+  _onfileClicked (file) {
     const { onfileClicked } = this.props
     onfileClicked(file)
   }

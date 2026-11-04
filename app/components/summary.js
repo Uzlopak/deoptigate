@@ -11,15 +11,15 @@ const summaryEmptyMessage = require('../lib/summary-empty-state')
 const summaryNavigationAttributes = require('../lib/summary-navigation')
 const { nameIcState, severityIcState } = require('../../lib/log-processing/ic-state')
 const {
-    nameOptimizationState
-  , severityOfOptimizationState
+  nameOptimizationState,
+  severityOfOptimizationState
 } = require('../../lib/log-processing/optimization-state')
 const { MIN_SEVERITY } = require('../../lib/severities')
 
 const severityClassNames = /** @type {const} */ ([
-    'green i'
-  , 'blue'
-  , 'red b'
+  'green i',
+  'blue',
+  'red b'
 ])
 
 const OPT_TAB_IDX = 0
@@ -61,7 +61,7 @@ const ICS_TAB_IDX = 2
 /** @extends {Component<SummaryViewProps>} */
 class SummaryView extends Component {
   /** @param {SummaryViewProps} props */
-  constructor(props) {
+  constructor (props) {
     super(props)
     const { ics, icLocations, deopts, deoptLocations, onsummaryClicked, ontabHeaderClicked } = props
 
@@ -74,14 +74,14 @@ class SummaryView extends Component {
   }
 
   /** @returns {void} */
-  _bind() {
+  _bind () {
     this._renderIc = this._renderIc.bind(this)
     this._renderDeopt = this._renderDeopt.bind(this)
     this._renderCode = this._renderCode.bind(this)
   }
 
   /** @returns {void} */
-  _maybeScrollIntoView() {
+  _maybeScrollIntoView () {
     const { selectedLocation } = this.props
     if (selectedLocation == null) return
     const summary = document.getElementById(`summary-location-${selectedLocation}`)
@@ -93,7 +93,7 @@ class SummaryView extends Component {
    * @override
    * @returns {void}
    */
-  componentDidMount() {
+  componentDidMount () {
     this._maybeScrollIntoView()
   }
 
@@ -101,7 +101,7 @@ class SummaryView extends Component {
    * @override
    * @returns {void}
    */
-  componentDidUpdate() {
+  componentDidUpdate () {
     this._maybeScrollIntoView()
   }
 
@@ -109,16 +109,16 @@ class SummaryView extends Component {
    * @override
    * @returns {import('preact').VNode}
    */
-  render() {
+  render () {
     const {
-        className = ''
-      , ics
-      , icLocations
-      , deopts
-      , deoptLocations
-      , codes
-      , codeLocations
-      , selectedTabIdx
+      className = '',
+      ics,
+      icLocations,
+      deopts,
+      deoptLocations,
+      codes,
+      codeLocations,
+      selectedTabIdx
     } = this.props
     const renderedDeopts = this._renderDeopts(deopts, deoptLocations, selectedTabIdx === DEOPT_TAB_IDX)
     const renderedIcs = this._renderIcs(ics, icLocations, selectedTabIdx === ICS_TAB_IDX)
@@ -148,7 +148,7 @@ class SummaryView extends Component {
    * @param {number} idx
    * @returns {import('preact').VNode}
    */
-  _renderTabHeader(label, idx) {
+  _renderTabHeader (label, idx) {
     const { selectedTabIdx } = this.props
     const selected = idx === selectedTabIdx
     const baseClass = 'flex flex-column ttu dib link outline-0 tab-header summary-tab'
@@ -166,7 +166,8 @@ class SummaryView extends Component {
           e.preventDefault()
           this._ontabHeaderClicked(idx)
         }}
-      >{label}</a>
+      >{label}
+      </a>
     )
   }
 
@@ -177,7 +178,7 @@ class SummaryView extends Component {
    * @param {(info: T) => import('preact').ComponentChild} renderDetails
    * @returns {import('preact').ComponentChild}
    */
-  _renderDataPoint(data, locations, renderDetails) {
+  _renderDataPoint (data, locations, renderDetails) {
     const { selectedLocation, includeAllSeverities, relativePath } = this.props
     const rendered = []
     for (const loc of locations) {
@@ -205,7 +206,7 @@ class SummaryView extends Component {
    * @param {boolean} selected
    * @returns {import('preact').ComponentChild}
    */
-  _renderIcs(ics, icLocations, selected) {
+  _renderIcs (ics, icLocations, selected) {
     if (ics == null) return null
     const className = selected ? '' : 'dn'
     const rendered = this._renderDataPoint(ics, icLocations, this._renderIc)
@@ -222,7 +223,7 @@ class SummaryView extends Component {
    * @param {boolean} selected
    * @returns {import('preact').ComponentChild}
    */
-  _renderDeopts(deopts, deoptLocations, selected) {
+  _renderDeopts (deopts, deoptLocations, selected) {
     if (deopts == null) return null
     const className = selected ? '' : 'dn'
     const rendered = this._renderDataPoint(deopts, deoptLocations, this._renderDeopt)
@@ -239,7 +240,7 @@ class SummaryView extends Component {
    * @param {boolean} selected
    * @returns {import('preact').ComponentChild}
    */
-  _renderCodes(codes, codeLocations, selected) {
+  _renderCodes (codes, codeLocations, selected) {
     if (codes == null) return null
     const className = selected ? '' : 'dn'
     const rendered = this._renderDataPoint(codes, codeLocations, this._renderCode)
@@ -255,12 +256,12 @@ class SummaryView extends Component {
    * @param {string} relativePath
    * @returns {import('preact').VNode}
    */
-  _summary(info, relativePath) {
+  _summary (info, relativePath) {
     const {
-        id
-      , functionName
-      , line
-      , column
+      id,
+      functionName,
+      line,
+      column
     } = info
     const locationEl = <span className='dark-blue f5 mr2'>{id}</span>
     /** @param {SummaryClickEvent} e */
@@ -271,9 +272,11 @@ class SummaryView extends Component {
     }
 
     const fullLoc = (
-      <a href='#'
+      <a
+        href='#'
         className='summary-location-link'
-        onClick={onclicked}>
+        onClick={onclicked}
+      >
         {functionName} at {relativePath}:{line}:{column}
       </a>
     )
@@ -289,7 +292,7 @@ class SummaryView extends Component {
    * @param {DeoptSummaryInfo} info
    * @returns {import('preact').VNode}
    */
-  _renderDeopt(info) {
+  _renderDeopt (info) {
     const rows = info.updates.map((update, idx) => this._deoptRow(update, idx))
     return (
       <table key={'deopt:' + info.id}>
@@ -313,13 +316,13 @@ class SummaryView extends Component {
    * @param {number} idx
    * @returns {import('preact').VNode}
    */
-  _deoptRow(info, idx) {
+  _deoptRow (info, idx) {
     const {
-        inlined
-      , bailoutType
-      , deoptReason
-      , timestamp
-      , severity
+      inlined,
+      bailoutType,
+      deoptReason,
+      timestamp,
+      severity
     } = info
     const bailoutClassName = severityClassNames[severity - 1]
     const timeStampMs = (timestamp / 1E3).toFixed()
@@ -337,7 +340,7 @@ class SummaryView extends Component {
    * @param {IcSummaryInfo} info
    * @returns {import('preact').VNode}
    */
-  _renderIc(info) {
+  _renderIc (info) {
     const rows = info.updates.map((update, idx) => this._icRow(update, idx))
     return (
       <table key={'ic:' + info.id}>
@@ -361,12 +364,12 @@ class SummaryView extends Component {
    * @param {number} id
    * @returns {import('preact').VNode}
    */
-  _icRow(update, id) {
+  _icRow (update, id) {
     const {
-        oldState
-      , newState
-      , key
-      , map
+      oldState,
+      newState,
+      key,
+      map
     } = update
     const oldStateName = nameIcState(oldState)
     const severityOldState = severityIcState(oldState)
@@ -391,7 +394,7 @@ class SummaryView extends Component {
    * @param {CodeSummaryInfo} info
    * @returns {import('preact').VNode}
    */
-  _renderCode(info) {
+  _renderCode (info) {
     const rows = info.updates.map((update, idx) => this._codeRow(update, idx))
     return (
       <table key={'code:' + info.id}>
@@ -413,7 +416,7 @@ class SummaryView extends Component {
    * @param {number} id
    * @returns {import('preact').VNode}
    */
-  _codeRow(info, id) {
+  _codeRow (info, id) {
     const { timestamp, state } = info
     const timeStampMs = (timestamp / 1E3).toFixed()
     const codeState = nameOptimizationState(state)
@@ -435,7 +438,7 @@ class SummaryView extends Component {
    * @param {number} idx
    * @returns {void}
    */
-  _ontabHeaderClicked(idx) {
+  _ontabHeaderClicked (idx) {
     const { ontabHeaderClicked } = this.props
     ontabHeaderClicked(idx)
   }
@@ -444,14 +447,14 @@ class SummaryView extends Component {
    * @param {number} id
    * @returns {void}
    */
-  _onsummaryClicked(id) {
+  _onsummaryClicked (id) {
     const { onsummaryClicked } = this.props
     onsummaryClicked(id)
   }
 
-  static get OPT_TAB_IDX() { return OPT_TAB_IDX }
-  static get DEOPT_TAB_IDX() { return DEOPT_TAB_IDX }
-  static get ICS_TAB_IDX() { return ICS_TAB_IDX }
+  static get OPT_TAB_IDX () { return OPT_TAB_IDX }
+  static get DEOPT_TAB_IDX () { return DEOPT_TAB_IDX }
+  static get ICS_TAB_IDX () { return ICS_TAB_IDX }
 }
 module.exports = {
   SummaryView

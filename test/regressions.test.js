@@ -243,6 +243,8 @@ function loadCodeView () {
     '../../lib/rendering/escape-html': require('../lib/rendering/escape-html')
   }
   const module = { exports: /** @type {{CodeView: {prototype: {shouldComponentUpdate: (next: object) => boolean, _tryHighlightCode: (theme: object, resolver: object) => string}}}} */ ({}) }
+  // This test evaluates transformed CommonJS code as a module.
+  // eslint-disable-next-line no-new-func
   const load = new Function('require', 'module', 'exports', code)
   load((/** @type {string} */ request) => modules[request], module, module.exports)
   return module.exports.CodeView

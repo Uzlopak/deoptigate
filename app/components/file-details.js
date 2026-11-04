@@ -36,7 +36,7 @@ const assert = require('../../lib/assert')
 /** @extends {Component<FileDetailsViewProps>} */
 class FileDetailsView extends Component {
   /** @param {FileDetailsViewProps} props */
-  constructor(props) {
+  constructor (props) {
     super(props)
 
     const { onsummaryTabIdxChanged } = props
@@ -46,34 +46,34 @@ class FileDetailsView extends Component {
   }
 
   /** @returns {void} */
-  _bind() {
+  _bind () {
     this._onmarkerClicked = this._onmarkerClicked.bind(this)
     this._onsummaryTabHeaderClicked = this._onsummaryTabHeaderClicked.bind(this)
   }
 
   /** @returns {import('preact').JSX.Element} */
-  render() {
+  render () {
     const {
-        groups
-      , selectedFile
-      , selectedLocation
-      , includeAllSeverities
-      , className = ''
-      , selectedSummaryTabIdx
-      , onsummaryClicked
+      groups,
+      selectedFile,
+      selectedLocation,
+      includeAllSeverities,
+      className = '',
+      selectedSummaryTabIdx,
+      onsummaryClicked
     } = this.props
 
     const fileData = groups.get(selectedFile)
     assert(fileData != null, `missing grouped data for ${selectedFile}`)
     const {
-        ics
-      , icLocations
-      , deopts
-      , deoptLocations
-      , codes
-      , codeLocations
-      , src
-      , relativePath
+      ics,
+      icLocations,
+      deopts,
+      deoptLocations,
+      codes,
+      codeLocations,
+      src,
+      relativePath
     } = fileData
 
     return (
@@ -90,7 +90,8 @@ class FileDetailsView extends Component {
           codes={codes}
           codeLocations={codeLocations}
           includeAllSeverities={includeAllSeverities}
-          onmarkerClicked={this._onmarkerClicked} />
+          onmarkerClicked={this._onmarkerClicked}
+        />
         <SummaryView
           className='flex-column summary-view'
           relativePath={relativePath}
@@ -104,7 +105,8 @@ class FileDetailsView extends Component {
           includeAllSeverities={includeAllSeverities}
           selectedTabIdx={selectedSummaryTabIdx}
           ontabHeaderClicked={this._onsummaryTabHeaderClicked}
-          onsummaryClicked={onsummaryClicked} />
+          onsummaryClicked={onsummaryClicked}
+        />
       </div>
     )
   }
@@ -114,16 +116,18 @@ class FileDetailsView extends Component {
    * @param {string | undefined} type
    * @returns {void}
    */
-  _onmarkerClicked(id, type) {
+  _onmarkerClicked (id, type) {
     const {
-        onmarkerClicked
-      , onsummaryTabIdxChanged
-      , selectedSummaryTabIdx
+      onmarkerClicked,
+      onsummaryTabIdxChanged,
+      selectedSummaryTabIdx
     } = this.props
     const markerSummaryTabIdx = (
-        type === 'code' ? SummaryView.OPT_TAB_IDX
-      : type === 'deopt' ? SummaryView.DEOPT_TAB_IDX
-      : SummaryView.ICS_TAB_IDX
+      type === 'code'
+        ? SummaryView.OPT_TAB_IDX
+        : type === 'deopt'
+          ? SummaryView.DEOPT_TAB_IDX
+          : SummaryView.ICS_TAB_IDX
     )
     onmarkerClicked(id)
     if (markerSummaryTabIdx !== selectedSummaryTabIdx) {
@@ -135,7 +139,7 @@ class FileDetailsView extends Component {
    * @param {number} idx
    * @returns {void}
    */
-  _onsummaryTabHeaderClicked(idx) {
+  _onsummaryTabHeaderClicked (idx) {
     const { onsummaryTabIdxChanged } = this.props
     onsummaryTabIdxChanged(idx)
   }

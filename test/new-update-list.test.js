@@ -17,6 +17,6 @@ test('update lists start with object elements, so the first push cannot deoptimi
   const output = execFileSync(process.execPath, [
     '--allow-natives-syntax',
     '-p', `%HasObjectElements(require(${JSON.stringify(require.resolve('../lib/log-processing/new-update-list'))})())`
-  ], { encoding: 'utf8' })
-  assert.equal(output.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '').trim(), 'true')
+  ], { encoding: 'utf8', env: { ...process.env, FORCE_COLOR: '0' } })
+  assert.equal(output.trim(), 'true')
 })
